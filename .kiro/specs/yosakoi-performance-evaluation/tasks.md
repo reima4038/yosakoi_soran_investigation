@@ -9,7 +9,7 @@
     - 開発環境の構築（ESLint, Prettier, TypeScript 設定）
     - _要件: 全体_
 
-  - [ ] 1.2 データベースモデルの実装
+  - [x] 1.2 データベースモデルの実装
 
     - MongoDB スキーマの定義（User, Video, Template, Session, Evaluation, Comment）
     - モデル間のリレーションシップの実装
