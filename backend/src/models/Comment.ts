@@ -48,10 +48,10 @@ const CommentSchema = new Schema<IComment>({
     type: String,
     trim: true,
     validate: {
-      validator: function(this: IComment, value: string) {
+      validator: function(this: any, value: string): boolean {
         // REPLYタイプの場合はtargetIdが必須
         if (this.type === CommentType.REPLY) {
-          return value && value.length > 0;
+          return !!(value && value.length > 0);
         }
         return true;
       },
@@ -95,7 +95,7 @@ CommentSchema.index({ evaluationId: 1, createdAt: -1 });
 CommentSchema.index({ authorId: 1, createdAt: -1 });
 
 // 返信コメントの場合、親コメントの replies 配列を更新
-CommentSchema.post('save', async function(doc) {
+CommentSchema.post('save', async function(doc: any) {
   if (doc.type === CommentType.REPLY && doc.targetId) {
     try {
       await Comment.findByIdAndUpdate(
@@ -111,16 +111,17 @@ CommentSchema.post('save', async function(doc) {
 // コメント削除時の処理
 CommentSchema.pre('deleteOne', { document: true, query: false }, async function(next) {
   try {
+    const doc = this as any;
     // 返信コメントをすべて削除
-    if (this.replies && this.replies.length > 0) {
-      await Comment.deleteMany({ _id: { $in: this.replies } });
+    if (doc.replies && doc.replies.length > 0) {
+      await Comment.deleteMany({ _id: { $in: doc.replies } });
     }
 
     // 親コメントから自分への参照を削除
-    if (this.type === CommentType.REPLY && this.targetId) {
+    if (doc.type === CommentType.REPLY && doc.targetId) {
       await Comment.findByIdAndUpdate(
-        this.targetId,
-        { $pull: { replies: this._id } }
+        doc.targetId,
+        { $pull: { replies: doc._id } }
       );
     }
 
@@ -153,12 +154,14 @@ CommentSchema.methods.toggleLike = function(userId: mongoose.Types.ObjectId) {
 
 // いいね数を取得するバーチャルフィールド
 CommentSchema.virtual('likeCount').get(function() {
-  return this.likes ? this.likes.length : 0;
+  const doc = this as any;
+  return doc.likes ? doc.likes.length : 0;
 });
 
 // 返信数を取得するバーチャルフィールド
 CommentSchema.virtual('replyCount').get(function() {
-  return this.replies ? this.replies.length : 0;
+  const doc = this as any;
+  return doc.replies ? doc.replies.length : 0;
 });
 
 // バーチャルフィールドをJSONに含める

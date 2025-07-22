@@ -80,16 +80,14 @@ const UserSchema = new Schema<IUser>({
 }, {
   timestamps: true,
   toJSON: {
-    transform: function(doc, ret) {
-      delete ret.passwordHash;
+    transform: function(_doc, ret) {
+      delete (ret as any).passwordHash;
       return ret;
     }
   }
 });
 
 // インデックス設定
-UserSchema.index({ email: 1 });
-UserSchema.index({ username: 1 });
 UserSchema.index({ role: 1 });
 
 // パスワード比較メソッド

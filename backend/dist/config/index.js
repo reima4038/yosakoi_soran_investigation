@@ -10,7 +10,7 @@ exports.config = {
     port: process.env.PORT || 3001,
     nodeEnv: process.env.NODE_ENV || 'development',
     mongoUri: process.env.MONGO_URI || 'mongodb://localhost:27017/yosakoi-evaluation',
-    jwtSecret: process.env.JWT_SECRET || 'your-secret-key',
+    jwtSecret: process.env.JWT_SECRET || 'your-secret-key-for-development-only',
     jwtExpiresIn: process.env.JWT_EXPIRES_IN || '24h',
     redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
     frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',

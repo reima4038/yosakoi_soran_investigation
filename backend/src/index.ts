@@ -3,17 +3,32 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
+import mongoose from 'mongoose';
+import { config } from './config';
+import routes from './routes';
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = config.port;
+
+// Database connection (skip in test environment)
+if (process.env.NODE_ENV !== 'test') {
+  mongoose.connect(config.mongoUri)
+    .then(() => {
+      console.log('Connected to MongoDB');
+    })
+    .catch((error) => {
+      console.error('MongoDB connection error:', error);
+      process.exit(1);
+    });
+}
 
 // Security middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: config.frontendUrl,
   credentials: true,
 }));
 
@@ -33,10 +48,8 @@ app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// API routes will be added here
-app.get('/api', (_req, res) => {
-  res.json({ message: 'YOSAKOI Evaluation System API' });
-});
+// API routes
+app.use('/api', routes);
 
 // Error handling middleware
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
@@ -56,9 +69,13 @@ app.use('*', (_req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-});
+// Only start server if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+    console.log(`Environment: ${config.nodeEnv}`);
+    console.log(`Frontend URL: ${config.frontendUrl}`);
+  });
+}
 
 export default app;

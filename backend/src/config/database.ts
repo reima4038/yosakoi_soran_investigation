@@ -9,7 +9,6 @@ export const connectDatabase = async (): Promise<void> => {
       maxPoolSize: 10, // 最大接続プール数
       serverSelectionTimeoutMS: 5000, // サーバー選択タイムアウト
       socketTimeoutMS: 45000, // ソケットタイムアウト
-      bufferMaxEntries: 0, // バッファリング無効化
     });
 
     console.log('MongoDB接続成功');
