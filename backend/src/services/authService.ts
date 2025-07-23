@@ -16,6 +16,7 @@ export interface LoginData {
 
 export interface JWTPayload {
   userId: string;
+  username: string;
   email: string;
   role: UserRole;
 }
@@ -57,6 +58,7 @@ export class AuthService {
     // JWTトークン生成
     const token = this.generateToken({
       userId: (user._id as any).toString(),
+      username: user.username,
       email: user.email,
       role: user.role
     });
@@ -85,6 +87,7 @@ export class AuthService {
     // JWTトークン生成
     const token = this.generateToken({
       userId: (user._id as any).toString(),
+      username: user.username,
       email: user.email,
       role: user.role
     });

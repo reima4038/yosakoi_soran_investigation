@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import authRoutes from './auth';
+import videoRoutes from './videos';
 
 const router = Router();
 
@@ -10,6 +11,7 @@ router.get('/', (_req, res) => {
     version: '1.0.0',
     endpoints: {
       auth: '/api/auth',
+      videos: '/api/videos',
       health: '/health'
     }
   });
@@ -17,5 +19,8 @@ router.get('/', (_req, res) => {
 
 // Authentication routes
 router.use('/auth', authRoutes);
+
+// Video routes
+router.use('/videos', videoRoutes);
 
 export default router;

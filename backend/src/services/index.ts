@@ -1,3 +1,3 @@
-// Service layer will be implemented in subsequent tasks
-// Placeholder exports to avoid TypeScript errors
-export const servicesPlaceholder = 'Services will be implemented in subsequent tasks';
+// Service layer exports
+export { youtubeService } from './youtubeService';
+export { AuthService } from './authService';

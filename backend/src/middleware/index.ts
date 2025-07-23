@@ -140,3 +140,6 @@ export const requireSelfOrAdmin = (userIdParam: string = 'userId') => {
 export const validationMiddleware = () => {
   // Validation middleware placeholder
 };
+
+// エイリアス
+export const auth = authenticateToken;
