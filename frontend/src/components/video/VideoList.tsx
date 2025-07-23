@@ -34,6 +34,7 @@ import {
   Delete as DeleteIcon,
   PlayArrow as PlayIcon
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { videoService, Video, VideoListParams } from '../../services/videoService';
 
 interface VideoListProps {
@@ -47,6 +48,7 @@ const VideoList: React.FC<VideoListProps> = ({
   onVideoEdit,
   refreshTrigger
 }) => {
+  const navigate = useNavigate();
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -149,6 +151,9 @@ const VideoList: React.FC<VideoListProps> = ({
   const handleVideoClick = (video: Video) => {
     if (onVideoSelect) {
       onVideoSelect(video);
+    } else {
+      // デフォルトで詳細ページに遷移
+      navigate(`/videos/${video._id}`);
     }
   };
 
