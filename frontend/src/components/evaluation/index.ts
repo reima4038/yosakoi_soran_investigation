@@ -1,2 +1,3 @@
-// Evaluation-related components will be implemented in subsequent tasks
-export const evaluationComponentsPlaceholder = 'Evaluation-related components will be implemented in subsequent tasks';
+export { default as TemplateCreationForm } from './TemplateCreationForm';
+export { default as TemplateManagement } from './TemplateManagement';
+export { default as EvaluationForm } from './EvaluationForm';

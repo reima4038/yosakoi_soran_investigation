@@ -1,0 +1,454 @@
+import { Router, Request, Response } from 'express';
+import { Evaluation } from '../models/Evaluation';
+import { Session, SessionStatus } from '../models/Session';
+import { authenticateToken } from '../middleware';
+import mongoose from 'mongoose';
+
+const router = Router();
+
+// 評価の開始/取得
+router.get('/session/:sessionId', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { sessionId } = req.params;
+    const userId = req.user!.userId;
+
+    if (!mongoose.Types.ObjectId.isValid(sessionId)) {
+      return res.status(400).json({
+        status: 'error',
+        message: '無効なセッションIDです'
+      });
+    }
+
+    // セッションの存在確認とアクセス権限チェック
+    const session = await Session.findById(sessionId)
+      .populate('videoId', 'title youtubeId thumbnailUrl')
+      .populate('templateId');
+
+    if (!session) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'セッションが見つかりません'
+      });
+    }
+
+    // セッションがアクティブかチェック
+    if (session.status !== SessionStatus.ACTIVE) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'このセッションは現在評価できません'
+      });
+    }
+
+    // 評価者として参加しているかチェック
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    const isParticipant = session.evaluators.some(evaluatorId => 
+      evaluatorId.equals(userObjectId)
+    );
+
+    if (!isParticipant) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'このセッションの評価権限がありません'
+      });
+    }
+
+    // 既存の評価を取得または新規作成
+    let evaluation = await Evaluation.findOne({
+      sessionId: new mongoose.Types.ObjectId(sessionId),
+      userId: userObjectId
+    });
+
+    if (!evaluation) {
+      evaluation = new Evaluation({
+        sessionId: new mongoose.Types.ObjectId(sessionId),
+        userId: userObjectId,
+        scores: [],
+        comments: [],
+        isComplete: false
+      });
+      await evaluation.save();
+    }
+
+    return res.json({
+      status: 'success',
+      data: {
+        evaluation,
+        session: {
+          id: session._id,
+          name: session.name,
+          description: session.description,
+          video: session.videoId,
+          template: session.templateId,
+          endDate: session.endDate
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('評価取得エラー:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: '評価の取得に失敗しました'
+    });
+  }
+});
+
+// 評価スコアの保存（リアルタイム保存）
+router.put('/session/:sessionId/scores', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { sessionId } = req.params;
+    const { scores } = req.body;
+    const userId = req.user!.userId;
+
+    if (!mongoose.Types.ObjectId.isValid(sessionId)) {
+      return res.status(400).json({
+        status: 'error',
+        message: '無効なセッションIDです'
+      });
+    }
+
+    if (!Array.isArray(scores)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'スコアデータが無効です'
+      });
+    }
+
+    // セッションの確認
+    const session = await Session.findById(sessionId).populate('templateId');
+    if (!session || session.status !== SessionStatus.ACTIVE) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'セッションが無効または非アクティブです'
+      });
+    }
+
+    // 評価を取得
+    const evaluation = await Evaluation.findOne({
+      sessionId: new mongoose.Types.ObjectId(sessionId),
+      userId: new mongoose.Types.ObjectId(userId)
+    });
+
+    if (!evaluation) {
+      return res.status(404).json({
+        status: 'error',
+        message: '評価が見つかりません'
+      });
+    }
+
+    // 既に提出済みの場合は更新不可
+    if (evaluation.isComplete && evaluation.submittedAt) {
+      return res.status(400).json({
+        status: 'error',
+        message: '既に提出済みの評価は変更できません'
+      });
+    }
+
+    // スコアの更新
+    for (const scoreData of scores) {
+      const existingScoreIndex = evaluation.scores.findIndex(
+        score => score.criterionId === scoreData.criterionId
+      );
+
+      if (existingScoreIndex >= 0) {
+        // 既存スコアの更新
+        evaluation.scores[existingScoreIndex].score = scoreData.score;
+        evaluation.scores[existingScoreIndex].comment = scoreData.comment || '';
+      } else {
+        // 新規スコアの追加
+        evaluation.scores.push({
+          evaluationId: evaluation._id,
+          criterionId: scoreData.criterionId,
+          score: scoreData.score,
+          comment: scoreData.comment || ''
+        } as any);
+      }
+    }
+
+    // 完了状態をチェック
+    const template = session.templateId as any;
+    if (template && template.categories) {
+      evaluation.checkCompletion(template.categories);
+    }
+
+    await evaluation.save();
+
+    return res.json({
+      status: 'success',
+      data: {
+        evaluation,
+        message: '評価が保存されました'
+      }
+    });
+
+  } catch (error) {
+    console.error('評価保存エラー:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: '評価の保存に失敗しました'
+    });
+  }
+});
+
+// コメントの追加
+router.post('/session/:sessionId/comments', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { sessionId } = req.params;
+    const { timestamp, text } = req.body;
+    const userId = req.user!.userId;
+
+    if (!mongoose.Types.ObjectId.isValid(sessionId)) {
+      return res.status(400).json({
+        status: 'error',
+        message: '無効なセッションIDです'
+      });
+    }
+
+    if (typeof timestamp !== 'number' || !text || typeof text !== 'string') {
+      return res.status(400).json({
+        status: 'error',
+        message: 'タイムスタンプとコメント内容は必須です'
+      });
+    }
+
+    // 評価を取得
+    const evaluation = await Evaluation.findOne({
+      sessionId: new mongoose.Types.ObjectId(sessionId),
+      userId: new mongoose.Types.ObjectId(userId)
+    });
+
+    if (!evaluation) {
+      return res.status(404).json({
+        status: 'error',
+        message: '評価が見つかりません'
+      });
+    }
+
+    // コメントを追加
+    const newComment = {
+      evaluationId: evaluation._id,
+      userId: new mongoose.Types.ObjectId(userId),
+      timestamp,
+      text: text.trim(),
+      createdAt: new Date()
+    };
+
+    evaluation.comments.push(newComment as any);
+    await evaluation.save();
+
+    return res.json({
+      status: 'success',
+      data: {
+        comment: newComment,
+        message: 'コメントが追加されました'
+      }
+    });
+
+  } catch (error) {
+    console.error('コメント追加エラー:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'コメントの追加に失敗しました'
+    });
+  }
+});
+
+// コメントの更新
+router.put('/session/:sessionId/comments/:commentId', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { sessionId, commentId } = req.params;
+    const { text } = req.body;
+    const userId = req.user!.userId;
+
+    if (!text || typeof text !== 'string') {
+      return res.status(400).json({
+        status: 'error',
+        message: 'コメント内容は必須です'
+      });
+    }
+
+    // 評価を取得
+    const evaluation = await Evaluation.findOne({
+      sessionId: new mongoose.Types.ObjectId(sessionId),
+      userId: new mongoose.Types.ObjectId(userId)
+    });
+
+    if (!evaluation) {
+      return res.status(404).json({
+        status: 'error',
+        message: '評価が見つかりません'
+      });
+    }
+
+    // コメントを検索して更新
+    const comment = evaluation.comments.find(c => c._id?.toString() === commentId);
+    if (!comment) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'コメントが見つかりません'
+      });
+    }
+
+    // 作成者のみ更新可能
+    if (!comment.userId.equals(new mongoose.Types.ObjectId(userId))) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'コメントを更新する権限がありません'
+      });
+    }
+
+    comment.text = text.trim();
+    await evaluation.save();
+
+    return res.json({
+      status: 'success',
+      data: {
+        comment,
+        message: 'コメントが更新されました'
+      }
+    });
+
+  } catch (error) {
+    console.error('コメント更新エラー:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'コメントの更新に失敗しました'
+    });
+  }
+});
+
+// コメントの削除
+router.delete('/session/:sessionId/comments/:commentId', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { sessionId, commentId } = req.params;
+    const userId = req.user!.userId;
+
+    // 評価を取得
+    const evaluation = await Evaluation.findOne({
+      sessionId: new mongoose.Types.ObjectId(sessionId),
+      userId: new mongoose.Types.ObjectId(userId)
+    });
+
+    if (!evaluation) {
+      return res.status(404).json({
+        status: 'error',
+        message: '評価が見つかりません'
+      });
+    }
+
+    // コメントを検索
+    const comment = evaluation.comments.find(c => c._id?.toString() === commentId);
+    if (!comment) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'コメントが見つかりません'
+      });
+    }
+
+    // 作成者のみ削除可能
+    if (!comment.userId.equals(new mongoose.Types.ObjectId(userId))) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'コメントを削除する権限がありません'
+      });
+    }
+
+    // コメントを削除
+    const commentIndex = evaluation.comments.findIndex(c => c._id?.toString() === commentId);
+    if (commentIndex >= 0) {
+      evaluation.comments.splice(commentIndex, 1);
+    }
+    await evaluation.save();
+
+    return res.json({
+      status: 'success',
+      message: 'コメントが削除されました'
+    });
+
+  } catch (error) {
+    console.error('コメント削除エラー:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'コメントの削除に失敗しました'
+    });
+  }
+});
+
+// 評価の提出
+router.post('/session/:sessionId/submit', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { sessionId } = req.params;
+    const userId = req.user!.userId;
+
+    if (!mongoose.Types.ObjectId.isValid(sessionId)) {
+      return res.status(400).json({
+        status: 'error',
+        message: '無効なセッションIDです'
+      });
+    }
+
+    // セッションの確認
+    const session = await Session.findById(sessionId).populate('templateId');
+    if (!session || session.status !== SessionStatus.ACTIVE) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'セッションが無効または非アクティブです'
+      });
+    }
+
+    // 評価を取得
+    const evaluation = await Evaluation.findOne({
+      sessionId: new mongoose.Types.ObjectId(sessionId),
+      userId: new mongoose.Types.ObjectId(userId)
+    });
+
+    if (!evaluation) {
+      return res.status(404).json({
+        status: 'error',
+        message: '評価が見つかりません'
+      });
+    }
+
+    // 既に提出済みかチェック
+    if (evaluation.submittedAt) {
+      return res.status(400).json({
+        status: 'error',
+        message: '既に提出済みです'
+      });
+    }
+
+    // 完了状態をチェック
+    const template = session.templateId as any;
+    if (template && template.categories) {
+      const isComplete = evaluation.checkCompletion(template.categories);
+      if (!isComplete) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'すべての評価項目を入力してください'
+        });
+      }
+    }
+
+    // 提出処理
+    evaluation.submittedAt = new Date();
+    evaluation.isComplete = true;
+    await evaluation.save();
+
+    return res.json({
+      status: 'success',
+      data: {
+        evaluation,
+        message: '評価が提出されました'
+      }
+    });
+
+  } catch (error) {
+    console.error('評価提出エラー:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: '評価の提出に失敗しました'
+    });
+  }
+});
+
+export default router;

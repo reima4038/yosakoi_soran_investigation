@@ -6,7 +6,7 @@ import {
   Container,
   Fab,
   Snackbar,
-  Alert
+  Alert,
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
 import VideoList from './VideoList';
@@ -23,14 +23,14 @@ const VideoManagement: React.FC = () => {
   }>({
     open: false,
     message: '',
-    severity: 'success'
+    severity: 'success',
   });
 
   const handleRegistrationSuccess = () => {
     setSnackbar({
       open: true,
       message: '動画が正常に登録されました',
-      severity: 'success'
+      severity: 'success',
     });
     setRefreshTrigger(prev => prev + 1);
   };
@@ -50,14 +50,21 @@ const VideoManagement: React.FC = () => {
   };
 
   return (
-    <Container maxWidth="xl">
+    <Container maxWidth='xl'>
       <Box sx={{ py: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h4" component="h1">
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            mb: 3,
+          }}
+        >
+          <Typography variant='h4' component='h1'>
             動画管理
           </Typography>
           <Button
-            variant="contained"
+            variant='contained'
             startIcon={<AddIcon />}
             onClick={() => setRegistrationFormOpen(true)}
           >
@@ -73,13 +80,13 @@ const VideoManagement: React.FC = () => {
 
         {/* フローティングアクションボタン（モバイル用） */}
         <Fab
-          color="primary"
-          aria-label="add video"
+          color='primary'
+          aria-label='add video'
           sx={{
             position: 'fixed',
             bottom: 16,
             right: 16,
-            display: { xs: 'flex', sm: 'none' }
+            display: { xs: 'flex', sm: 'none' },
           }}
           onClick={() => setRegistrationFormOpen(true)}
         >

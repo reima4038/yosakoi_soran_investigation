@@ -17,14 +17,14 @@ import {
   DialogContent,
   DialogActions,
   Tooltip,
-  Stack
+  Stack,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   PlayArrow as PlayIcon,
-  BookmarkBorder as BookmarkIcon
+  BookmarkBorder as BookmarkIcon,
 } from '@mui/icons-material';
 
 export interface Timestamp {
@@ -55,15 +55,17 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
   onTimestampDelete,
   onTimestampSeek,
   categories = ['開始', '見どころ', '技', '終了'],
-  readonly = false
+  readonly = false,
 }) => {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingTimestamp, setEditingTimestamp] = useState<Timestamp | null>(null);
+  const [editingTimestamp, setEditingTimestamp] = useState<Timestamp | null>(
+    null
+  );
   const [formData, setFormData] = useState({
     time: 0,
     label: '',
     description: '',
-    category: categories[0] || ''
+    category: categories[0] || '',
   });
 
   // 時間のフォーマット
@@ -76,11 +78,11 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
   // カテゴリーの色を取得
   const getCategoryColor = (category: string): string => {
     const colors: { [key: string]: string } = {
-      '開始': '#4caf50',
-      '見どころ': '#ff9800',
-      '技': '#2196f3',
-      '終了': '#f44336',
-      'default': '#9e9e9e'
+      開始: '#4caf50',
+      見どころ: '#ff9800',
+      技: '#2196f3',
+      終了: '#f44336',
+      default: '#9e9e9e',
     };
     return colors[category] || colors.default;
   };
@@ -91,23 +93,26 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
       time: Math.floor(currentTime),
       label: '',
       description: '',
-      category: categories[0] || ''
+      category: categories[0] || '',
     });
     setEditingTimestamp(null);
     setDialogOpen(true);
   }, [currentTime, categories]);
 
   // タイムスタンプを編集
-  const handleEditTimestamp = useCallback((timestamp: Timestamp) => {
-    setFormData({
-      time: timestamp.time,
-      label: timestamp.label,
-      description: timestamp.description || '',
-      category: timestamp.category || categories[0] || ''
-    });
-    setEditingTimestamp(timestamp);
-    setDialogOpen(true);
-  }, [categories]);
+  const handleEditTimestamp = useCallback(
+    (timestamp: Timestamp) => {
+      setFormData({
+        time: timestamp.time,
+        label: timestamp.label,
+        description: timestamp.description || '',
+        category: timestamp.category || categories[0] || '',
+      });
+      setEditingTimestamp(timestamp);
+      setDialogOpen(true);
+    },
+    [categories]
+  );
 
   // ダイアログを閉じる
   const handleCloseDialog = useCallback(() => {
@@ -117,7 +122,7 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
       time: 0,
       label: '',
       description: '',
-      category: categories[0] || ''
+      category: categories[0] || '',
     });
   }, [categories]);
 
@@ -130,7 +135,7 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
       label: formData.label.trim(),
       description: formData.description.trim() || undefined,
       category: formData.category,
-      color: getCategoryColor(formData.category)
+      color: getCategoryColor(formData.category),
     };
 
     if (editingTimestamp) {
@@ -140,17 +145,29 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
     }
 
     handleCloseDialog();
-  }, [formData, editingTimestamp, onTimestampAdd, onTimestampUpdate, handleCloseDialog]);
+  }, [
+    formData,
+    editingTimestamp,
+    onTimestampAdd,
+    onTimestampUpdate,
+    handleCloseDialog,
+  ]);
 
   // タイムスタンプを削除
-  const handleDeleteTimestamp = useCallback((id: string) => {
-    onTimestampDelete(id);
-  }, [onTimestampDelete]);
+  const handleDeleteTimestamp = useCallback(
+    (id: string) => {
+      onTimestampDelete(id);
+    },
+    [onTimestampDelete]
+  );
 
   // タイムスタンプにシーク
-  const handleSeekToTimestamp = useCallback((time: number) => {
-    onTimestampSeek(time);
-  }, [onTimestampSeek]);
+  const handleSeekToTimestamp = useCallback(
+    (time: number) => {
+      onTimestampSeek(time);
+    },
+    [onTimestampSeek]
+  );
 
   // タイムスタンプをソート
   const sortedTimestamps = [...timestamps].sort((a, b) => a.time - b.time);
@@ -159,16 +176,23 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
     <Box>
       <Card>
         <CardContent>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h6" component="h3">
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              mb: 2,
+            }}
+          >
+            <Typography variant='h6' component='h3'>
               タイムスタンプ
             </Typography>
             {!readonly && (
               <Button
-                variant="contained"
+                variant='contained'
                 startIcon={<AddIcon />}
                 onClick={handleAddTimestamp}
-                size="small"
+                size='small'
               >
                 追加
               </Button>
@@ -176,12 +200,16 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
           </Box>
 
           {sortedTimestamps.length === 0 ? (
-            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+            <Typography
+              variant='body2'
+              color='text.secondary'
+              sx={{ textAlign: 'center', py: 2 }}
+            >
               タイムスタンプがありません
             </Typography>
           ) : (
             <List dense>
-              {sortedTimestamps.map((timestamp) => (
+              {sortedTimestamps.map(timestamp => (
                 <ListItem
                   key={timestamp.id}
                   sx={{
@@ -189,29 +217,34 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
                     borderColor: 'divider',
                     borderRadius: 1,
                     mb: 1,
-                    backgroundColor: Math.abs(currentTime - timestamp.time) < 5 ? 'action.hover' : 'transparent'
+                    backgroundColor:
+                      Math.abs(currentTime - timestamp.time) < 5
+                        ? 'action.hover'
+                        : 'transparent',
                   }}
                 >
                   <ListItemText
                     primary={
-                      <Stack direction="row" spacing={1} alignItems="center">
+                      <Stack direction='row' spacing={1} alignItems='center'>
                         <Chip
                           label={formatTime(timestamp.time)}
-                          size="small"
+                          size='small'
                           sx={{
-                            backgroundColor: timestamp.color || getCategoryColor(timestamp.category || ''),
+                            backgroundColor:
+                              timestamp.color ||
+                              getCategoryColor(timestamp.category || ''),
                             color: 'white',
-                            fontWeight: 'bold'
+                            fontWeight: 'bold',
                           }}
                         />
-                        <Typography variant="body2" fontWeight="medium">
+                        <Typography variant='body2' fontWeight='medium'>
                           {timestamp.label}
                         </Typography>
                         {timestamp.category && (
                           <Chip
                             label={timestamp.category}
-                            size="small"
-                            variant="outlined"
+                            size='small'
+                            variant='outlined'
                           />
                         )}
                       </Stack>
@@ -219,10 +252,10 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
                     secondary={timestamp.description}
                   />
                   <ListItemSecondaryAction>
-                    <Stack direction="row" spacing={0.5}>
-                      <Tooltip title="この時間にジャンプ">
+                    <Stack direction='row' spacing={0.5}>
+                      <Tooltip title='この時間にジャンプ'>
                         <IconButton
-                          size="small"
+                          size='small'
                           onClick={() => handleSeekToTimestamp(timestamp.time)}
                         >
                           <PlayIcon />
@@ -230,19 +263,21 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
                       </Tooltip>
                       {!readonly && (
                         <>
-                          <Tooltip title="編集">
+                          <Tooltip title='編集'>
                             <IconButton
-                              size="small"
+                              size='small'
                               onClick={() => handleEditTimestamp(timestamp)}
                             >
                               <EditIcon />
                             </IconButton>
                           </Tooltip>
-                          <Tooltip title="削除">
+                          <Tooltip title='削除'>
                             <IconButton
-                              size="small"
-                              onClick={() => handleDeleteTimestamp(timestamp.id)}
-                              color="error"
+                              size='small'
+                              onClick={() =>
+                                handleDeleteTimestamp(timestamp.id)
+                              }
+                              color='error'
                             >
                               <DeleteIcon />
                             </IconButton>
@@ -258,15 +293,22 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
 
           {/* 現在時刻のクイック追加 */}
           {!readonly && (
-            <Box sx={{ mt: 2, p: 2, backgroundColor: 'action.hover', borderRadius: 1 }}>
-              <Stack direction="row" spacing={2} alignItems="center">
-                <BookmarkIcon color="action" />
-                <Typography variant="body2" color="text.secondary">
+            <Box
+              sx={{
+                mt: 2,
+                p: 2,
+                backgroundColor: 'action.hover',
+                borderRadius: 1,
+              }}
+            >
+              <Stack direction='row' spacing={2} alignItems='center'>
+                <BookmarkIcon color='action' />
+                <Typography variant='body2' color='text.secondary'>
                   現在時刻: {formatTime(currentTime)}
                 </Typography>
                 <Button
-                  size="small"
-                  variant="outlined"
+                  size='small'
+                  variant='outlined'
                   onClick={handleAddTimestamp}
                   startIcon={<AddIcon />}
                 >
@@ -279,46 +321,62 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
       </Card>
 
       {/* タイムスタンプ編集ダイアログ */}
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+      <Dialog
+        open={dialogOpen}
+        onClose={handleCloseDialog}
+        maxWidth='sm'
+        fullWidth
+      >
         <DialogTitle>
           {editingTimestamp ? 'タイムスタンプを編集' : 'タイムスタンプを追加'}
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
-              label="時間（秒）"
-              type="number"
+              label='時間（秒）'
+              type='number'
               value={formData.time}
-              onChange={(e) => setFormData({ ...formData, time: parseInt(e.target.value) || 0 })}
+              onChange={e =>
+                setFormData({
+                  ...formData,
+                  time: parseInt(e.target.value) || 0,
+                })
+              }
               helperText={`${formatTime(formData.time)} の位置`}
               fullWidth
             />
             <TextField
-              label="ラベル"
+              label='ラベル'
               value={formData.label}
-              onChange={(e) => setFormData({ ...formData, label: e.target.value })}
-              placeholder="例: 開始、見どころ、技名など"
+              onChange={e =>
+                setFormData({ ...formData, label: e.target.value })
+              }
+              placeholder='例: 開始、見どころ、技名など'
               required
               fullWidth
             />
             <TextField
-              label="説明（任意）"
+              label='説明（任意）'
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="詳細な説明を入力"
+              onChange={e =>
+                setFormData({ ...formData, description: e.target.value })
+              }
+              placeholder='詳細な説明を入力'
               multiline
               rows={2}
               fullWidth
             />
             <TextField
-              label="カテゴリー"
+              label='カテゴリー'
               select
               value={formData.category}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              onChange={e =>
+                setFormData({ ...formData, category: e.target.value })
+              }
               SelectProps={{ native: true }}
               fullWidth
             >
-              {categories.map((category) => (
+              {categories.map(category => (
                 <option key={category} value={category}>
                   {category}
                 </option>
@@ -327,12 +385,10 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog}>
-            キャンセル
-          </Button>
+          <Button onClick={handleCloseDialog}>キャンセル</Button>
           <Button
             onClick={handleSaveTimestamp}
-            variant="contained"
+            variant='contained'
             disabled={!formData.label.trim()}
           >
             {editingTimestamp ? '更新' : '追加'}

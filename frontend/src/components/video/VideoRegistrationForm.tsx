@@ -19,12 +19,16 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
 } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { videoService, YouTubeVideoInfo, CreateVideoRequest } from '../../services/videoService';
+import {
+  videoService,
+  YouTubeVideoInfo,
+  CreateVideoRequest,
+} from '../../services/videoService';
 
 const schema = yup.object().shape({
   youtubeUrl: yup
@@ -34,19 +38,37 @@ const schema = yup.object().shape({
       /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)[a-zA-Z0-9_-]{11}$/,
       '有効なYouTube URLを入力してください'
     ),
-  metadata: yup.object().shape({
-    teamName: yup.string().max(100, 'チーム名は100文字以下で入力してください').optional(),
-    performanceName: yup.string().max(100, '演舞名は100文字以下で入力してください').optional(),
-    eventName: yup.string().max(100, '大会名は100文字以下で入力してください').optional(),
-    year: yup
-      .number()
-      .nullable()
-      .min(1900, '年度は1900年以降で入力してください')
-      .max(new Date().getFullYear() + 1, '年度は来年以前で入力してください')
-      .optional(),
-    location: yup.string().max(100, '場所は100文字以下で入力してください').optional()
-  }).optional(),
-  tags: yup.array().of(yup.string().max(30, 'タグは30文字以下で入力してください')).optional()
+  metadata: yup
+    .object()
+    .shape({
+      teamName: yup
+        .string()
+        .max(100, 'チーム名は100文字以下で入力してください')
+        .optional(),
+      performanceName: yup
+        .string()
+        .max(100, '演舞名は100文字以下で入力してください')
+        .optional(),
+      eventName: yup
+        .string()
+        .max(100, '大会名は100文字以下で入力してください')
+        .optional(),
+      year: yup
+        .number()
+        .nullable()
+        .min(1900, '年度は1900年以降で入力してください')
+        .max(new Date().getFullYear() + 1, '年度は来年以前で入力してください')
+        .optional(),
+      location: yup
+        .string()
+        .max(100, '場所は100文字以下で入力してください')
+        .optional(),
+    })
+    .optional(),
+  tags: yup
+    .array()
+    .of(yup.string().max(30, 'タグは30文字以下で入力してください'))
+    .optional(),
 });
 
 interface VideoRegistrationFormProps {
@@ -70,7 +92,7 @@ interface FormData {
 const VideoRegistrationForm: React.FC<VideoRegistrationFormProps> = ({
   open,
   onClose,
-  onSuccess
+  onSuccess,
 }) => {
   const [step, setStep] = useState<'url' | 'preview' | 'details'>('url');
   const [youtubeInfo, setYoutubeInfo] = useState<YouTubeVideoInfo | null>(null);
@@ -84,14 +106,14 @@ const VideoRegistrationForm: React.FC<VideoRegistrationFormProps> = ({
     watch,
     setValue,
     reset,
-    formState: { errors }
+    formState: { errors },
   } = useForm<FormData>({
     resolver: yupResolver(schema) as any,
     defaultValues: {
       youtubeUrl: '',
       metadata: {},
-      tags: []
-    }
+      tags: [],
+    },
   });
 
   const watchedUrl = watch('youtubeUrl');
@@ -122,7 +144,10 @@ const VideoRegistrationForm: React.FC<VideoRegistrationFormProps> = ({
   };
 
   const handleRemoveTag = (tagToRemove: string) => {
-    setValue('tags', watchedTags.filter(tag => tag !== tagToRemove));
+    setValue(
+      'tags',
+      watchedTags.filter(tag => tag !== tagToRemove)
+    );
   };
 
   const handleRegister = async (data: FormData) => {
@@ -133,7 +158,7 @@ const VideoRegistrationForm: React.FC<VideoRegistrationFormProps> = ({
       const createData: CreateVideoRequest = {
         youtubeUrl: data.youtubeUrl,
         metadata: data.metadata || {},
-        tags: data.tags || []
+        tags: data.tags || [],
       };
 
       await videoService.createVideo(createData);
@@ -159,7 +184,7 @@ const VideoRegistrationForm: React.FC<VideoRegistrationFormProps> = ({
   const yearOptions = Array.from({ length: 30 }, (_, i) => currentYear - i);
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth='md' fullWidth>
       <DialogTitle>
         動画登録
         {step === 'preview' && ' - プレビュー'}
@@ -168,26 +193,26 @@ const VideoRegistrationForm: React.FC<VideoRegistrationFormProps> = ({
 
       <DialogContent>
         {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
+          <Alert severity='error' sx={{ mb: 2 }}>
             {error}
           </Alert>
         )}
 
         {step === 'url' && (
           <Box>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
               登録したいYouTube動画のURLを入力してください
             </Typography>
-            
+
             <Controller
-              name="youtubeUrl"
+              name='youtubeUrl'
               control={control}
               render={({ field }) => (
                 <TextField
                   {...field}
                   fullWidth
-                  label="YouTube URL"
-                  placeholder="https://www.youtube.com/watch?v=..."
+                  label='YouTube URL'
+                  placeholder='https://www.youtube.com/watch?v=...'
                   error={!!errors.youtubeUrl}
                   helperText={errors.youtubeUrl?.message}
                   sx={{ mb: 2 }}
@@ -201,26 +226,32 @@ const VideoRegistrationForm: React.FC<VideoRegistrationFormProps> = ({
           <Box>
             <Card sx={{ mb: 3 }}>
               <CardMedia
-                component="img"
-                height="200"
-                image={youtubeInfo.thumbnails.medium?.url || youtubeInfo.thumbnails.default.url}
+                component='img'
+                height='200'
+                image={
+                  youtubeInfo.thumbnails.medium?.url ||
+                  youtubeInfo.thumbnails.default.url
+                }
                 alt={youtubeInfo.title}
               />
               <CardContent>
-                <Typography variant="h6" gutterBottom>
+                <Typography variant='h6' gutterBottom>
                   {youtubeInfo.title}
                 </Typography>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
+                <Typography variant='body2' color='text.secondary' gutterBottom>
                   チャンネル: {youtubeInfo.channelTitle}
                 </Typography>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  公開日: {new Date(youtubeInfo.publishedAt).toLocaleDateString('ja-JP')}
+                <Typography variant='body2' color='text.secondary' gutterBottom>
+                  公開日:{' '}
+                  {new Date(youtubeInfo.publishedAt).toLocaleDateString(
+                    'ja-JP'
+                  )}
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant='body2' color='text.secondary'>
                   再生回数: {parseInt(youtubeInfo.viewCount).toLocaleString()}回
                 </Typography>
                 {youtubeInfo.isEmbeddable === false && (
-                  <Alert severity="warning" sx={{ mt: 2 }}>
+                  <Alert severity='warning' sx={{ mt: 2 }}>
                     この動画は埋め込み再生ができません
                   </Alert>
                 )}
@@ -234,29 +265,29 @@ const VideoRegistrationForm: React.FC<VideoRegistrationFormProps> = ({
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
                 <Controller
-                  name="metadata.teamName"
+                  name='metadata.teamName'
                   control={control}
                   render={({ field }) => (
                     <TextField
                       {...field}
                       fullWidth
-                      label="チーム名"
+                      label='チーム名'
                       error={!!errors.metadata?.teamName}
                       helperText={errors.metadata?.teamName?.message}
                     />
                   )}
                 />
               </Grid>
-              
+
               <Grid item xs={12} sm={6}>
                 <Controller
-                  name="metadata.performanceName"
+                  name='metadata.performanceName'
                   control={control}
                   render={({ field }) => (
                     <TextField
                       {...field}
                       fullWidth
-                      label="演舞名"
+                      label='演舞名'
                       error={!!errors.metadata?.performanceName}
                       helperText={errors.metadata?.performanceName?.message}
                     />
@@ -266,13 +297,13 @@ const VideoRegistrationForm: React.FC<VideoRegistrationFormProps> = ({
 
               <Grid item xs={12} sm={6}>
                 <Controller
-                  name="metadata.eventName"
+                  name='metadata.eventName'
                   control={control}
                   render={({ field }) => (
                     <TextField
                       {...field}
                       fullWidth
-                      label="大会名"
+                      label='大会名'
                       error={!!errors.metadata?.eventName}
                       helperText={errors.metadata?.eventName?.message}
                     />
@@ -282,17 +313,13 @@ const VideoRegistrationForm: React.FC<VideoRegistrationFormProps> = ({
 
               <Grid item xs={12} sm={6}>
                 <Controller
-                  name="metadata.year"
+                  name='metadata.year'
                   control={control}
                   render={({ field }) => (
                     <FormControl fullWidth>
                       <InputLabel>年度</InputLabel>
-                      <Select
-                        {...field}
-                        value={field.value || ''}
-                        label="年度"
-                      >
-                        <MenuItem value="">
+                      <Select {...field} value={field.value || ''} label='年度'>
+                        <MenuItem value=''>
                           <em>選択してください</em>
                         </MenuItem>
                         {yearOptions.map(year => (
@@ -308,13 +335,13 @@ const VideoRegistrationForm: React.FC<VideoRegistrationFormProps> = ({
 
               <Grid item xs={12}>
                 <Controller
-                  name="metadata.location"
+                  name='metadata.location'
                   control={control}
                   render={({ field }) => (
                     <TextField
                       {...field}
                       fullWidth
-                      label="場所"
+                      label='場所'
                       error={!!errors.metadata?.location}
                       helperText={errors.metadata?.location?.message}
                     />
@@ -324,23 +351,23 @@ const VideoRegistrationForm: React.FC<VideoRegistrationFormProps> = ({
 
               <Grid item xs={12}>
                 <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" gutterBottom>
+                  <Typography variant='subtitle2' gutterBottom>
                     タグ
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
                     <TextField
-                      size="small"
-                      label="タグを追加"
+                      size='small'
+                      label='タグを追加'
                       value={tagInput}
-                      onChange={(e) => setTagInput(e.target.value)}
-                      onKeyPress={(e) => {
+                      onChange={e => setTagInput(e.target.value)}
+                      onKeyPress={e => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
                           handleAddTag();
                         }
                       }}
                     />
-                    <Button onClick={handleAddTag} variant="outlined">
+                    <Button onClick={handleAddTag} variant='outlined'>
                       追加
                     </Button>
                   </Box>
@@ -350,7 +377,7 @@ const VideoRegistrationForm: React.FC<VideoRegistrationFormProps> = ({
                         key={index}
                         label={tag}
                         onDelete={() => handleRemoveTag(tag)}
-                        size="small"
+                        size='small'
                       />
                     ))}
                   </Box>
@@ -365,39 +392,32 @@ const VideoRegistrationForm: React.FC<VideoRegistrationFormProps> = ({
         <Button onClick={handleClose} disabled={loading}>
           キャンセル
         </Button>
-        
+
         {step === 'url' && (
           <Button
             onClick={handleUrlCheck}
-            variant="contained"
+            variant='contained'
             disabled={!watchedUrl || loading}
           >
             {loading ? <CircularProgress size={20} /> : '動画を確認'}
           </Button>
         )}
-        
+
         {step === 'preview' && (
           <>
-            <Button onClick={() => setStep('url')}>
-              戻る
-            </Button>
-            <Button
-              onClick={() => setStep('details')}
-              variant="contained"
-            >
+            <Button onClick={() => setStep('url')}>戻る</Button>
+            <Button onClick={() => setStep('details')} variant='contained'>
               詳細情報を入力
             </Button>
           </>
         )}
-        
+
         {step === 'details' && (
           <>
-            <Button onClick={() => setStep('preview')}>
-              戻る
-            </Button>
+            <Button onClick={() => setStep('preview')}>戻る</Button>
             <Button
               onClick={handleSubmit(handleRegister)}
-              variant="contained"
+              variant='contained'
               disabled={loading}
             >
               {loading ? <CircularProgress size={20} /> : '登録'}

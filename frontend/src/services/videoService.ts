@@ -97,7 +97,7 @@ class VideoService {
    */
   async getYouTubeInfo(url: string): Promise<YouTubeVideoInfo> {
     const response = await apiClient.get('/videos/youtube-info', {
-      params: { url }
+      params: { url },
     });
     return response.data.data;
   }

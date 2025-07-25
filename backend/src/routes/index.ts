@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import authRoutes from './auth';
 import videoRoutes from './videos';
+import templateRoutes from './templates';
+import sessionRoutes from './sessions';
+import evaluationRoutes from './evaluations';
 
 const router = Router();
 
@@ -12,6 +15,9 @@ router.get('/', (_req, res) => {
     endpoints: {
       auth: '/api/auth',
       videos: '/api/videos',
+      templates: '/api/templates',
+      sessions: '/api/sessions',
+      evaluations: '/api/evaluations',
       health: '/health'
     }
   });
@@ -22,5 +28,14 @@ router.use('/auth', authRoutes);
 
 // Video routes
 router.use('/videos', videoRoutes);
+
+// Template routes
+router.use('/templates', templateRoutes);
+
+// Session routes
+router.use('/sessions', sessionRoutes);
+
+// Evaluation routes
+router.use('/evaluations', evaluationRoutes);
 
 export default router;

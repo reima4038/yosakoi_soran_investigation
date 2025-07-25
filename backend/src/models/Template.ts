@@ -14,6 +14,7 @@ export interface ICriterion {
   minValue: number;
   maxValue: number;
   weight: number;
+  allowComments?: boolean; // コメント入力を許可するか
 }
 
 export interface ICategory {
@@ -22,6 +23,7 @@ export interface ICategory {
   description: string;
   weight: number;
   criteria: ICriterion[];
+  allowComments?: boolean; // カテゴリレベルでのコメント入力を許可するか
 }
 
 export interface ITemplate extends Document {
@@ -30,6 +32,7 @@ export interface ITemplate extends Document {
   createdAt: Date;
   creatorId: mongoose.Types.ObjectId;
   categories: ICategory[];
+  allowGeneralComments?: boolean; // テンプレート全体での一般コメントを許可するか
 }
 
 const CriterionSchema = new Schema<ICriterion>({
@@ -77,6 +80,10 @@ const CriterionSchema = new Schema<ICriterion>({
     min: [0, '重みは0以上である必要があります'],
     max: [1, '重みは1以下である必要があります'],
     default: 1
+  },
+  allowComments: {
+    type: Boolean,
+    default: false
   }
 }, { _id: false });
 
@@ -114,6 +121,10 @@ const CategorySchema = new Schema<ICategory>({
       },
       message: 'カテゴリには少なくとも1つの評価基準が必要です'
     }
+  },
+  allowComments: {
+    type: Boolean,
+    default: false
   }
 }, { _id: false });
 
@@ -148,6 +159,10 @@ const TemplateSchema = new Schema<ITemplate>({
       },
       message: 'テンプレートには少なくとも1つのカテゴリが必要です'
     }
+  },
+  allowGeneralComments: {
+    type: Boolean,
+    default: true
   }
 }, {
   timestamps: true

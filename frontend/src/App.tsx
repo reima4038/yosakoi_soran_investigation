@@ -1,5 +1,10 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -36,20 +41,20 @@ function App() {
         <CssBaseline />
         <Router>
           <Box sx={{ flexGrow: 1 }}>
-            <AppBar position="static" elevation={1}>
+            <AppBar position='static' elevation={1}>
               <Toolbar>
-                <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+                <Typography variant='h6' component='div' sx={{ flexGrow: 1 }}>
                   よさこい演舞評価システム
                 </Typography>
               </Toolbar>
             </AppBar>
-            
+
             <Container maxWidth={false} sx={{ mt: 2, mb: 4 }}>
               <Routes>
-                <Route path="/" element={<Navigate to="/videos" replace />} />
-                <Route path="/videos" element={<VideoManagement />} />
-                <Route path="/videos/:id" element={<VideoDetailPage />} />
-                <Route path="*" element={<Navigate to="/videos" replace />} />
+                <Route path='/' element={<Navigate to='/videos' replace />} />
+                <Route path='/videos' element={<VideoManagement />} />
+                <Route path='/videos/:id' element={<VideoDetailPage />} />
+                <Route path='*' element={<Navigate to='/videos' replace />} />
               </Routes>
             </Container>
           </Box>

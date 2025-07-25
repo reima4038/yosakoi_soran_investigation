@@ -6,7 +6,7 @@ import {
   Typography,
   Paper,
   Tooltip,
-  Stack
+  Stack,
 } from '@mui/material';
 import {
   PlayArrow as PlayIcon,
@@ -16,7 +16,7 @@ import {
   Fullscreen as FullscreenIcon,
   FullscreenExit as FullscreenExitIcon,
   Replay10 as Replay10Icon,
-  Forward10 as Forward10Icon
+  Forward10 as Forward10Icon,
 } from '@mui/icons-material';
 import YouTube, { YouTubeProps, YouTubePlayer } from 'react-youtube';
 
@@ -41,7 +41,7 @@ const YouTubePlayerComponent: React.FC<YouTubePlayerComponentProps> = ({
   autoplay = false,
   showControls = true,
   height = 360,
-  width = 640
+  width = 640,
 }) => {
   const [player, setPlayer] = useState<YouTubePlayer | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -56,62 +56,74 @@ const YouTubePlayerComponent: React.FC<YouTubePlayerComponentProps> = ({
   const timeUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // プレーヤーの準備完了時
-  const handlePlayerReady: YouTubeProps['onReady'] = useCallback((event: any) => {
-    const playerInstance = event.target;
-    setPlayer(playerInstance);
-    setIsReady(true);
-    
-    // 動画の長さを取得
-    const videoDuration = playerInstance.getDuration();
-    setDuration(videoDuration);
-    onDurationChange?.(videoDuration);
+  const handlePlayerReady: YouTubeProps['onReady'] = useCallback(
+    (event: any) => {
+      const playerInstance = event.target;
+      setPlayer(playerInstance);
+      setIsReady(true);
 
-    // 音量を設定
-    playerInstance.setVolume(volume);
+      // 動画の長さを取得
+      const videoDuration = playerInstance.getDuration();
+      setDuration(videoDuration);
+      onDurationChange?.(videoDuration);
 
-    // 外部コールバック
-    onPlayerReady?.(playerInstance);
+      // 音量を設定
+      playerInstance.setVolume(volume);
 
-    // 時間更新の監視を開始
-    startTimeTracking(playerInstance);
-  }, [onDurationChange, volume, onPlayerReady, startTimeTracking]);
+      // 外部コールバック
+      onPlayerReady?.(playerInstance);
+
+      // 時間更新の監視を開始
+      startTimeTracking(playerInstance);
+    },
+    [onDurationChange, volume, onPlayerReady, startTimeTracking]
+  );
 
   // 再生状態変更時
-  const handleStateChange: YouTubeProps['onStateChange'] = useCallback((event: any) => {
-    const playerState = event.data;
-    const YT = (window as any).YT;
-    
-    if (YT) {
-      switch (playerState) {
-        case YT.PlayerState.PLAYING:
-          setIsPlaying(true);
-          break;
-        case YT.PlayerState.PAUSED:
-        case YT.PlayerState.ENDED:
-          setIsPlaying(false);
-          break;
-      }
-    }
-  }, []);
+  const handleStateChange: YouTubeProps['onStateChange'] = useCallback(
+    (event: any) => {
+      const playerState = event.data;
+      const YT = (window as any).YT;
 
-  // 時間追跡の開始
-  const startTimeTracking = useCallback((playerInstance: YouTubePlayer) => {
-    if (timeUpdateIntervalRef.current) {
-      clearInterval(timeUpdateIntervalRef.current);
-    }
-
-    timeUpdateIntervalRef.current = setInterval(() => {
-      if (playerInstance && typeof playerInstance.getCurrentTime === 'function') {
-        try {
-          const time = playerInstance.getCurrentTime();
-          setCurrentTime(time);
-          onTimeUpdate?.(time);
-        } catch (error) {
-          console.warn('Failed to get current time:', error);
+      if (YT) {
+        switch (playerState) {
+          case YT.PlayerState.PLAYING:
+            setIsPlaying(true);
+            break;
+          case YT.PlayerState.PAUSED:
+          case YT.PlayerState.ENDED:
+            setIsPlaying(false);
+            break;
         }
       }
-    }, 1000);
-  }, [onTimeUpdate]);
+    },
+    []
+  );
+
+  // 時間追跡の開始
+  const startTimeTracking = useCallback(
+    (playerInstance: YouTubePlayer) => {
+      if (timeUpdateIntervalRef.current) {
+        clearInterval(timeUpdateIntervalRef.current);
+      }
+
+      timeUpdateIntervalRef.current = setInterval(() => {
+        if (
+          playerInstance &&
+          typeof playerInstance.getCurrentTime === 'function'
+        ) {
+          try {
+            const time = playerInstance.getCurrentTime();
+            setCurrentTime(time);
+            onTimeUpdate?.(time);
+          } catch (error) {
+            console.warn('Failed to get current time:', error);
+          }
+        }
+      }, 1000);
+    },
+    [onTimeUpdate]
+  );
 
   // 外部からの時間指定
   useEffect(() => {
@@ -141,18 +153,21 @@ const YouTubePlayerComponent: React.FC<YouTubePlayerComponentProps> = ({
   }, [player, isPlaying]);
 
   // 音量の変更
-  const handleVolumeChange = useCallback((_: Event, newValue: number | number[]) => {
-    const volumeValue = Array.isArray(newValue) ? newValue[0] : newValue;
-    setVolume(volumeValue);
-    if (player) {
-      player.setVolume(volumeValue);
-      if (volumeValue === 0) {
-        setIsMuted(true);
-      } else if (isMuted) {
-        setIsMuted(false);
+  const handleVolumeChange = useCallback(
+    (_: Event, newValue: number | number[]) => {
+      const volumeValue = Array.isArray(newValue) ? newValue[0] : newValue;
+      setVolume(volumeValue);
+      if (player) {
+        player.setVolume(volumeValue);
+        if (volumeValue === 0) {
+          setIsMuted(true);
+        } else if (isMuted) {
+          setIsMuted(false);
+        }
       }
-    }
-  }, [player, isMuted]);
+    },
+    [player, isMuted]
+  );
 
   // ミュート切り替え
   const toggleMute = useCallback(() => {
@@ -169,13 +184,16 @@ const YouTubePlayerComponent: React.FC<YouTubePlayerComponentProps> = ({
   }, [player, isMuted]);
 
   // シーク
-  const handleSeek = useCallback((_: Event, newValue: number | number[]) => {
-    const seekTime = Array.isArray(newValue) ? newValue[0] : newValue;
-    if (player) {
-      player.seekTo(seekTime, true);
-      setCurrentTime(seekTime);
-    }
-  }, [player]);
+  const handleSeek = useCallback(
+    (_: Event, newValue: number | number[]) => {
+      const seekTime = Array.isArray(newValue) ? newValue[0] : newValue;
+      if (player) {
+        player.seekTo(seekTime, true);
+        setCurrentTime(seekTime);
+      }
+    },
+    [player]
+  );
 
   // 10秒戻る
   const skipBackward = useCallback(() => {
@@ -237,8 +255,8 @@ const YouTubePlayerComponent: React.FC<YouTubePlayerComponentProps> = ({
       fs: 0, // フルスクリーンボタンを無効化（カスタムで実装）
       modestbranding: 1,
       rel: 0,
-      showinfo: 0
-    }
+      showinfo: 0,
+    },
   };
 
   return (
@@ -261,7 +279,7 @@ const YouTubePlayerComponent: React.FC<YouTubePlayerComponentProps> = ({
             right: 0,
             p: 2,
             backgroundColor: 'rgba(0, 0, 0, 0.8)',
-            color: 'white'
+            color: 'white',
           }}
         >
           {/* プログレスバー */}
@@ -274,23 +292,23 @@ const YouTubePlayerComponent: React.FC<YouTubePlayerComponentProps> = ({
                 color: 'red',
                 '& .MuiSlider-thumb': {
                   width: 12,
-                  height: 12
-                }
+                  height: 12,
+                },
               }}
             />
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
-              <Typography variant="caption">
+            <Box
+              sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}
+            >
+              <Typography variant='caption'>
                 {formatTime(currentTime)}
               </Typography>
-              <Typography variant="caption">
-                {formatTime(duration)}
-              </Typography>
+              <Typography variant='caption'>{formatTime(duration)}</Typography>
             </Box>
           </Box>
 
           {/* コントロールボタン */}
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Tooltip title="10秒戻る">
+          <Stack direction='row' spacing={1} alignItems='center'>
+            <Tooltip title='10秒戻る'>
               <IconButton onClick={skipBackward} sx={{ color: 'white' }}>
                 <Replay10Icon />
               </IconButton>
@@ -302,7 +320,7 @@ const YouTubePlayerComponent: React.FC<YouTubePlayerComponentProps> = ({
               </IconButton>
             </Tooltip>
 
-            <Tooltip title="10秒進む">
+            <Tooltip title='10秒進む'>
               <IconButton onClick={skipForward} sx={{ color: 'white' }}>
                 <Forward10Icon />
               </IconButton>
@@ -311,7 +329,12 @@ const YouTubePlayerComponent: React.FC<YouTubePlayerComponentProps> = ({
             <Box sx={{ flexGrow: 1 }} />
 
             {/* 音量コントロール */}
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 120 }}>
+            <Stack
+              direction='row'
+              spacing={1}
+              alignItems='center'
+              sx={{ minWidth: 120 }}
+            >
               <Tooltip title={isMuted ? 'ミュート解除' : 'ミュート'}>
                 <IconButton onClick={toggleMute} sx={{ color: 'white' }}>
                   {isMuted ? <VolumeOffIcon /> : <VolumeUpIcon />}
@@ -325,13 +348,15 @@ const YouTubePlayerComponent: React.FC<YouTubePlayerComponentProps> = ({
                   width: 80,
                   '& .MuiSlider-thumb': {
                     width: 12,
-                    height: 12
-                  }
+                    height: 12,
+                  },
                 }}
               />
             </Stack>
 
-            <Tooltip title={isFullscreen ? 'フルスクリーン終了' : 'フルスクリーン'}>
+            <Tooltip
+              title={isFullscreen ? 'フルスクリーン終了' : 'フルスクリーン'}
+            >
               <IconButton onClick={toggleFullscreen} sx={{ color: 'white' }}>
                 {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
               </IconButton>

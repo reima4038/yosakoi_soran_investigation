@@ -24,7 +24,7 @@ import {
   DialogContentText,
   DialogTitle,
   Alert,
-  Skeleton
+  Skeleton,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -32,10 +32,14 @@ import {
   MoreVert as MoreVertIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  PlayArrow as PlayIcon
+  PlayArrow as PlayIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { videoService, Video, VideoListParams } from '../../services/videoService';
+import {
+  videoService,
+  Video,
+  VideoListParams,
+} from '../../services/videoService';
 
 interface VideoListProps {
   onVideoSelect?: (video: Video) => void;
@@ -46,7 +50,7 @@ interface VideoListProps {
 const VideoList: React.FC<VideoListProps> = ({
   onVideoSelect,
   onVideoEdit,
-  refreshTrigger
+  refreshTrigger,
 }) => {
   const navigate = useNavigate();
   const [videos, setVideos] = useState<Video[]>([]);
@@ -54,17 +58,17 @@ const VideoList: React.FC<VideoListProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [totalPages, setTotalPages] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
-  
+
   // フィルター状態
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedYear, setSelectedYear] = useState<number | ''>('');
   const [selectedTeam, setSelectedTeam] = useState('');
   const [selectedEvent, setSelectedEvent] = useState('');
-  
+
   // メニュー状態
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
-  
+
   // 削除確認ダイアログ
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [videoToDelete, setVideoToDelete] = useState<Video | null>(null);
@@ -76,7 +80,7 @@ const VideoList: React.FC<VideoListProps> = ({
     try {
       const params: VideoListParams = {
         page: currentPage,
-        limit: 12
+        limit: 12,
       };
 
       if (searchTerm) params.search = searchTerm;
@@ -112,7 +116,10 @@ const VideoList: React.FC<VideoListProps> = ({
     fetchVideos();
   };
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, video: Video) => {
+  const handleMenuOpen = (
+    event: React.MouseEvent<HTMLElement>,
+    video: Video
+  ) => {
     setAnchorEl(event.currentTarget);
     setSelectedVideo(video);
   };
@@ -167,11 +174,11 @@ const VideoList: React.FC<VideoListProps> = ({
           {Array.from({ length: 8 }).map((_, index) => (
             <Grid item xs={12} sm={6} md={4} lg={3} key={index}>
               <Card>
-                <Skeleton variant="rectangular" height={180} />
+                <Skeleton variant='rectangular' height={180} />
                 <CardContent>
-                  <Skeleton variant="text" height={32} />
-                  <Skeleton variant="text" height={20} />
-                  <Skeleton variant="text" height={20} />
+                  <Skeleton variant='text' height={32} />
+                  <Skeleton variant='text' height={20} />
+                  <Skeleton variant='text' height={20} />
                 </CardContent>
               </Card>
             </Grid>
@@ -184,7 +191,7 @@ const VideoList: React.FC<VideoListProps> = ({
   return (
     <Box>
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity='error' sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
@@ -192,39 +199,39 @@ const VideoList: React.FC<VideoListProps> = ({
       {/* 検索・フィルター */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Grid container spacing={2} alignItems="center">
+          <Grid container spacing={2} alignItems='center'>
             <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
-                size="small"
-                label="検索"
-                placeholder="タイトル、チーム名、大会名で検索"
+                size='small'
+                label='検索'
+                placeholder='タイトル、チーム名、大会名で検索'
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyPress={(e) => {
+                onChange={e => setSearchTerm(e.target.value)}
+                onKeyPress={e => {
                   if (e.key === 'Enter') {
                     handleSearch();
                   }
                 }}
                 InputProps={{
                   endAdornment: (
-                    <IconButton onClick={handleSearch} size="small">
+                    <IconButton onClick={handleSearch} size='small'>
                       <SearchIcon />
                     </IconButton>
-                  )
+                  ),
                 }}
               />
             </Grid>
 
             <Grid item xs={12} sm={4} md={2}>
-              <FormControl fullWidth size="small">
+              <FormControl fullWidth size='small'>
                 <InputLabel>年度</InputLabel>
                 <Select
                   value={selectedYear}
-                  label="年度"
-                  onChange={(e) => setSelectedYear(e.target.value as number | '')}
+                  label='年度'
+                  onChange={e => setSelectedYear(e.target.value as number | '')}
                 >
-                  <MenuItem value="">すべて</MenuItem>
+                  <MenuItem value=''>すべて</MenuItem>
                   {yearOptions.map(year => (
                     <MenuItem key={year} value={year}>
                       {year}年
@@ -237,27 +244,27 @@ const VideoList: React.FC<VideoListProps> = ({
             <Grid item xs={12} sm={4} md={2}>
               <TextField
                 fullWidth
-                size="small"
-                label="チーム名"
+                size='small'
+                label='チーム名'
                 value={selectedTeam}
-                onChange={(e) => setSelectedTeam(e.target.value)}
+                onChange={e => setSelectedTeam(e.target.value)}
               />
             </Grid>
 
             <Grid item xs={12} sm={4} md={2}>
               <TextField
                 fullWidth
-                size="small"
-                label="大会名"
+                size='small'
+                label='大会名'
                 value={selectedEvent}
-                onChange={(e) => setSelectedEvent(e.target.value)}
+                onChange={e => setSelectedEvent(e.target.value)}
               />
             </Grid>
 
             <Grid item xs={12} sm={8} md={2}>
               <Box sx={{ display: 'flex', gap: 1 }}>
                 <Button
-                  variant="contained"
+                  variant='contained'
                   onClick={handleSearch}
                   startIcon={<SearchIcon />}
                   fullWidth
@@ -265,7 +272,7 @@ const VideoList: React.FC<VideoListProps> = ({
                   検索
                 </Button>
                 <Button
-                  variant="outlined"
+                  variant='outlined'
                   onClick={handleClearFilters}
                   startIcon={<FilterIcon />}
                 >
@@ -279,21 +286,23 @@ const VideoList: React.FC<VideoListProps> = ({
 
       {/* 動画一覧 */}
       <Grid container spacing={2}>
-        {videos.map((video) => (
+        {videos.map(video => (
           <Grid item xs={12} sm={6} md={4} lg={3} key={video._id}>
-            <Card 
-              sx={{ 
+            <Card
+              sx={{
                 height: '100%',
                 cursor: onVideoSelect ? 'pointer' : 'default',
-                '&:hover': onVideoSelect ? {
-                  boxShadow: 4
-                } : {}
+                '&:hover': onVideoSelect
+                  ? {
+                      boxShadow: 4,
+                    }
+                  : {},
               }}
             >
               <Box sx={{ position: 'relative' }}>
                 <CardMedia
-                  component="img"
-                  height="180"
+                  component='img'
+                  height='180'
                   image={video.thumbnailUrl}
                   alt={video.title}
                   onClick={() => handleVideoClick(video)}
@@ -304,12 +313,12 @@ const VideoList: React.FC<VideoListProps> = ({
                     top: 8,
                     right: 8,
                     backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                    borderRadius: 1
+                    borderRadius: 1,
                   }}
                 >
                   <IconButton
-                    size="small"
-                    onClick={(e) => handleMenuOpen(e, video)}
+                    size='small'
+                    onClick={e => handleMenuOpen(e, video)}
                     sx={{ color: 'white' }}
                   >
                     <MoreVertIcon />
@@ -327,52 +336,59 @@ const VideoList: React.FC<VideoListProps> = ({
                       p: 1,
                       opacity: 0,
                       transition: 'opacity 0.2s',
-                      '&:hover': { opacity: 1 }
+                      '&:hover': { opacity: 1 },
                     }}
                   >
                     <PlayIcon sx={{ color: 'white', fontSize: 32 }} />
                   </Box>
                 )}
               </Box>
-              
+
               <CardContent onClick={() => handleVideoClick(video)}>
-                <Typography variant="h6" component="h3" gutterBottom noWrap>
+                <Typography variant='h6' component='h3' gutterBottom noWrap>
                   {video.title}
                 </Typography>
-                
-                <Typography variant="body2" color="text.secondary" gutterBottom>
+
+                <Typography variant='body2' color='text.secondary' gutterBottom>
                   {video.channelName}
                 </Typography>
 
                 {video.metadata.teamName && (
-                  <Typography variant="body2" gutterBottom>
+                  <Typography variant='body2' gutterBottom>
                     チーム: {video.metadata.teamName}
                   </Typography>
                 )}
 
                 {video.metadata.eventName && (
-                  <Typography variant="body2" gutterBottom>
+                  <Typography variant='body2' gutterBottom>
                     大会: {video.metadata.eventName}
                   </Typography>
                 )}
 
                 {video.metadata.year && (
-                  <Typography variant="body2" gutterBottom>
+                  <Typography variant='body2' gutterBottom>
                     年度: {video.metadata.year}年
                   </Typography>
                 )}
 
-                <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                <Box
+                  sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}
+                >
                   {video.tags.slice(0, 3).map((tag, index) => (
-                    <Chip key={index} label={tag} size="small" />
+                    <Chip key={index} label={tag} size='small' />
                   ))}
                   {video.tags.length > 3 && (
-                    <Chip label={`+${video.tags.length - 3}`} size="small" />
+                    <Chip label={`+${video.tags.length - 3}`} size='small' />
                   )}
                 </Box>
 
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                  登録日: {new Date(video.createdAt).toLocaleDateString('ja-JP')}
+                <Typography
+                  variant='caption'
+                  color='text.secondary'
+                  sx={{ mt: 1, display: 'block' }}
+                >
+                  登録日:{' '}
+                  {new Date(video.createdAt).toLocaleDateString('ja-JP')}
                 </Typography>
               </CardContent>
             </Card>
@@ -387,7 +403,7 @@ const VideoList: React.FC<VideoListProps> = ({
             count={totalPages}
             page={currentPage}
             onChange={(_, page) => setCurrentPage(page)}
-            color="primary"
+            color='primary'
           />
         </Box>
       )}
@@ -403,7 +419,7 @@ const VideoList: React.FC<VideoListProps> = ({
             <EditIcon sx={{ mr: 1 }} />
             編集
           </MenuItemComponent>
-          <MenuItemComponent 
+          <MenuItemComponent
             onClick={() => selectedVideo && handleDeleteClick(selectedVideo)}
             sx={{ color: 'error.main' }}
           >
@@ -426,10 +442,12 @@ const VideoList: React.FC<VideoListProps> = ({
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>
-            キャンセル
-          </Button>
-          <Button onClick={handleDeleteConfirm} color="error" variant="contained">
+          <Button onClick={() => setDeleteDialogOpen(false)}>キャンセル</Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            color='error'
+            variant='contained'
+          >
             削除
           </Button>
         </DialogActions>
