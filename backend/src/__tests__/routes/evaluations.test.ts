@@ -11,6 +11,14 @@ import { it } from 'node:test';
 import { describe } from 'node:test';
 import { it } from 'node:test';
 import { it } from 'node:test';
+import { beforeEach } from 'node:test';
+import { describe } from 'node:test';
+import { it } from 'node:test';
+import { it } from 'node:test';
+import { beforeEach } from 'node:test';
+import { describe } from 'node:test';
+import { it } from 'node:test';
+import { it } from 'node:test';
 import { it } from 'node:test';
 import { beforeEach } from 'node:test';
 import { describe } from 'node:test';
@@ -402,6 +410,104 @@ describe('Evaluations API', () => {
 
       expect(response.body.status).toBe('error');
       expect(response.body.message).toContain('すべての評価項目を入力');
+    });
+  });
+
+  describe('PUT /api/evaluations/session/:sessionId/comments/:commentId', () => {
+    let testComment: any;
+
+    beforeEach(async () => {
+      await Evaluation.create({
+        sessionId: testSession._id,
+        userId: testUser._id,
+        scores: [],
+        comments: [],
+        isComplete: false
+      });
+
+      // コメントを追加
+      await request(app)
+        .post(`/api/evaluations/session/${testSession._id}/comments`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ timestamp: 60, text: '元のコメント' });
+
+      // 評価を再取得してコメントIDを取得
+      const evaluation = await Evaluation.findOne({
+        sessionId: testSession._id,
+        userId: testUser._id
+      });
+      testComment = evaluation?.comments[0];
+    });
+
+    it('コメントを更新できる', async () => {
+      const updatedText = '更新されたコメント';
+
+      const response = await request(app)
+        .put(`/api/evaluations/session/${testSession._id}/comments/${testComment.id}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ text: updatedText })
+        .expect(200);
+
+      expect(response.body.status).toBe('success');
+      expect(response.body.data.comment.text).toBe(updatedText);
+    });
+
+    it('空のコメントは更新できない', async () => {
+      const response = await request(app)
+        .put(`/api/evaluations/session/${testSession._id}/comments/${testComment.id}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ text: '' })
+        .expect(400);
+
+      expect(response.body.status).toBe('error');
+      expect(response.body.message).toContain('コメント内容は必須');
+    });
+  });
+
+  describe('DELETE /api/evaluations/session/:sessionId/comments/:commentId', () => {
+    let testComment: unknown;
+
+    beforeEach(async () => {
+      await Evaluation.create({
+        sessionId: testSession._id,
+        userId: testUser._id,
+        scores: [],
+        comments: [],
+        isComplete: false
+      });
+
+      // コメントを追加
+      await request(app)
+        .post(`/api/evaluations/session/${testSession._id}/comments`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ timestamp: 60, text: 'テストコメント' });
+
+      // 評価を再取得してコメントIDを取得
+      const evaluation = await Evaluation.findOne({
+        sessionId: testSession._id,
+        userId: testUser._id
+      });
+      testComment = evaluation?.comments[0];
+    });
+
+    it('コメントを削除できる', async () => {
+      const response = await request(app)
+        .delete(`/api/evaluations/session/${testSession._id}/comments/${testComment.id}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+
+      expect(response.body.status).toBe('success');
+      expect(response.body.message).toContain('削除されました');
+    });
+
+    it('存在しないコメントは削除できない', async () => {
+      const response = await request(app)
+        .delete(`/api/evaluations/session/${testSession._id}/comments/507f1f77bcf86cd799439011`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(404);
+
+      expect(response.body.status).toBe('error');
+      expect(response.body.message).toContain('コメントが見つかりません');
     });
   });
 

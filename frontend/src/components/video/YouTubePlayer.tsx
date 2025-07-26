@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react';
 import {
   Box,
   IconButton,
@@ -28,11 +28,19 @@ interface YouTubePlayerComponentProps {
   seekToTime?: number;
   autoplay?: boolean;
   showControls?: boolean;
-  height?: number;
-  width?: number;
+  height?: number | string;
+  width?: number | string;
 }
 
-const YouTubePlayerComponent: React.FC<YouTubePlayerComponentProps> = ({
+export interface YouTubePlayerRef {
+  seekTo: (time: number) => void;
+  getCurrentTime: () => number;
+  getDuration: () => number;
+  play: () => void;
+  pause: () => void;
+}
+
+const YouTubePlayerComponent = forwardRef<YouTubePlayerRef, YouTubePlayerComponentProps>(({
   videoId,
   onTimeUpdate,
   onDurationChange,
@@ -42,7 +50,7 @@ const YouTubePlayerComponent: React.FC<YouTubePlayerComponentProps> = ({
   showControls = true,
   height = 360,
   width = 640,
-}) => {
+}, ref) => {
   const [player, setPlayer] = useState<YouTubePlayer | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -54,6 +62,56 @@ const YouTubePlayerComponent: React.FC<YouTubePlayerComponentProps> = ({
 
   const playerRef = useRef<HTMLDivElement>(null);
   const timeUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 時間追跡の開始
+  const startTimeTracking = useCallback(
+    (playerInstance: YouTubePlayer) => {
+      if (timeUpdateIntervalRef.current) {
+        clearInterval(timeUpdateIntervalRef.current);
+      }
+
+      timeUpdateIntervalRef.current = setInterval(() => {
+        if (
+          playerInstance &&
+          typeof playerInstance.getCurrentTime === 'function'
+        ) {
+          try {
+            const time = playerInstance.getCurrentTime();
+            setCurrentTime(time);
+            onTimeUpdate?.(time);
+          } catch (error) {
+            // エラーログを削除してサイレントに処理
+          }
+        }
+      }, 1000);
+    },
+    [onTimeUpdate]
+  );
+
+  // 外部からアクセス可能なメソッドを公開
+  useImperativeHandle(ref, () => ({
+    seekTo: (time: number) => {
+      if (player) {
+        player.seekTo(time, true);
+      }
+    },
+    getCurrentTime: () => {
+      return player ? player.getCurrentTime() : 0;
+    },
+    getDuration: () => {
+      return player ? player.getDuration() : 0;
+    },
+    play: () => {
+      if (player) {
+        player.playVideo();
+      }
+    },
+    pause: () => {
+      if (player) {
+        player.pauseVideo();
+      }
+    }
+  }), [player]);
 
   // プレーヤーの準備完了時
   const handlePlayerReady: YouTubeProps['onReady'] = useCallback(
@@ -100,30 +158,7 @@ const YouTubePlayerComponent: React.FC<YouTubePlayerComponentProps> = ({
     []
   );
 
-  // 時間追跡の開始
-  const startTimeTracking = useCallback(
-    (playerInstance: YouTubePlayer) => {
-      if (timeUpdateIntervalRef.current) {
-        clearInterval(timeUpdateIntervalRef.current);
-      }
 
-      timeUpdateIntervalRef.current = setInterval(() => {
-        if (
-          playerInstance &&
-          typeof playerInstance.getCurrentTime === 'function'
-        ) {
-          try {
-            const time = playerInstance.getCurrentTime();
-            setCurrentTime(time);
-            onTimeUpdate?.(time);
-          } catch (error) {
-            console.warn('Failed to get current time:', error);
-          }
-        }
-      }, 1000);
-    },
-    [onTimeUpdate]
-  );
 
   // 外部からの時間指定
   useEffect(() => {
@@ -246,8 +281,8 @@ const YouTubePlayerComponent: React.FC<YouTubePlayerComponentProps> = ({
   };
 
   const opts: YouTubeProps['opts'] = {
-    height: height.toString(),
-    width: width.toString(),
+    height: typeof height === 'string' ? height : height.toString(),
+    width: typeof width === 'string' ? width : width.toString(),
     playerVars: {
       autoplay: autoplay ? 1 : 0,
       controls: showControls ? 0 : 1, // カスタムコントロールを使用する場合は0
@@ -366,6 +401,6 @@ const YouTubePlayerComponent: React.FC<YouTubePlayerComponentProps> = ({
       )}
     </Box>
   );
-};
+});
 
 export default YouTubePlayerComponent;
