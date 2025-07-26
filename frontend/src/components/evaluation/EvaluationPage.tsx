@@ -10,18 +10,24 @@ import {
   Tabs,
   Tab,
   Paper,
-  Divider
+  Divider,
 } from '@mui/material';
 import {
   VideoLibrary as VideoIcon,
   Assessment as AssessmentIcon,
-  Schedule as ScheduleIcon
+  Schedule as ScheduleIcon,
 } from '@mui/icons-material';
 import { useParams } from 'react-router-dom';
 import EvaluationForm from './EvaluationForm';
 import TimelineComments from './TimelineComments';
-import YouTubePlayerComponent, { YouTubePlayerRef } from '../video/YouTubePlayer';
-import { EvaluationData, Comment, evaluationService } from '../../services/evaluationService';
+import YouTubePlayerComponent, {
+  YouTubePlayerRef,
+} from '../video/YouTubePlayer';
+import {
+  EvaluationData,
+  Comment,
+  evaluationService,
+} from '../../services/evaluationService';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -37,7 +43,9 @@ const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => (
 
 const EvaluationPage: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
-  const [evaluationData, setEvaluationData] = useState<EvaluationData | null>(null);
+  const [evaluationData, setEvaluationData] = useState<EvaluationData | null>(
+    null
+  );
   const [comments, setComments] = useState<Comment[]>([]);
   const [currentTime, setCurrentTime] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -54,13 +62,15 @@ const EvaluationPage: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        
+
         const data = await evaluationService.getEvaluation(sessionId);
         setEvaluationData(data);
         setComments(data.evaluation.comments || []);
         setIsSubmitted(!!data.evaluation.submittedAt);
       } catch (err: any) {
-        setError(err.response?.data?.message || '評価データの読み込みに失敗しました');
+        setError(
+          err.response?.data?.message || '評価データの読み込みに失敗しました'
+        );
       } finally {
         setLoading(false);
       }
@@ -99,7 +109,12 @@ const EvaluationPage: React.FC = () => {
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+      <Box
+        display='flex'
+        justifyContent='center'
+        alignItems='center'
+        minHeight='400px'
+      >
         <CircularProgress />
       </Box>
     );
@@ -107,7 +122,7 @@ const EvaluationPage: React.FC = () => {
 
   if (error || !evaluationData) {
     return (
-      <Alert severity="error">
+      <Alert severity='error'>
         {error || '評価データを読み込めませんでした'}
       </Alert>
     );
@@ -117,14 +132,14 @@ const EvaluationPage: React.FC = () => {
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* ヘッダー */}
       <Paper sx={{ p: 2, mb: 2 }}>
-        <Typography variant="h4" gutterBottom>
+        <Typography variant='h4' gutterBottom>
           {evaluationData.session.name}
         </Typography>
-        <Typography variant="subtitle1" color="text.secondary">
+        <Typography variant='subtitle1' color='text.secondary'>
           動画: {evaluationData.session.video.title}
         </Typography>
         {isSubmitted && (
-          <Alert severity="success" sx={{ mt: 1 }}>
+          <Alert severity='success' sx={{ mt: 1 }}>
             評価は提出済みです。結果を確認できます。
           </Alert>
         )}
@@ -132,20 +147,33 @@ const EvaluationPage: React.FC = () => {
 
       <Grid container spacing={2} sx={{ flex: 1, overflow: 'hidden' }}>
         {/* 左側: 動画プレーヤー */}
-        <Grid item xs={12} md={6} sx={{ display: 'flex', flexDirection: 'column' }}>
+        <Grid
+          item
+          xs={12}
+          md={6}
+          sx={{ display: 'flex', flexDirection: 'column' }}
+        >
           <Card sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-              <Typography variant="h6" display="flex" alignItems="center" gap={1} mb={2}>
+            <CardContent
+              sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}
+            >
+              <Typography
+                variant='h6'
+                display='flex'
+                alignItems='center'
+                gap={1}
+                mb={2}
+              >
                 <VideoIcon />
                 動画再生
               </Typography>
-              
+
               <Box sx={{ flex: 1, minHeight: 300 }}>
                 <YouTubePlayerComponent
                   ref={playerRef}
                   videoId={evaluationData.session.video.youtubeId}
                   onTimeUpdate={handleTimeUpdate}
-                  height="100%"
+                  height='100%'
                 />
               </Box>
             </CardContent>
@@ -165,19 +193,24 @@ const EvaluationPage: React.FC = () => {
         </Grid>
 
         {/* 右側: 評価フォーム */}
-        <Grid item xs={12} md={6} sx={{ display: 'flex', flexDirection: 'column' }}>
+        <Grid
+          item
+          xs={12}
+          md={6}
+          sx={{ display: 'flex', flexDirection: 'column' }}
+        >
           <Card sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
               <Tabs value={activeTab} onChange={handleTabChange}>
                 <Tab
-                  label="評価フォーム"
+                  label='評価フォーム'
                   icon={<AssessmentIcon />}
-                  iconPosition="start"
+                  iconPosition='start'
                 />
                 <Tab
                   label={`コメント (${comments.length})`}
                   icon={<ScheduleIcon />}
-                  iconPosition="start"
+                  iconPosition='start'
                 />
               </Tabs>
             </Box>
@@ -194,15 +227,19 @@ const EvaluationPage: React.FC = () => {
 
               <TabPanel value={activeTab} index={1}>
                 <Box sx={{ p: 2 }}>
-                  <Typography variant="h6" gutterBottom>
+                  <Typography variant='h6' gutterBottom>
                     タイムラインコメント
                   </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  <Typography
+                    variant='body2'
+                    color='text.secondary'
+                    sx={{ mb: 2 }}
+                  >
                     動画の特定の時点に関するコメントです。タイムスタンプをクリックすると該当箇所にジャンプします。
                   </Typography>
-                  
+
                   {comments.length === 0 ? (
-                    <Alert severity="info">
+                    <Alert severity='info'>
                       まだコメントがありません。動画を見ながら気になった箇所にコメントを追加してください。
                     </Alert>
                   ) : (
@@ -210,24 +247,43 @@ const EvaluationPage: React.FC = () => {
                       {comments
                         .sort((a, b) => a.timestamp - b.timestamp)
                         .map((comment, index) => (
-                          <Card key={comment.id || index} variant="outlined" sx={{ mb: 2 }}>
+                          <Card
+                            key={comment.id || index}
+                            variant='outlined'
+                            sx={{ mb: 2 }}
+                          >
                             <CardContent>
-                              <Box display="flex" alignItems="center" gap={1} mb={1}>
+                              <Box
+                                display='flex'
+                                alignItems='center'
+                                gap={1}
+                                mb={1}
+                              >
                                 <Typography
-                                  variant="body2"
-                                  color="primary"
+                                  variant='body2'
+                                  color='primary'
                                   sx={{ cursor: 'pointer', fontWeight: 'bold' }}
-                                  onClick={() => handleSeekTo(comment.timestamp)}
+                                  onClick={() =>
+                                    handleSeekTo(comment.timestamp)
+                                  }
                                 >
-                                  {Math.floor(comment.timestamp / 60)}:{(comment.timestamp % 60).toFixed(0).padStart(2, '0')}
+                                  {Math.floor(comment.timestamp / 60)}:
+                                  {(comment.timestamp % 60)
+                                    .toFixed(0)
+                                    .padStart(2, '0')}
                                 </Typography>
                                 {comment.createdAt && (
-                                  <Typography variant="caption" color="text.secondary">
-                                    {new Date(comment.createdAt).toLocaleString('ja-JP')}
+                                  <Typography
+                                    variant='caption'
+                                    color='text.secondary'
+                                  >
+                                    {new Date(comment.createdAt).toLocaleString(
+                                      'ja-JP'
+                                    )}
                                   </Typography>
                                 )}
                               </Box>
-                              <Typography variant="body2">
+                              <Typography variant='body2'>
                                 {comment.text}
                               </Typography>
                             </CardContent>

@@ -17,7 +17,7 @@ import {
   Alert,
   Divider,
   Chip,
-  CircularProgress
+  CircularProgress,
 } from '@mui/material';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -26,7 +26,10 @@ import { ja } from 'date-fns/locale';
 import { Video, Template, Session } from '../../types';
 import { videoService } from '../../services/videoService';
 import { templateService } from '../../services/templateService';
-import { sessionService, CreateSessionRequest } from '../../services/sessionService';
+import {
+  sessionService,
+  CreateSessionRequest,
+} from '../../services/sessionService';
 
 interface SessionCreationFormProps {
   onSessionCreated?: (session: Session) => void;
@@ -54,7 +57,7 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
   onSessionCreated,
   onCancel,
   initialVideoId = '',
-  initialTemplateId = ''
+  initialTemplateId = '',
 }) => {
   const [formData, setFormData] = useState<FormData>({
     name: '',
@@ -67,14 +70,16 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
       allowAnonymous: false,
       requireComments: false,
       showRealTimeResults: true,
-      maxEvaluationsPerUser: 1
-    }
+      maxEvaluationsPerUser: 1,
+    },
   });
 
   const [videos, setVideos] = useState<Video[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(
+    null
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingData, setLoadingData] = useState(true);
@@ -86,9 +91,9 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
         setLoadingData(true);
         const [videosData, templatesData] = await Promise.all([
           videoService.getVideos({ page: 1, limit: 100 }),
-          templateService.getTemplates({ page: 1, limit: 100 })
+          templateService.getTemplates({ page: 1, limit: 100 }),
         ]);
-        
+
         setVideos(videosData.videos);
         setTemplates(templatesData.templates);
 
@@ -97,9 +102,11 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
           const video = videosData.videos.find(v => v.id === initialVideoId);
           if (video) setSelectedVideo(video);
         }
-        
+
         if (initialTemplateId) {
-          const template = templatesData.templates.find(t => t.id === initialTemplateId);
+          const template = templatesData.templates.find(
+            t => t.id === initialTemplateId
+          );
           if (template) setSelectedTemplate(template);
         }
       } catch (err) {
@@ -116,17 +123,20 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
   const handleInputChange = (field: keyof FormData, value: any) => {
     setFormData(prev => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   };
 
-  const handleSettingsChange = (field: keyof FormData['settings'], value: any) => {
+  const handleSettingsChange = (
+    field: keyof FormData['settings'],
+    value: any
+  ) => {
     setFormData(prev => ({
       ...prev,
       settings: {
         ...prev.settings,
-        [field]: value
-      }
+        [field]: value,
+      },
     }));
   };
 
@@ -134,7 +144,7 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
     const video = videos.find(v => v.id === videoId);
     setSelectedVideo(video || null);
     handleInputChange('videoId', videoId);
-    
+
     // 動画が選択されたら、動画名を基にセッション名を自動生成
     if (video && !formData.name) {
       const sessionName = `${video.title} の評価セッション`;
@@ -158,10 +168,17 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
     if (!formData.templateId) {
       return '評価テンプレートを選択してください';
     }
-    if (formData.startDate && formData.endDate && formData.startDate >= formData.endDate) {
+    if (
+      formData.startDate &&
+      formData.endDate &&
+      formData.startDate >= formData.endDate
+    ) {
       return '終了日時は開始日時より後に設定してください';
     }
-    if (formData.settings.maxEvaluationsPerUser < 1 || formData.settings.maxEvaluationsPerUser > 10) {
+    if (
+      formData.settings.maxEvaluationsPerUser < 1 ||
+      formData.settings.maxEvaluationsPerUser > 10
+    ) {
       return '最大評価回数は1〜10の範囲で設定してください';
     }
     return null;
@@ -169,7 +186,7 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const validationError = validateForm();
     if (validationError) {
       setError(validationError);
@@ -187,11 +204,11 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
         templateId: formData.templateId,
         startDate: formData.startDate || undefined,
         endDate: formData.endDate || undefined,
-        settings: formData.settings
+        settings: formData.settings,
       };
 
       const createdSession = await sessionService.createSession(sessionData);
-      
+
       if (onSessionCreated) {
         onSessionCreated(createdSession);
       }
@@ -205,7 +222,12 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
 
   if (loadingData) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+      <Box
+        display='flex'
+        justifyContent='center'
+        alignItems='center'
+        minHeight='400px'
+      >
         <CircularProgress />
       </Box>
     );
@@ -215,13 +237,13 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ja}>
       <Card>
         <CardHeader
-          title="新しい評価セッションを作成"
-          subheader="動画の評価セッションを設定してください"
+          title='新しい評価セッションを作成'
+          subheader='動画の評価セッションを設定してください'
         />
         <CardContent>
           <form onSubmit={handleSubmit}>
             {error && (
-              <Alert severity="error" sx={{ mb: 2 }}>
+              <Alert severity='error' sx={{ mb: 2 }}>
                 {error}
               </Alert>
             )}
@@ -229,7 +251,7 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
             <Grid container spacing={3}>
               {/* 基本情報 */}
               <Grid item xs={12}>
-                <Typography variant="h6" gutterBottom>
+                <Typography variant='h6' gutterBottom>
                   基本情報
                 </Typography>
               </Grid>
@@ -237,30 +259,32 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  label="セッション名"
+                  label='セッション名'
                   value={formData.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
+                  onChange={e => handleInputChange('name', e.target.value)}
                   required
-                  placeholder="例: 第50回よさこい祭り 決勝戦評価"
+                  placeholder='例: 第50回よさこい祭り 決勝戦評価'
                 />
               </Grid>
 
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  label="説明"
+                  label='説明'
                   value={formData.description}
-                  onChange={(e) => handleInputChange('description', e.target.value)}
+                  onChange={e =>
+                    handleInputChange('description', e.target.value)
+                  }
                   multiline
                   rows={3}
-                  placeholder="セッションの目的や注意事項を記載してください"
+                  placeholder='セッションの目的や注意事項を記載してください'
                 />
               </Grid>
 
               {/* 動画選択 */}
               <Grid item xs={12}>
                 <Divider sx={{ my: 2 }} />
-                <Typography variant="h6" gutterBottom>
+                <Typography variant='h6' gutterBottom>
                   評価対象動画
                 </Typography>
               </Grid>
@@ -270,15 +294,16 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
                   <InputLabel>動画を選択</InputLabel>
                   <Select
                     value={formData.videoId}
-                    onChange={(e) => handleVideoChange(e.target.value)}
-                    label="動画を選択"
+                    onChange={e => handleVideoChange(e.target.value)}
+                    label='動画を選択'
                   >
-                    {videos.map((video) => (
+                    {videos.map(video => (
                       <MenuItem key={video.id} value={video.id}>
                         <Box>
-                          <Typography variant="body1">{video.title}</Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {video.metadata.teamName && `${video.metadata.teamName} - `}
+                          <Typography variant='body1'>{video.title}</Typography>
+                          <Typography variant='caption' color='text.secondary'>
+                            {video.metadata.teamName &&
+                              `${video.metadata.teamName} - `}
                             {video.channelName}
                           </Typography>
                         </Box>
@@ -290,23 +315,25 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
 
               {selectedVideo && (
                 <Grid item xs={12}>
-                  <Card variant="outlined">
+                  <Card variant='outlined'>
                     <CardContent>
-                      <Box display="flex" gap={2}>
+                      <Box display='flex' gap={2}>
                         <img
                           src={selectedVideo.thumbnailUrl}
                           alt={selectedVideo.title}
                           style={{ width: 120, height: 90, objectFit: 'cover' }}
                         />
                         <Box flex={1}>
-                          <Typography variant="subtitle1">{selectedVideo.title}</Typography>
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography variant='subtitle1'>
+                            {selectedVideo.title}
+                          </Typography>
+                          <Typography variant='body2' color='text.secondary'>
                             {selectedVideo.channelName}
                           </Typography>
                           {selectedVideo.metadata.teamName && (
                             <Chip
                               label={selectedVideo.metadata.teamName}
-                              size="small"
+                              size='small'
                               sx={{ mt: 1 }}
                             />
                           )}
@@ -320,7 +347,7 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
               {/* テンプレート選択 */}
               <Grid item xs={12}>
                 <Divider sx={{ my: 2 }} />
-                <Typography variant="h6" gutterBottom>
+                <Typography variant='h6' gutterBottom>
                   評価テンプレート
                 </Typography>
               </Grid>
@@ -330,14 +357,16 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
                   <InputLabel>テンプレートを選択</InputLabel>
                   <Select
                     value={formData.templateId}
-                    onChange={(e) => handleTemplateChange(e.target.value)}
-                    label="テンプレートを選択"
+                    onChange={e => handleTemplateChange(e.target.value)}
+                    label='テンプレートを選択'
                   >
-                    {templates.map((template) => (
+                    {templates.map(template => (
                       <MenuItem key={template.id} value={template.id}>
                         <Box>
-                          <Typography variant="body1">{template.name}</Typography>
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant='body1'>
+                            {template.name}
+                          </Typography>
+                          <Typography variant='caption' color='text.secondary'>
                             {template.description}
                           </Typography>
                         </Box>
@@ -349,19 +378,25 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
 
               {selectedTemplate && (
                 <Grid item xs={12}>
-                  <Card variant="outlined">
+                  <Card variant='outlined'>
                     <CardContent>
-                      <Typography variant="subtitle1">{selectedTemplate.name}</Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      <Typography variant='subtitle1'>
+                        {selectedTemplate.name}
+                      </Typography>
+                      <Typography
+                        variant='body2'
+                        color='text.secondary'
+                        sx={{ mb: 1 }}
+                      >
                         {selectedTemplate.description}
                       </Typography>
-                      <Box display="flex" flexWrap="wrap" gap={1}>
-                        {selectedTemplate.categories.map((category) => (
+                      <Box display='flex' flexWrap='wrap' gap={1}>
+                        {selectedTemplate.categories.map(category => (
                           <Chip
                             key={category.id}
                             label={`${category.name} (${category.criteria.length}項目)`}
-                            size="small"
-                            variant="outlined"
+                            size='small'
+                            variant='outlined'
                           />
                         ))}
                       </Box>
@@ -373,35 +408,35 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
               {/* 日時設定 */}
               <Grid item xs={12}>
                 <Divider sx={{ my: 2 }} />
-                <Typography variant="h6" gutterBottom>
+                <Typography variant='h6' gutterBottom>
                   評価期間
                 </Typography>
               </Grid>
 
               <Grid item xs={12} md={6}>
                 <DateTimePicker
-                  label="開始日時"
+                  label='開始日時'
                   value={formData.startDate}
-                  onChange={(date) => handleInputChange('startDate', date)}
+                  onChange={date => handleInputChange('startDate', date)}
                   slotProps={{
                     textField: {
                       fullWidth: true,
-                      helperText: '未設定の場合は即座に開始されます'
-                    }
+                      helperText: '未設定の場合は即座に開始されます',
+                    },
                   }}
                 />
               </Grid>
 
               <Grid item xs={12} md={6}>
                 <DateTimePicker
-                  label="終了日時"
+                  label='終了日時'
                   value={formData.endDate}
-                  onChange={(date) => handleInputChange('endDate', date)}
+                  onChange={date => handleInputChange('endDate', date)}
                   slotProps={{
                     textField: {
                       fullWidth: true,
-                      helperText: '未設定の場合は手動で終了します'
-                    }
+                      helperText: '未設定の場合は手動で終了します',
+                    },
                   }}
                 />
               </Grid>
@@ -409,7 +444,7 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
               {/* 設定オプション */}
               <Grid item xs={12}>
                 <Divider sx={{ my: 2 }} />
-                <Typography variant="h6" gutterBottom>
+                <Typography variant='h6' gutterBottom>
                   評価設定
                 </Typography>
               </Grid>
@@ -419,10 +454,12 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
                   control={
                     <Switch
                       checked={formData.settings.allowAnonymous}
-                      onChange={(e) => handleSettingsChange('allowAnonymous', e.target.checked)}
+                      onChange={e =>
+                        handleSettingsChange('allowAnonymous', e.target.checked)
+                      }
                     />
                   }
-                  label="匿名評価を許可"
+                  label='匿名評価を許可'
                 />
               </Grid>
 
@@ -431,10 +468,15 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
                   control={
                     <Switch
                       checked={formData.settings.requireComments}
-                      onChange={(e) => handleSettingsChange('requireComments', e.target.checked)}
+                      onChange={e =>
+                        handleSettingsChange(
+                          'requireComments',
+                          e.target.checked
+                        )
+                      }
                     />
                   }
-                  label="コメント入力を必須にする"
+                  label='コメント入力を必須にする'
                 />
               </Grid>
 
@@ -443,31 +485,46 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
                   control={
                     <Switch
                       checked={formData.settings.showRealTimeResults}
-                      onChange={(e) => handleSettingsChange('showRealTimeResults', e.target.checked)}
+                      onChange={e =>
+                        handleSettingsChange(
+                          'showRealTimeResults',
+                          e.target.checked
+                        )
+                      }
                     />
                   }
-                  label="リアルタイム結果表示"
+                  label='リアルタイム結果表示'
                 />
               </Grid>
 
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
-                  type="number"
-                  label="1人あたりの最大評価回数"
+                  type='number'
+                  label='1人あたりの最大評価回数'
                   value={formData.settings.maxEvaluationsPerUser}
-                  onChange={(e) => handleSettingsChange('maxEvaluationsPerUser', parseInt(e.target.value))}
+                  onChange={e =>
+                    handleSettingsChange(
+                      'maxEvaluationsPerUser',
+                      parseInt(e.target.value)
+                    )
+                  }
                   inputProps={{ min: 1, max: 10 }}
-                  helperText="1〜10回まで設定可能"
+                  helperText='1〜10回まで設定可能'
                 />
               </Grid>
 
               {/* アクションボタン */}
               <Grid item xs={12}>
-                <Box display="flex" justifyContent="flex-end" gap={2} sx={{ mt: 2 }}>
+                <Box
+                  display='flex'
+                  justifyContent='flex-end'
+                  gap={2}
+                  sx={{ mt: 2 }}
+                >
                   {onCancel && (
                     <Button
-                      variant="outlined"
+                      variant='outlined'
                       onClick={onCancel}
                       disabled={loading}
                     >
@@ -475,8 +532,8 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
                     </Button>
                   )}
                   <Button
-                    type="submit"
-                    variant="contained"
+                    type='submit'
+                    variant='contained'
                     disabled={loading}
                     startIcon={loading ? <CircularProgress size={20} /> : null}
                   >

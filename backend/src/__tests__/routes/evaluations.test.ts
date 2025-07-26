@@ -7,39 +7,6 @@ import { Template } from '../../models/Template';
 import { User } from '../../models/User';
 import { connectDB, disconnectDB } from '../setup';
 import jwt from 'jsonwebtoken';
-import { it } from 'node:test';
-import { describe } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { beforeEach } from 'node:test';
-import { describe } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { beforeEach } from 'node:test';
-import { describe } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { beforeEach } from 'node:test';
-import { describe } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { beforeEach } from 'node:test';
-import { describe } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { beforeEach } from 'node:test';
-import { describe } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { describe } from 'node:test';
-import { afterEach } from 'node:test';
-import { beforeEach } from 'node:test';
-import { describe } from 'node:test';
 
 describe('Evaluations API', () => {
   let authToken: string;
@@ -410,6 +377,23 @@ describe('Evaluations API', () => {
 
       expect(response.body.status).toBe('error');
       expect(response.body.message).toContain('すべての評価項目を入力');
+      expect(response.body.data.completionDetails).toBeDefined();
+      expect(response.body.data.completionDetails.isComplete).toBe(false);
+      expect(response.body.data.missingCriteria).toBeDefined();
+    });
+
+    it('提出時に詳細なサマリーを返す', async () => {
+      const response = await request(app)
+        .post(`/api/evaluations/session/${testSession._id}/submit`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+
+      expect(response.body.status).toBe('success');
+      expect(response.body.data.evaluation.submittedAt).toBeDefined();
+      expect(response.body.data.submissionSummary).toBeDefined();
+      expect(response.body.data.submissionSummary.totalScores).toBe(2);
+      expect(response.body.data.submissionSummary.sessionName).toBe(testSession.name);
+      expect(response.body.data.submissionSummary.completionDetails).toBeDefined();
     });
   });
 
@@ -465,7 +449,7 @@ describe('Evaluations API', () => {
   });
 
   describe('DELETE /api/evaluations/session/:sessionId/comments/:commentId', () => {
-    let testComment: unknown;
+    let testComment: any;
 
     beforeEach(async () => {
       await Evaluation.create({
@@ -508,6 +492,90 @@ describe('Evaluations API', () => {
 
       expect(response.body.status).toBe('error');
       expect(response.body.message).toContain('コメントが見つかりません');
+    });
+  });
+
+  describe('GET /api/evaluations/session/:sessionId/submission-status', () => {
+    let testEvaluation: any;
+
+    beforeEach(async () => {
+      testEvaluation = await Evaluation.create({
+        sessionId: testSession._id,
+        userId: testUser._id,
+        scores: [],
+        comments: [],
+        isComplete: false
+      });
+
+      // スコアとコメントを個別に追加
+      testEvaluation.scores.push({
+        evaluationId: testEvaluation._id,
+        criterionId: 'crit1',
+        score: 8,
+        comment: 'とても良い'
+      });
+
+      testEvaluation.comments.push({
+        evaluationId: testEvaluation._id,
+        userId: testUser._id,
+        timestamp: 60,
+        text: 'テストコメント',
+        createdAt: new Date()
+      });
+
+      await testEvaluation.save();
+    });
+
+    it('提出前の状況を確認できる', async () => {
+      const response = await request(app)
+        .get(`/api/evaluations/session/${testSession._id}/submission-status`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+
+      expect(response.body.status).toBe('success');
+      expect(response.body.data.isSubmitted).toBe(false);
+      expect(response.body.data.submittedAt).toBeUndefined();
+      expect(response.body.data.totalScores).toBe(1);
+      expect(response.body.data.totalComments).toBe(1);
+      expect(response.body.data.completionDetails).toBeDefined();
+      expect(response.body.data.completionDetails.isComplete).toBe(false);
+    });
+
+    it('提出後の状況を確認できる', async () => {
+      // 評価を完了させて提出
+      testEvaluation.scores.push({
+        evaluationId: testEvaluation._id,
+        criterionId: 'crit2',
+        score: 4,
+        comment: '普通'
+      });
+      await testEvaluation.save();
+
+      await request(app)
+        .post(`/api/evaluations/session/${testSession._id}/submit`)
+        .set('Authorization', `Bearer ${authToken}`);
+
+      const response = await request(app)
+        .get(`/api/evaluations/session/${testSession._id}/submission-status`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200);
+
+      expect(response.body.status).toBe('success');
+      expect(response.body.data.isSubmitted).toBe(true);
+      expect(response.body.data.submittedAt).toBeDefined();
+      expect(response.body.data.isComplete).toBe(true);
+      expect(response.body.data.totalScores).toBe(2);
+      expect(response.body.data.completionDetails.isComplete).toBe(true);
+    });
+
+    it('存在しないセッションの場合はエラーを返す', async () => {
+      const response = await request(app)
+        .get('/api/evaluations/session/507f1f77bcf86cd799439011/submission-status')
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(404);
+
+      expect(response.body.status).toBe('error');
+      expect(response.body.message).toContain('セッションが見つかりません');
     });
   });
 

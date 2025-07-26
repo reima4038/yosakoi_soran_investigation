@@ -67,19 +67,24 @@ class SessionService {
   /**
    * セッション一覧を取得する
    */
-  async getSessions(params: SessionListParams = {}): Promise<SessionListResponse> {
+  async getSessions(
+    params: SessionListParams = {}
+  ): Promise<SessionListResponse> {
     try {
       const queryParams = new URLSearchParams();
-      
+
       if (params.status) queryParams.append('status', params.status);
       if (params.page) queryParams.append('page', params.page.toString());
       if (params.limit) queryParams.append('limit', params.limit.toString());
 
-      const url = queryParams.toString() 
+      const url = queryParams.toString()
         ? `${this.baseUrl}?${queryParams.toString()}`
         : this.baseUrl;
 
-      const response = await api.get<{ status: string; data: SessionListResponse }>(url);
+      const response = await api.get<{
+        status: string;
+        data: SessionListResponse;
+      }>(url);
       return response.data.data;
     } catch (error) {
       console.error('セッション一覧取得エラー:', error);
@@ -105,7 +110,10 @@ class SessionService {
   /**
    * セッションを更新する
    */
-  async updateSession(sessionId: string, updates: UpdateSessionRequest): Promise<Session> {
+  async updateSession(
+    sessionId: string,
+    updates: UpdateSessionRequest
+  ): Promise<Session> {
     try {
       const response = await api.put<{ status: string; data: Session }>(
         `${this.baseUrl}/${sessionId}`,
@@ -133,7 +141,10 @@ class SessionService {
   /**
    * セッションのステータスを変更する
    */
-  async updateSessionStatus(sessionId: string, status: SessionStatus): Promise<Session> {
+  async updateSessionStatus(
+    sessionId: string,
+    status: SessionStatus
+  ): Promise<Session> {
     try {
       return await this.updateSession(sessionId, { status } as any);
     } catch (error) {
@@ -166,7 +177,11 @@ class SessionService {
   /**
    * 評価者を招待する
    */
-  async inviteEvaluators(sessionId: string, emails: string[], message?: string): Promise<any> {
+  async inviteEvaluators(
+    sessionId: string,
+    emails: string[],
+    message?: string
+  ): Promise<any> {
     try {
       const response = await api.post<{ status: string; data: any }>(
         `${this.baseUrl}/${sessionId}/invite`,
@@ -182,7 +197,11 @@ class SessionService {
   /**
    * 招待リンクでセッションに参加する
    */
-  async joinSession(sessionId: string, token: string, userInfo?: any): Promise<any> {
+  async joinSession(
+    sessionId: string,
+    token: string,
+    userInfo?: any
+  ): Promise<any> {
     try {
       const response = await api.post<{ status: string; data: any }>(
         `${this.baseUrl}/${sessionId}/join`,
@@ -198,7 +217,10 @@ class SessionService {
   /**
    * セッションステータスを更新する（PATCH版）
    */
-  async patchSessionStatus(sessionId: string, status: SessionStatus): Promise<Session> {
+  async patchSessionStatus(
+    sessionId: string,
+    status: SessionStatus
+  ): Promise<Session> {
     try {
       const response = await api.patch<{ status: string; data: Session }>(
         `${this.baseUrl}/${sessionId}/status`,

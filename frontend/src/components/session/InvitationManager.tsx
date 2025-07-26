@@ -20,7 +20,7 @@ import {
   Alert,
   CircularProgress,
   Divider,
-  InputAdornment
+  InputAdornment,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -28,7 +28,7 @@ import {
   Send as SendIcon,
   ContentCopy as CopyIcon,
   Email as EmailIcon,
-  Link as LinkIcon
+  Link as LinkIcon,
 } from '@mui/icons-material';
 import { Session } from '../../types';
 import { sessionService } from '../../services/sessionService';
@@ -47,7 +47,7 @@ interface Invitation {
 
 const InvitationManager: React.FC<InvitationManagerProps> = ({
   session,
-  onInvitationSent
+  onInvitationSent,
 }) => {
   const [emails, setEmails] = useState<string[]>(['']);
   const [message, setMessage] = useState('');
@@ -78,14 +78,14 @@ const InvitationManager: React.FC<InvitationManagerProps> = ({
   // メールアドレスの検証
   const validateEmails = (): string | null => {
     const validEmails = emails.filter(email => email.trim() !== '');
-    
+
     if (validEmails.length === 0) {
       return '少なくとも1つのメールアドレスを入力してください';
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const invalidEmails = validEmails.filter(email => !emailRegex.test(email));
-    
+
     if (invalidEmails.length > 0) {
       return `無効なメールアドレスがあります: ${invalidEmails.join(', ')}`;
     }
@@ -116,7 +116,7 @@ const InvitationManager: React.FC<InvitationManagerProps> = ({
       setInvitations(result.invitations);
       setSuccess(`${validEmails.length}件の招待を送信しました`);
       setInviteDialogOpen(false);
-      
+
       if (onInvitationSent) {
         onInvitationSent();
       }
@@ -124,7 +124,6 @@ const InvitationManager: React.FC<InvitationManagerProps> = ({
       // フォームをリセット
       setEmails(['']);
       setMessage('');
-
     } catch (err: any) {
       setError(err.response?.data?.message || '招待の送信に失敗しました');
     } finally {
@@ -146,22 +145,31 @@ const InvitationManager: React.FC<InvitationManagerProps> = ({
     <Box>
       {/* エラー・成功メッセージ */}
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+        <Alert severity='error' sx={{ mb: 2 }} onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
-      
+
       {success && (
-        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>
+        <Alert
+          severity='success'
+          sx={{ mb: 2 }}
+          onClose={() => setSuccess(null)}
+        >
           {success}
         </Alert>
       )}
 
       {/* 招待ボタン */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h6">評価者の招待</Typography>
+      <Box
+        display='flex'
+        justifyContent='space-between'
+        alignItems='center'
+        mb={2}
+      >
+        <Typography variant='h6'>評価者の招待</Typography>
         <Button
-          variant="contained"
+          variant='contained'
           startIcon={<SendIcon />}
           onClick={() => setInviteDialogOpen(true)}
           disabled={session.status !== 'active' && session.status !== 'draft'}
@@ -174,7 +182,7 @@ const InvitationManager: React.FC<InvitationManagerProps> = ({
       {invitations.length > 0 && (
         <Card>
           <CardHeader
-            title="招待履歴"
+            title='招待履歴'
             subheader={`${invitations.length}件の招待を送信済み`}
           />
           <CardContent>
@@ -184,29 +192,44 @@ const InvitationManager: React.FC<InvitationManagerProps> = ({
                   <ListItem>
                     <ListItemText
                       primary={
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <EmailIcon fontSize="small" color="action" />
-                          <Typography variant="body1">{invitation.email}</Typography>
+                        <Box display='flex' alignItems='center' gap={1}>
+                          <EmailIcon fontSize='small' color='action' />
+                          <Typography variant='body1'>
+                            {invitation.email}
+                          </Typography>
                           <Chip
-                            label={invitation.status === 'pending' ? '保留中' : 
-                                   invitation.status === 'accepted' ? '承諾済み' : '辞退'}
-                            color={invitation.status === 'pending' ? 'warning' : 
-                                   invitation.status === 'accepted' ? 'success' : 'error'}
-                            size="small"
+                            label={
+                              invitation.status === 'pending'
+                                ? '保留中'
+                                : invitation.status === 'accepted'
+                                  ? '承諾済み'
+                                  : '辞退'
+                            }
+                            color={
+                              invitation.status === 'pending'
+                                ? 'warning'
+                                : invitation.status === 'accepted'
+                                  ? 'success'
+                                  : 'error'
+                            }
+                            size='small'
                           />
                         </Box>
                       }
                       secondary={
-                        <Typography variant="caption" color="text.secondary">
-                          招待日時: {new Date(invitation.invitedAt).toLocaleString('ja-JP')}
+                        <Typography variant='caption' color='text.secondary'>
+                          招待日時:{' '}
+                          {new Date(invitation.invitedAt).toLocaleString(
+                            'ja-JP'
+                          )}
                         </Typography>
                       }
                     />
                     <ListItemSecondaryAction>
                       <IconButton
-                        edge="end"
+                        edge='end'
                         onClick={() => copyInviteLink(invitation.inviteLink)}
-                        title="招待リンクをコピー"
+                        title='招待リンクをコピー'
                       >
                         <CopyIcon />
                       </IconButton>
@@ -224,11 +247,11 @@ const InvitationManager: React.FC<InvitationManagerProps> = ({
       <Dialog
         open={inviteDialogOpen}
         onClose={() => setInviteDialogOpen(false)}
-        maxWidth="md"
+        maxWidth='md'
         fullWidth
       >
         <DialogTitle>
-          <Box display="flex" alignItems="center" gap={1}>
+          <Box display='flex' alignItems='center' gap={1}>
             <SendIcon />
             評価者を招待
           </Box>
@@ -236,14 +259,18 @@ const InvitationManager: React.FC<InvitationManagerProps> = ({
         <DialogContent>
           <Box sx={{ pt: 1 }}>
             {/* セッション情報 */}
-            <Card variant="outlined" sx={{ mb: 3 }}>
+            <Card variant='outlined' sx={{ mb: 3 }}>
               <CardContent>
-                <Typography variant="subtitle1" gutterBottom>
+                <Typography variant='subtitle1' gutterBottom>
                   招待対象セッション
                 </Typography>
-                <Typography variant="h6">{session.name}</Typography>
+                <Typography variant='h6'>{session.name}</Typography>
                 {session.description && (
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  <Typography
+                    variant='body2'
+                    color='text.secondary'
+                    sx={{ mt: 1 }}
+                  >
                     {session.description}
                   </Typography>
                 )}
@@ -251,37 +278,43 @@ const InvitationManager: React.FC<InvitationManagerProps> = ({
             </Card>
 
             {/* メールアドレス入力 */}
-            <Typography variant="subtitle1" gutterBottom>
+            <Typography variant='subtitle1' gutterBottom>
               招待するメールアドレス
             </Typography>
             {emails.map((email, index) => (
-              <Box key={index} display="flex" alignItems="center" gap={1} mb={2}>
+              <Box
+                key={index}
+                display='flex'
+                alignItems='center'
+                gap={1}
+                mb={2}
+              >
                 <TextField
                   fullWidth
                   label={`メールアドレス ${index + 1}`}
                   value={email}
-                  onChange={(e) => updateEmail(index, e.target.value)}
-                  type="email"
-                  placeholder="example@domain.com"
+                  onChange={e => updateEmail(index, e.target.value)}
+                  type='email'
+                  placeholder='example@domain.com'
                   InputProps={{
                     startAdornment: (
-                      <InputAdornment position="start">
+                      <InputAdornment position='start'>
                         <EmailIcon />
                       </InputAdornment>
-                    )
+                    ),
                   }}
                 />
                 {emails.length > 1 && (
                   <IconButton
                     onClick={() => removeEmailField(index)}
-                    color="error"
+                    color='error'
                   >
                     <DeleteIcon />
                   </IconButton>
                 )}
               </Box>
             ))}
-            
+
             <Button
               startIcon={<AddIcon />}
               onClick={addEmailField}
@@ -293,33 +326,30 @@ const InvitationManager: React.FC<InvitationManagerProps> = ({
             {/* メッセージ */}
             <TextField
               fullWidth
-              label="招待メッセージ（任意）"
+              label='招待メッセージ（任意）'
               value={message}
-              onChange={(e) => setMessage(e.target.value)}
+              onChange={e => setMessage(e.target.value)}
               multiline
               rows={3}
-              placeholder="評価者への追加メッセージを入力してください"
+              placeholder='評価者への追加メッセージを入力してください'
               sx={{ mb: 2 }}
             />
 
             {/* 注意事項 */}
-            <Alert severity="info">
-              <Typography variant="body2">
+            <Alert severity='info'>
+              <Typography variant='body2'>
                 招待リンクは7日間有効です。招待された評価者は、リンクをクリックしてセッションに参加できます。
               </Typography>
             </Alert>
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button
-            onClick={() => setInviteDialogOpen(false)}
-            disabled={loading}
-          >
+          <Button onClick={() => setInviteDialogOpen(false)} disabled={loading}>
             キャンセル
           </Button>
           <Button
             onClick={handleSendInvitations}
-            variant="contained"
+            variant='contained'
             disabled={loading}
             startIcon={loading ? <CircularProgress size={20} /> : <SendIcon />}
           >

@@ -19,7 +19,7 @@ import {
   Alert,
   Tooltip,
   Paper,
-  Divider
+  Divider,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -27,7 +27,7 @@ import {
   Delete as DeleteIcon,
   PlayArrow as PlayArrowIcon,
   Comment as CommentIcon,
-  Schedule as ScheduleIcon
+  Schedule as ScheduleIcon,
 } from '@mui/icons-material';
 import { Comment, evaluationService } from '../../services/evaluationService';
 
@@ -51,7 +51,7 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
   currentTime,
   onSeekTo,
   onCommentsUpdate,
-  readonly = false
+  readonly = false,
 }) => {
   const [newCommentText, setNewCommentText] = useState('');
   const [editingComment, setEditingComment] = useState<Comment | null>(null);
@@ -63,16 +63,17 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
   const timelineRef = useRef<HTMLDivElement>(null);
 
   // 動画の長さを推定（最大コメントタイムスタンプ + バッファ）
-  const videoDuration = Math.max(
-    ...comments.map(c => c.timestamp),
-    currentTime,
-    300 // 最小5分
-  ) + 60; // 1分のバッファ
+  const videoDuration =
+    Math.max(
+      ...comments.map(c => c.timestamp),
+      currentTime,
+      300 // 最小5分
+    ) + 60; // 1分のバッファ
 
   // コメントマーカーの位置を計算
   const commentMarkers: CommentMarker[] = comments.map(comment => ({
     comment,
-    position: (comment.timestamp / videoDuration) * 100
+    position: (comment.timestamp / videoDuration) * 100,
   }));
 
   // 現在時刻の位置を計算
@@ -100,7 +101,7 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
     try {
       setLoading(true);
       setError(null);
-      
+
       const newComment = await evaluationService.addComment(
         sessionId,
         addCommentTime,
@@ -109,7 +110,7 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
 
       const updatedComments = [...comments, newComment];
       onCommentsUpdate(updatedComments);
-      
+
       setNewCommentText('');
       setShowAddDialog(false);
     } catch (err: any) {
@@ -134,18 +135,18 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
     try {
       setLoading(true);
       setError(null);
-      
+
       const updatedComment = await evaluationService.updateComment(
         sessionId,
         editingComment.id!,
         editText.trim()
       );
 
-      const updatedComments = comments.map(c => 
+      const updatedComments = comments.map(c =>
         c.id === editingComment.id ? updatedComment : c
       );
       onCommentsUpdate(updatedComments);
-      
+
       setEditingComment(null);
       setEditText('');
     } catch (err: any) {
@@ -164,9 +165,9 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
     try {
       setLoading(true);
       setError(null);
-      
+
       await evaluationService.deleteComment(sessionId, comment.id!);
-      
+
       const updatedComments = comments.filter(c => c.id !== comment.id);
       onCommentsUpdate(updatedComments);
     } catch (err: any) {
@@ -179,12 +180,12 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
   // タイムラインクリックでシーク
   const handleTimelineClick = (event: React.MouseEvent<HTMLDivElement>) => {
     if (!timelineRef.current) return;
-    
+
     const rect = timelineRef.current.getBoundingClientRect();
     const clickX = event.clientX - rect.left;
     const percentage = (clickX / rect.width) * 100;
     const seekTime = (percentage / 100) * videoDuration;
-    
+
     onSeekTo(Math.max(0, Math.min(seekTime, videoDuration)));
   };
 
@@ -197,7 +198,7 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
     <Box>
       {/* エラー表示 */}
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+        <Alert severity='error' sx={{ mb: 2 }} onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
@@ -205,15 +206,20 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
       {/* タイムライン */}
       <Card sx={{ mb: 2 }}>
         <CardContent>
-          <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
-            <Typography variant="h6" display="flex" alignItems="center" gap={1}>
+          <Box
+            display='flex'
+            alignItems='center'
+            justifyContent='space-between'
+            mb={2}
+          >
+            <Typography variant='h6' display='flex' alignItems='center' gap={1}>
               <ScheduleIcon />
               タイムライン
             </Typography>
             {!readonly && (
               <Button
-                variant="contained"
-                size="small"
+                variant='contained'
+                size='small'
                 startIcon={<AddIcon />}
                 onClick={handleAddComment}
                 disabled={loading}
@@ -232,7 +238,7 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
               backgroundColor: 'grey.100',
               borderRadius: 1,
               cursor: readonly ? 'default' : 'pointer',
-              mb: 1
+              mb: 1,
             }}
             onClick={readonly ? undefined : handleTimelineClick}
           >
@@ -245,21 +251,21 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
                 bottom: 0,
                 width: 2,
                 backgroundColor: 'primary.main',
-                zIndex: 2
+                zIndex: 2,
               }}
             />
-            
+
             {/* 現在時刻ラベル */}
             <Chip
               label={formatTime(currentTime)}
-              size="small"
-              color="primary"
+              size='small'
+              color='primary'
               sx={{
                 position: 'absolute',
                 left: `${Math.min(Math.max(currentTimePosition, 5), 90)}%`,
                 top: -8,
                 transform: 'translateX(-50%)',
-                zIndex: 3
+                zIndex: 3,
               }}
             />
 
@@ -269,10 +275,10 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
                 key={index}
                 title={
                   <Box>
-                    <Typography variant="body2" fontWeight="bold">
+                    <Typography variant='body2' fontWeight='bold'>
                       {formatTime(marker.comment.timestamp)}
                     </Typography>
-                    <Typography variant="body2">
+                    <Typography variant='body2'>
                       {marker.comment.text}
                     </Typography>
                   </Box>
@@ -294,10 +300,10 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
                     zIndex: 1,
                     '&:hover': {
                       backgroundColor: 'secondary.dark',
-                      transform: 'translate(-50%, -50%) scale(1.2)'
-                    }
+                      transform: 'translate(-50%, -50%) scale(1.2)',
+                    },
                   }}
-                  onClick={(e) => {
+                  onClick={e => {
                     e.stopPropagation();
                     handleMarkerClick(marker.comment);
                   }}
@@ -307,7 +313,11 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
           </Box>
 
           {/* 時間軸ラベル */}
-          <Box display="flex" justifyContent="space-between" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+          <Box
+            display='flex'
+            justifyContent='space-between'
+            sx={{ fontSize: '0.75rem', color: 'text.secondary' }}
+          >
             <span>0:00</span>
             <span>{formatTime(videoDuration)}</span>
           </Box>
@@ -317,13 +327,24 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
       {/* コメント一覧 */}
       <Card>
         <CardContent>
-          <Typography variant="h6" display="flex" alignItems="center" gap={1} mb={2}>
+          <Typography
+            variant='h6'
+            display='flex'
+            alignItems='center'
+            gap={1}
+            mb={2}
+          >
             <CommentIcon />
             コメント一覧 ({comments.length})
           </Typography>
 
           {comments.length === 0 ? (
-            <Typography variant="body2" color="text.secondary" textAlign="center" py={4}>
+            <Typography
+              variant='body2'
+              color='text.secondary'
+              textAlign='center'
+              py={4}
+            >
               まだコメントがありません
             </Typography>
           ) : (
@@ -332,27 +353,32 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
                 .sort((a, b) => a.timestamp - b.timestamp)
                 .map((comment, index) => (
                   <React.Fragment key={comment.id || index}>
-                    <ListItem alignItems="flex-start">
+                    <ListItem alignItems='flex-start'>
                       <ListItemText
                         primary={
-                          <Box display="flex" alignItems="center" gap={1}>
+                          <Box display='flex' alignItems='center' gap={1}>
                             <Chip
                               label={formatTime(comment.timestamp)}
-                              size="small"
-                              variant="outlined"
+                              size='small'
+                              variant='outlined'
                               clickable
                               onClick={() => handleMarkerClick(comment)}
                               icon={<PlayArrowIcon />}
                             />
                             {comment.createdAt && (
-                              <Typography variant="caption" color="text.secondary">
-                                {new Date(comment.createdAt).toLocaleString('ja-JP')}
+                              <Typography
+                                variant='caption'
+                                color='text.secondary'
+                              >
+                                {new Date(comment.createdAt).toLocaleString(
+                                  'ja-JP'
+                                )}
                               </Typography>
                             )}
                           </Box>
                         }
                         secondary={
-                          <Typography variant="body2" sx={{ mt: 1 }}>
+                          <Typography variant='body2' sx={{ mt: 1 }}>
                             {comment.text}
                           </Typography>
                         }
@@ -360,18 +386,18 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
                       {!readonly && (
                         <ListItemSecondaryAction>
                           <IconButton
-                            edge="end"
+                            edge='end'
                             onClick={() => handleEditComment(comment)}
                             disabled={loading}
-                            size="small"
+                            size='small'
                           >
                             <EditIcon />
                           </IconButton>
                           <IconButton
-                            edge="end"
+                            edge='end'
                             onClick={() => handleDeleteComment(comment)}
                             disabled={loading}
-                            size="small"
+                            size='small'
                             sx={{ ml: 1 }}
                           >
                             <DeleteIcon />
@@ -391,21 +417,19 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
       <Dialog
         open={showAddDialog}
         onClose={() => setShowAddDialog(false)}
-        maxWidth="sm"
+        maxWidth='sm'
         fullWidth
       >
-        <DialogTitle>
-          コメントを追加 - {formatTime(addCommentTime)}
-        </DialogTitle>
+        <DialogTitle>コメントを追加 - {formatTime(addCommentTime)}</DialogTitle>
         <DialogContent>
           <TextField
             fullWidth
             multiline
             rows={3}
-            label="コメント内容"
+            label='コメント内容'
             value={newCommentText}
-            onChange={(e) => setNewCommentText(e.target.value)}
-            placeholder="この時点でのコメントを入力してください"
+            onChange={e => setNewCommentText(e.target.value)}
+            placeholder='この時点でのコメントを入力してください'
             sx={{ mt: 1 }}
           />
         </DialogContent>
@@ -415,7 +439,7 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
           </Button>
           <Button
             onClick={handleSaveNewComment}
-            variant="contained"
+            variant='contained'
             disabled={loading || !newCommentText.trim()}
           >
             追加
@@ -427,20 +451,21 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
       <Dialog
         open={!!editingComment}
         onClose={() => setEditingComment(null)}
-        maxWidth="sm"
+        maxWidth='sm'
         fullWidth
       >
         <DialogTitle>
-          コメントを編集 - {editingComment && formatTime(editingComment.timestamp)}
+          コメントを編集 -{' '}
+          {editingComment && formatTime(editingComment.timestamp)}
         </DialogTitle>
         <DialogContent>
           <TextField
             fullWidth
             multiline
             rows={3}
-            label="コメント内容"
+            label='コメント内容'
             value={editText}
-            onChange={(e) => setEditText(e.target.value)}
+            onChange={e => setEditText(e.target.value)}
             sx={{ mt: 1 }}
           />
         </DialogContent>
@@ -450,7 +475,7 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
           </Button>
           <Button
             onClick={handleSaveEdit}
-            variant="contained"
+            variant='contained'
             disabled={loading || !editText.trim()}
           >
             更新

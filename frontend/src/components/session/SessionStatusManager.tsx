@@ -19,7 +19,7 @@ import {
   DialogActions,
   Grid,
   Divider,
-  CircularProgress
+  CircularProgress,
 } from '@mui/material';
 import {
   PlayArrow as PlayArrowIcon,
@@ -29,7 +29,7 @@ import {
   CheckCircle as CheckCircleIcon,
   Schedule as ScheduleIcon,
   Warning as WarningIcon,
-  Notifications as NotificationsIcon
+  Notifications as NotificationsIcon,
 } from '@mui/icons-material';
 import { Session, SessionStatus } from '../../types';
 import { sessionService } from '../../services/sessionService';
@@ -56,7 +56,7 @@ interface ProgressData {
 
 const SessionStatusManager: React.FC<SessionStatusManagerProps> = ({
   session,
-  onSessionUpdated
+  onSessionUpdated,
 }) => {
   const [progress, setProgress] = useState<ProgressData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -70,7 +70,7 @@ const SessionStatusManager: React.FC<SessionStatusManagerProps> = ({
     open: false,
     status: null,
     title: '',
-    message: ''
+    message: '',
   });
 
   // 進捗データの読み込み
@@ -97,20 +97,23 @@ const SessionStatusManager: React.FC<SessionStatusManagerProps> = ({
     const dialogs = {
       [SessionStatus.ACTIVE]: {
         title: 'セッションをアクティブにする',
-        message: 'セッションをアクティブにすると、評価者が評価を開始できるようになります。よろしいですか？'
+        message:
+          'セッションをアクティブにすると、評価者が評価を開始できるようになります。よろしいですか？',
       },
       [SessionStatus.COMPLETED]: {
         title: 'セッションを完了する',
-        message: 'セッションを完了すると、新しい評価の受付が停止されます。よろしいですか？'
+        message:
+          'セッションを完了すると、新しい評価の受付が停止されます。よろしいですか？',
       },
       [SessionStatus.ARCHIVED]: {
         title: 'セッションをアーカイブする',
-        message: 'セッションをアーカイブすると、編集や変更ができなくなります。よろしいですか？'
+        message:
+          'セッションをアーカイブすると、編集や変更ができなくなります。よろしいですか？',
       },
       [SessionStatus.DRAFT]: {
         title: '',
-        message: ''
-      }
+        message: '',
+      },
     };
 
     const dialog = dialogs[newStatus];
@@ -118,7 +121,7 @@ const SessionStatusManager: React.FC<SessionStatusManagerProps> = ({
       open: true,
       status: newStatus,
       title: dialog.title,
-      message: dialog.message
+      message: dialog.message,
     });
   };
 
@@ -140,10 +143,9 @@ const SessionStatusManager: React.FC<SessionStatusManagerProps> = ({
       }
 
       setConfirmDialog({ open: false, status: null, title: '', message: '' });
-      
+
       // 進捗データを再読み込み
       await loadProgress();
-
     } catch (err: any) {
       setError(err.response?.data?.message || 'ステータスの変更に失敗しました');
     } finally {
@@ -159,9 +161,9 @@ const SessionStatusManager: React.FC<SessionStatusManagerProps> = ({
       case SessionStatus.DRAFT:
         actions.push(
           <Button
-            key="activate"
-            variant="contained"
-            color="success"
+            key='activate'
+            variant='contained'
+            color='success'
             startIcon={<PlayArrowIcon />}
             onClick={() => showStatusChangeDialog(SessionStatus.ACTIVE)}
             disabled={loading}
@@ -171,8 +173,8 @@ const SessionStatusManager: React.FC<SessionStatusManagerProps> = ({
         );
         actions.push(
           <Button
-            key="archive"
-            variant="outlined"
+            key='archive'
+            variant='outlined'
             startIcon={<ArchiveIcon />}
             onClick={() => showStatusChangeDialog(SessionStatus.ARCHIVED)}
             disabled={loading}
@@ -185,9 +187,9 @@ const SessionStatusManager: React.FC<SessionStatusManagerProps> = ({
       case SessionStatus.ACTIVE:
         actions.push(
           <Button
-            key="complete"
-            variant="contained"
-            color="primary"
+            key='complete'
+            variant='contained'
+            color='primary'
             startIcon={<StopIcon />}
             onClick={() => showStatusChangeDialog(SessionStatus.COMPLETED)}
             disabled={loading}
@@ -197,8 +199,8 @@ const SessionStatusManager: React.FC<SessionStatusManagerProps> = ({
         );
         actions.push(
           <Button
-            key="archive"
-            variant="outlined"
+            key='archive'
+            variant='outlined'
             startIcon={<ArchiveIcon />}
             onClick={() => showStatusChangeDialog(SessionStatus.ARCHIVED)}
             disabled={loading}
@@ -211,8 +213,8 @@ const SessionStatusManager: React.FC<SessionStatusManagerProps> = ({
       case SessionStatus.COMPLETED:
         actions.push(
           <Button
-            key="archive"
-            variant="outlined"
+            key='archive'
+            variant='outlined'
             startIcon={<ArchiveIcon />}
             onClick={() => showStatusChangeDialog(SessionStatus.ARCHIVED)}
             disabled={loading}
@@ -234,7 +236,7 @@ const SessionStatusManager: React.FC<SessionStatusManagerProps> = ({
   const formatTimeRemaining = (milliseconds: number) => {
     const hours = Math.floor(milliseconds / (1000 * 60 * 60));
     const days = Math.floor(hours / 24);
-    
+
     if (days > 0) {
       return `${days}日${hours % 24}時間`;
     } else if (hours > 0) {
@@ -248,7 +250,7 @@ const SessionStatusManager: React.FC<SessionStatusManagerProps> = ({
   return (
     <Box>
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+        <Alert severity='error' sx={{ mb: 2 }} onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
@@ -256,42 +258,50 @@ const SessionStatusManager: React.FC<SessionStatusManagerProps> = ({
       {/* ステータス概要 */}
       <Card sx={{ mb: 2 }}>
         <CardHeader
-          title="セッションステータス"
+          title='セッションステータス'
           action={
-            <Box display="flex" gap={1}>
+            <Box display='flex' gap={1}>
               {getStatusActions()}
             </Box>
           }
         />
         <CardContent>
-          <Grid container spacing={2} alignItems="center">
+          <Grid container spacing={2} alignItems='center'>
             <Grid item>
               <Chip
                 label={
-                  session.status === SessionStatus.DRAFT ? '下書き' :
-                  session.status === SessionStatus.ACTIVE ? 'アクティブ' :
-                  session.status === SessionStatus.COMPLETED ? '完了' : 'アーカイブ'
+                  session.status === SessionStatus.DRAFT
+                    ? '下書き'
+                    : session.status === SessionStatus.ACTIVE
+                      ? 'アクティブ'
+                      : session.status === SessionStatus.COMPLETED
+                        ? '完了'
+                        : 'アーカイブ'
                 }
                 color={
-                  session.status === SessionStatus.DRAFT ? 'default' :
-                  session.status === SessionStatus.ACTIVE ? 'success' :
-                  session.status === SessionStatus.COMPLETED ? 'info' : 'secondary'
+                  session.status === SessionStatus.DRAFT
+                    ? 'default'
+                    : session.status === SessionStatus.ACTIVE
+                      ? 'success'
+                      : session.status === SessionStatus.COMPLETED
+                        ? 'info'
+                        : 'secondary'
                 }
-                size="large"
+                size='large'
               />
             </Grid>
-            
+
             {session.startDate && (
               <Grid item>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant='body2' color='text.secondary'>
                   開始: {new Date(session.startDate).toLocaleString('ja-JP')}
                 </Typography>
               </Grid>
             )}
-            
+
             {session.endDate && (
               <Grid item>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant='body2' color='text.secondary'>
                   終了: {new Date(session.endDate).toLocaleString('ja-JP')}
                 </Typography>
               </Grid>
@@ -300,16 +310,18 @@ const SessionStatusManager: React.FC<SessionStatusManagerProps> = ({
 
           {/* 期限警告 */}
           {progress?.isOverdue && (
-            <Alert severity="error" sx={{ mt: 2 }} icon={<WarningIcon />}>
+            <Alert severity='error' sx={{ mt: 2 }} icon={<WarningIcon />}>
               このセッションは期限を過ぎています
             </Alert>
           )}
-          
-          {progress?.timeRemaining && progress.timeRemaining < 24 * 60 * 60 * 1000 && !progress.isOverdue && (
-            <Alert severity="warning" sx={{ mt: 2 }} icon={<ScheduleIcon />}>
-              残り時間: {formatTimeRemaining(progress.timeRemaining)}
-            </Alert>
-          )}
+
+          {progress?.timeRemaining &&
+            progress.timeRemaining < 24 * 60 * 60 * 1000 &&
+            !progress.isOverdue && (
+              <Alert severity='warning' sx={{ mt: 2 }} icon={<ScheduleIcon />}>
+                残り時間: {formatTimeRemaining(progress.timeRemaining)}
+              </Alert>
+            )}
         </CardContent>
       </Card>
 
@@ -317,33 +329,38 @@ const SessionStatusManager: React.FC<SessionStatusManagerProps> = ({
       {progress && (
         <Card>
           <CardHeader
-            title="評価進捗状況"
+            title='評価進捗状況'
             subheader={`${progress.completedEvaluations}/${progress.totalEvaluators}人が評価完了`}
           />
           <CardContent>
             {loading ? (
-              <Box display="flex" justifyContent="center" py={2}>
+              <Box display='flex' justifyContent='center' py={2}>
                 <CircularProgress />
               </Box>
             ) : (
               <>
                 {/* 進捗バー */}
                 <Box sx={{ mb: 3 }}>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                    <Typography variant="body2">完了率</Typography>
-                    <Typography variant="body2" fontWeight="bold">
+                  <Box
+                    display='flex'
+                    justifyContent='space-between'
+                    alignItems='center'
+                    mb={1}
+                  >
+                    <Typography variant='body2'>完了率</Typography>
+                    <Typography variant='body2' fontWeight='bold'>
                       {progress.completionRate.toFixed(1)}%
                     </Typography>
                   </Box>
                   <LinearProgress
-                    variant="determinate"
+                    variant='determinate'
                     value={progress.completionRate}
                     sx={{ height: 8, borderRadius: 4 }}
                   />
                 </Box>
 
                 {/* 評価者一覧 */}
-                <Typography variant="subtitle1" gutterBottom>
+                <Typography variant='subtitle1' gutterBottom>
                   評価者の状況
                 </Typography>
                 <List>
@@ -352,23 +369,30 @@ const SessionStatusManager: React.FC<SessionStatusManagerProps> = ({
                       <ListItem>
                         <ListItemIcon>
                           {evaluator.status === 'completed' ? (
-                            <CheckCircleIcon color="success" />
+                            <CheckCircleIcon color='success' />
                           ) : (
-                            <PersonIcon color="action" />
+                            <PersonIcon color='action' />
                           )}
                         </ListItemIcon>
                         <ListItemText
                           primary={evaluator.name}
                           secondary={
-                            evaluator.status === 'completed' && evaluator.submittedAt
+                            evaluator.status === 'completed' &&
+                            evaluator.submittedAt
                               ? `完了: ${new Date(evaluator.submittedAt).toLocaleString('ja-JP')}`
                               : '評価待ち'
                           }
                         />
                         <Chip
-                          label={evaluator.status === 'completed' ? '完了' : '保留中'}
-                          color={evaluator.status === 'completed' ? 'success' : 'warning'}
-                          size="small"
+                          label={
+                            evaluator.status === 'completed' ? '完了' : '保留中'
+                          }
+                          color={
+                            evaluator.status === 'completed'
+                              ? 'success'
+                              : 'warning'
+                          }
+                          size='small'
                         />
                       </ListItem>
                       {index < progress.evaluators.length - 1 && <Divider />}
@@ -384,7 +408,14 @@ const SessionStatusManager: React.FC<SessionStatusManagerProps> = ({
       {/* 確認ダイアログ */}
       <Dialog
         open={confirmDialog.open}
-        onClose={() => setConfirmDialog({ open: false, status: null, title: '', message: '' })}
+        onClose={() =>
+          setConfirmDialog({
+            open: false,
+            status: null,
+            title: '',
+            message: '',
+          })
+        }
       >
         <DialogTitle>{confirmDialog.title}</DialogTitle>
         <DialogContent>
@@ -392,14 +423,21 @@ const SessionStatusManager: React.FC<SessionStatusManagerProps> = ({
         </DialogContent>
         <DialogActions>
           <Button
-            onClick={() => setConfirmDialog({ open: false, status: null, title: '', message: '' })}
+            onClick={() =>
+              setConfirmDialog({
+                open: false,
+                status: null,
+                title: '',
+                message: '',
+              })
+            }
             disabled={loading}
           >
             キャンセル
           </Button>
           <Button
             onClick={handleStatusChange}
-            variant="contained"
+            variant='contained'
             disabled={loading}
             startIcon={loading ? <CircularProgress size={20} /> : null}
           >

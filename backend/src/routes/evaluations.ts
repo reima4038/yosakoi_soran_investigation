@@ -413,31 +413,88 @@ router.post('/session/:sessionId/submit', authenticateToken, async (req: Request
     if (evaluation.submittedAt) {
       return res.status(400).json({
         status: 'error',
-        message: '既に提出済みです'
+        message: '既に提出済みです',
+        data: {
+          submittedAt: evaluation.submittedAt,
+          evaluation
+        }
       });
     }
 
-    // 完了状態をチェック
+    // 詳細な完了状態をチェック
     const template = session.templateId as any;
+    let completionDetails = null;
+    
     if (template && template.categories) {
-      const isComplete = evaluation.checkCompletion(template.categories);
+      const requiredCriteriaIds = template.categories.flatMap((category: any) => 
+        category.criteria.map((criterion: any) => criterion.id)
+      );
+      
+      const scoredCriteriaIds = evaluation.scores.map(score => score.criterionId);
+      const missingCriteria = requiredCriteriaIds.filter((id: string) => 
+        !scoredCriteriaIds.includes(id)
+      );
+      
+      const isComplete = missingCriteria.length === 0;
+      
+      completionDetails = {
+        totalCriteria: requiredCriteriaIds.length,
+        completedCriteria: scoredCriteriaIds.length,
+        missingCriteria,
+        isComplete,
+        completionPercentage: requiredCriteriaIds.length > 0 
+          ? (scoredCriteriaIds.length / requiredCriteriaIds.length) * 100 
+          : 0
+      };
+
       if (!isComplete) {
         return res.status(400).json({
           status: 'error',
-          message: 'すべての評価項目を入力してください'
+          message: 'すべての評価項目を入力してください',
+          data: {
+            completionDetails,
+            missingCriteria: missingCriteria.map((criterionId: string) => {
+              // Find criterion name for better error message
+              for (const category of template.categories) {
+                const criterion = category.criteria.find((c: any) => c.id === criterionId);
+                if (criterion) {
+                  return {
+                    id: criterionId,
+                    name: criterion.name,
+                    categoryName: category.name
+                  };
+                }
+              }
+              return { id: criterionId, name: 'Unknown', categoryName: 'Unknown' };
+            })
+          }
         });
       }
     }
 
     // 提出処理
-    evaluation.submittedAt = new Date();
+    const submittedAt = new Date();
+    evaluation.submittedAt = submittedAt;
     evaluation.isComplete = true;
     await evaluation.save();
+
+    // 提出サマリーを生成
+    const submissionSummary = {
+      submittedAt,
+      sessionId,
+      userId,
+      totalScores: evaluation.scores.length,
+      totalComments: evaluation.comments.length,
+      completionDetails,
+      sessionName: session.name,
+      videoTitle: (session.videoId as any)?.title || 'Unknown Video'
+    };
 
     return res.json({
       status: 'success',
       data: {
         evaluation,
+        submissionSummary,
         message: '評価が提出されました'
       }
     });
@@ -447,6 +504,99 @@ router.post('/session/:sessionId/submit', authenticateToken, async (req: Request
     return res.status(500).json({
       status: 'error',
       message: '評価の提出に失敗しました'
+    });
+  }
+});
+
+// 提出状況の確認
+router.get('/session/:sessionId/submission-status', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { sessionId } = req.params;
+    const userId = req.user!.userId;
+
+    if (!mongoose.Types.ObjectId.isValid(sessionId)) {
+      return res.status(400).json({
+        status: 'error',
+        message: '無効なセッションIDです'
+      });
+    }
+
+    // セッションの確認
+    const session = await Session.findById(sessionId)
+      .populate('videoId', 'title youtubeId')
+      .populate('templateId');
+
+    if (!session) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'セッションが見つかりません'
+      });
+    }
+
+    // 評価を取得
+    const evaluation = await Evaluation.findOne({
+      sessionId: new mongoose.Types.ObjectId(sessionId),
+      userId: new mongoose.Types.ObjectId(userId)
+    });
+
+    if (!evaluation) {
+      return res.status(404).json({
+        status: 'error',
+        message: '評価が見つかりません'
+      });
+    }
+
+    // 完了状況の詳細を計算
+    const template = session.templateId as any;
+    let completionDetails = null;
+    
+    if (template && template.categories) {
+      const requiredCriteriaIds = template.categories.flatMap((category: any) => 
+        category.criteria.map((criterion: any) => criterion.id)
+      );
+      
+      const scoredCriteriaIds = evaluation.scores.map(score => score.criterionId);
+      const missingCriteria = requiredCriteriaIds.filter((id: string) => 
+        !scoredCriteriaIds.includes(id)
+      );
+      
+      completionDetails = {
+        totalCriteria: requiredCriteriaIds.length,
+        completedCriteria: scoredCriteriaIds.length,
+        missingCriteria,
+        isComplete: missingCriteria.length === 0,
+        completionPercentage: requiredCriteriaIds.length > 0 
+          ? (scoredCriteriaIds.length / requiredCriteriaIds.length) * 100 
+          : 0
+      };
+    }
+
+    const submissionStatus = {
+      isSubmitted: !!evaluation.submittedAt,
+      submittedAt: evaluation.submittedAt,
+      isComplete: evaluation.isComplete,
+      totalScores: evaluation.scores.length,
+      totalComments: evaluation.comments.length,
+      lastSavedAt: evaluation.lastSavedAt,
+      completionDetails,
+      session: {
+        id: session._id,
+        name: session.name,
+        status: session.status,
+        endDate: session.endDate
+      }
+    };
+
+    return res.json({
+      status: 'success',
+      data: submissionStatus
+    });
+
+  } catch (error) {
+    console.error('提出状況確認エラー:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: '提出状況の確認に失敗しました'
     });
   }
 });
