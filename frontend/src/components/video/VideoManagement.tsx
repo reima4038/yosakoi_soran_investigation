@@ -35,14 +35,14 @@ const VideoManagement: React.FC = () => {
     setRefreshTrigger(prev => prev + 1);
   };
 
-  const handleVideoSelect = (video: Video) => {
+  const handleVideoSelect = (_video: Video) => {
     // 動画選択時の処理（後のタスクで実装）
-    console.log('Selected video:', video);
+    // console.log('Selected video:', video);
   };
 
-  const handleVideoEdit = (video: Video) => {
+  const handleVideoEdit = (_video: Video) => {
     // 動画編集時の処理（後のタスクで実装）
-    console.log('Edit video:', video);
+    // console.log('Edit video:', video);
   };
 
   const handleSnackbarClose = () => {

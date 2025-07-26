@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -73,7 +73,7 @@ const VideoList: React.FC<VideoListProps> = ({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [videoToDelete, setVideoToDelete] = useState<Video | null>(null);
 
-  const fetchVideos = async () => {
+  const fetchVideos = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -96,11 +96,11 @@ const VideoList: React.FC<VideoListProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, searchTerm, selectedYear, selectedTeam, selectedEvent]);
 
   useEffect(() => {
     fetchVideos();
-  }, [currentPage, refreshTrigger]);
+  }, [refreshTrigger, fetchVideos]);
 
   const handleSearch = () => {
     setCurrentPage(1);

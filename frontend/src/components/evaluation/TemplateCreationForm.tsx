@@ -68,10 +68,10 @@ const TemplateCreationForm: React.FC<TemplateCreationFormProps> = ({
   const [errors, setErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [weightDialogOpen, setWeightDialogOpen] = useState(false);
-  const [currentCategoryIndex, setCurrentCategoryIndex] = useState<
-    number | null
-  >(null);
+  // const [weightDialogOpen, setWeightDialogOpen] = useState(false);
+  // const [currentCategoryIndex, setCurrentCategoryIndex] = useState<
+  //   number | null
+  // >(null);
   const [advancedWeightDialogOpen, setAdvancedWeightDialogOpen] =
     useState(false);
 
@@ -238,23 +238,23 @@ const TemplateCreationForm: React.FC<TemplateCreationFormProps> = ({
     }
   };
 
-  // 重み調整ダイアログを開く
-  const openWeightDialog = (categoryIndex: number) => {
-    setCurrentCategoryIndex(categoryIndex);
-    setWeightDialogOpen(true);
-  };
+  // 重み調整ダイアログを開く（将来の機能拡張用）
+  // const openWeightDialog = (categoryIndex: number) => {
+  //   setCurrentCategoryIndex(categoryIndex);
+  //   setWeightDialogOpen(true);
+  // };
 
-  // 重み調整ダイアログでの重み更新
-  const updateWeightInDialog = (criterionIndex: number, weight: number) => {
-    if (currentCategoryIndex !== null) {
-      updateCriterion(
-        currentCategoryIndex,
-        criterionIndex,
-        'weight',
-        weight / 100
-      );
-    }
-  };
+  // 重み調整ダイアログでの重み更新（将来の機能拡張用）
+  // const updateWeightInDialog = (criterionIndex: number, weight: number) => {
+  //   if (currentCategoryIndex !== null) {
+  //     updateCriterion(
+  //       currentCategoryIndex,
+  //       criterionIndex,
+  //       'weight',
+  //       weight / 100
+  //     );
+  //   }
+  // };
 
   const getCriterionTypeLabel = (type: CriterionType): string => {
     switch (type) {
@@ -855,7 +855,7 @@ const TemplateCreationForm: React.FC<TemplateCreationFormProps> = ({
             />
           </Box>
 
-          {template.categories.map((category, categoryIndex) => (
+          {template.categories.map((category, _categoryIndex) => (
             <Box key={category.id} sx={{ mb: 3 }}>
               <Typography variant='subtitle1' gutterBottom>
                 {category.name} (重み: {(category.weight * 100).toFixed(1)}%)
@@ -872,7 +872,7 @@ const TemplateCreationForm: React.FC<TemplateCreationFormProps> = ({
                 {category.description}
               </Typography>
 
-              {category.criteria.map((criterion, criterionIndex) => (
+              {category.criteria.map((criterion, _criterionIndex) => (
                 <Box key={criterion.id} sx={{ ml: 2, mb: 1 }}>
                   <Typography variant='body2'>
                     • {criterion.name} ({getCriterionTypeLabel(criterion.type)}:{' '}

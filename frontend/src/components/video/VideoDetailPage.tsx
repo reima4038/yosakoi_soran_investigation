@@ -69,7 +69,7 @@ const VideoDetailPage: React.FC<VideoDetailPageProps> = ({ onEdit }) => {
       };
       setTimestamps(prev => [...prev, newTimestamp]);
     } catch (err: any) {
-      console.error('Failed to add timestamp:', err);
+      // console.error('Failed to add timestamp:', err);
     }
   };
 
@@ -86,7 +86,7 @@ const VideoDetailPage: React.FC<VideoDetailPageProps> = ({ onEdit }) => {
         )
       );
     } catch (err: any) {
-      console.error('Failed to update timestamp:', err);
+      // console.error('Failed to update timestamp:', err);
     }
   };
 
@@ -96,7 +96,7 @@ const VideoDetailPage: React.FC<VideoDetailPageProps> = ({ onEdit }) => {
       // TODO: タイムスタンプをサーバーから削除（後のタスクで実装）
       setTimestamps(prev => prev.filter(timestamp => timestamp.id !== id));
     } catch (err: any) {
-      console.error('Failed to delete timestamp:', err);
+      // console.error('Failed to delete timestamp:', err);
     }
   };
 

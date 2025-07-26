@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -29,7 +29,6 @@ import {
   CheckCircle as CheckCircleIcon,
   Schedule as ScheduleIcon,
   Warning as WarningIcon,
-  Notifications as NotificationsIcon,
 } from '@mui/icons-material';
 import { Session, SessionStatus } from '../../types';
 import { sessionService } from '../../services/sessionService';
@@ -74,7 +73,7 @@ const SessionStatusManager: React.FC<SessionStatusManagerProps> = ({
   });
 
   // 進捗データの読み込み
-  const loadProgress = async () => {
+  const loadProgress = useCallback(async () => {
     if (session.status === SessionStatus.DRAFT) return;
 
     try {
@@ -86,11 +85,11 @@ const SessionStatusManager: React.FC<SessionStatusManagerProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [session.status, session.id]);
 
   useEffect(() => {
     loadProgress();
-  }, [session.id, session.status]);
+  }, [session.id, session.status, loadProgress]);
 
   // ステータス変更の確認ダイアログを表示
   const showStatusChangeDialog = (newStatus: SessionStatus) => {

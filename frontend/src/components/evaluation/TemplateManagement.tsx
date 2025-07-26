@@ -31,7 +31,6 @@ import {
   Delete as DeleteIcon,
   FileCopy as FileCopyIcon,
   MoreVert as MoreVertIcon,
-  Visibility as VisibilityIcon,
   FileDownload as FileDownloadIcon,
   FileUpload as FileUploadIcon,
   GetApp as GetAppIcon,

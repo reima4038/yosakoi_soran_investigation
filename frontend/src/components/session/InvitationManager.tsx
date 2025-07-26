@@ -28,7 +28,6 @@ import {
   Send as SendIcon,
   ContentCopy as CopyIcon,
   Email as EmailIcon,
-  Link as LinkIcon,
 } from '@mui/icons-material';
 import { Session } from '../../types';
 import { sessionService } from '../../services/sessionService';

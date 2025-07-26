@@ -10,7 +10,6 @@ import {
   Tabs,
   Tab,
   Paper,
-  Divider,
 } from '@mui/material';
 import {
   VideoLibrary as VideoIcon,

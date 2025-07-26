@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Button,
@@ -69,7 +69,7 @@ const SessionManagement: React.FC<SessionManagementProps> = ({
   const [totalPages, setTotalPages] = useState(1);
 
   // セッション一覧の読み込み
-  const loadSessions = async () => {
+  const loadSessions = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -80,18 +80,18 @@ const SessionManagement: React.FC<SessionManagementProps> = ({
       setError(
         err.response?.data?.message || 'セッション一覧の取得に失敗しました'
       );
-      console.error('セッション一覧取得エラー:', err);
+      // console.error('セッション一覧取得エラー:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
 
   useEffect(() => {
     loadSessions();
-  }, [filters]);
+  }, [filters, loadSessions]);
 
   // セッション作成完了時の処理
-  const handleSessionCreated = (session: Session) => {
+  const handleSessionCreated = (_session: Session) => {
     setShowCreateForm(false);
     loadSessions(); // 一覧を再読み込み
   };
