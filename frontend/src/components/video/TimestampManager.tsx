@@ -1,397 +1,509 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
-  Button,
   Card,
   CardContent,
-  Chip,
-  IconButton,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemSecondaryAction,
-  TextField,
   Typography,
+  Button,
+  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
+  TextField,
+  FormControlLabel,
+  Switch,
+  Chip,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
+  Menu,
+  MenuItem,
+  Alert,
   Tooltip,
-  Stack,
+  Grid,
+  Divider
 } from '@mui/material';
 import {
-  Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  PlayArrow as PlayIcon,
-  BookmarkBorder as BookmarkIcon,
+  Add,
+  PlayArrow,
+  Edit,
+  Delete,
+  Share,
+  ContentCopy,
+  MoreVert,
+  Bookmark,
+  Schedule,
+  Visibility,
+  Code
 } from '@mui/icons-material';
-
-export interface Timestamp {
-  id: string;
-  time: number;
-  label: string;
-  description?: string;
-  category?: string;
-  color?: string;
-}
+import { timestampService, TimestampLink, CreateTimestampLinkRequest } from '../../services/timestampService';
 
 interface TimestampManagerProps {
-  timestamps: Timestamp[];
-  currentTime: number;
-  onTimestampAdd: (timestamp: Omit<Timestamp, 'id'>) => void;
-  onTimestampUpdate: (id: string, timestamp: Partial<Timestamp>) => void;
-  onTimestampDelete: (id: string) => void;
-  onTimestampSeek: (time: number) => void;
-  categories?: string[];
-  readonly?: boolean;
+  videoId: string;
+  youtubeId: string;
+  videoTitle: string;
+  currentTime?: number;
+  onSeekTo?: (time: number) => void;
 }
 
 const TimestampManager: React.FC<TimestampManagerProps> = ({
-  timestamps,
-  currentTime,
-  onTimestampAdd,
-  onTimestampUpdate,
-  onTimestampDelete,
-  onTimestampSeek,
-  categories = ['開始', '見どころ', '技', '終了'],
-  readonly = false,
+  videoId,
+  youtubeId,
+  videoTitle,
+  currentTime = 0,
+  onSeekTo
 }) => {
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingTimestamp, setEditingTimestamp] = useState<Timestamp | null>(
-    null
-  );
-  const [formData, setFormData] = useState({
-    time: 0,
-    label: '',
+  const [links, setLinks] = useState<TimestampLink[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [editingLink, setEditingLink] = useState<TimestampLink | null>(null);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [selectedLink, setSelectedLink] = useState<TimestampLink | null>(null);
+  const [copySuccess, setCopySuccess] = useState<string | null>(null);
+
+  const [formData, setFormData] = useState<CreateTimestampLinkRequest>({
+    videoId,
+    title: '',
     description: '',
-    category: categories[0] || '',
+    startTime: 0,
+    endTime: undefined,
+    isHighlight: false,
+    tags: [],
+    isPublic: true
   });
 
-  // 時間のフォーマット
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  useEffect(() => {
+    loadTimestampLinks();
+  }, [videoId]);
+
+  useEffect(() => {
+    if (showCreateDialog && !editingLink) {
+      setFormData(prev => ({
+        ...prev,
+        startTime: Math.floor(currentTime)
+      }));
+    }
+  }, [showCreateDialog, currentTime, editingLink]);
+
+  const loadTimestampLinks = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await timestampService.getTimestampLinks({ videoId });
+      setLinks(result.links);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'タイムスタンプリンクの取得に失敗しました');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // カテゴリーの色を取得
-  const getCategoryColor = (category: string): string => {
-    const colors: { [key: string]: string } = {
-      開始: '#4caf50',
-      見どころ: '#ff9800',
-      技: '#2196f3',
-      終了: '#f44336',
-      default: '#9e9e9e',
-    };
-    return colors[category] || colors.default;
+  const handleCreateLink = async () => {
+    setError(null);
+    try {
+      const newLink = await timestampService.createTimestampLink(formData);
+      setLinks(prev => [newLink, ...prev]);
+      setShowCreateDialog(false);
+      resetForm();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'タイムスタンプリンクの作成に失敗しました');
+    }
   };
 
-  // 新しいタイムスタンプを追加
-  const handleAddTimestamp = useCallback(() => {
-    setFormData({
-      time: Math.floor(currentTime),
-      label: '',
-      description: '',
-      category: categories[0] || '',
-    });
-    setEditingTimestamp(null);
-    setDialogOpen(true);
-  }, [currentTime, categories]);
+  const handleUpdateLink = async () => {
+    if (!editingLink) return;
+    
+    setError(null);
+    try {
+      const updatedLink = await timestampService.updateTimestampLink(editingLink._id, formData);
+      setLinks(prev => prev.map(link => 
+        link._id === editingLink._id ? updatedLink : link
+      ));
+      setShowCreateDialog(false);
+      setEditingLink(null);
+      resetForm();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'タイムスタンプリンクの更新に失敗しました');
+    }
+  };
 
-  // タイムスタンプを編集
-  const handleEditTimestamp = useCallback(
-    (timestamp: Timestamp) => {
-      setFormData({
-        time: timestamp.time,
-        label: timestamp.label,
-        description: timestamp.description || '',
-        category: timestamp.category || categories[0] || '',
-      });
-      setEditingTimestamp(timestamp);
-      setDialogOpen(true);
-    },
-    [categories]
-  );
-
-  // ダイアログを閉じる
-  const handleCloseDialog = useCallback(() => {
-    setDialogOpen(false);
-    setEditingTimestamp(null);
-    setFormData({
-      time: 0,
-      label: '',
-      description: '',
-      category: categories[0] || '',
-    });
-  }, [categories]);
-
-  // タイムスタンプを保存
-  const handleSaveTimestamp = useCallback(() => {
-    if (!formData.label.trim()) return;
-
-    const timestampData = {
-      time: formData.time,
-      label: formData.label.trim(),
-      description: formData.description.trim() || undefined,
-      category: formData.category,
-      color: getCategoryColor(formData.category),
-    };
-
-    if (editingTimestamp) {
-      onTimestampUpdate(editingTimestamp.id, timestampData);
-    } else {
-      onTimestampAdd(timestampData);
+  const handleDeleteLink = async (linkId: string) => {
+    if (!window.confirm('このタイムスタンプリンクを削除しますか？')) {
+      return;
     }
 
-    handleCloseDialog();
-  }, [
-    formData,
-    editingTimestamp,
-    onTimestampAdd,
-    onTimestampUpdate,
-    handleCloseDialog,
-  ]);
+    try {
+      await timestampService.deleteTimestampLink(linkId);
+      setLinks(prev => prev.filter(link => link._id !== linkId));
+      setAnchorEl(null);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'タイムスタンプリンクの削除に失敗しました');
+    }
+  };
 
-  // タイムスタンプを削除
-  const handleDeleteTimestamp = useCallback(
-    (id: string) => {
-      onTimestampDelete(id);
-    },
-    [onTimestampDelete]
-  );
+  const handleCopyUrl = async (link: TimestampLink) => {
+    const shareUrl = timestampService.generateShareUrl(link.shareToken);
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopySuccess('URLをクリップボードにコピーしました');
+      setTimeout(() => setCopySuccess(null), 3000);
+    } catch (err) {
+      setError('URLのコピーに失敗しました');
+    }
+    setAnchorEl(null);
+  };
 
-  // タイムスタンプにシーク
-  const handleSeekToTimestamp = useCallback(
-    (time: number) => {
-      onTimestampSeek(time);
-    },
-    [onTimestampSeek]
-  );
+  const handleCopyEmbedCode = async (link: TimestampLink) => {
+    const embedCode = timestampService.generateEmbedCode(
+      youtubeId,
+      link.startTime,
+      link.endTime,
+      { width: 560, height: 315 }
+    );
+    try {
+      await navigator.clipboard.writeText(embedCode);
+      setCopySuccess('埋め込みコードをクリップボードにコピーしました');
+      setTimeout(() => setCopySuccess(null), 3000);
+    } catch (err) {
+      setError('埋め込みコードのコピーに失敗しました');
+    }
+    setAnchorEl(null);
+  };
 
-  // タイムスタンプをソート
-  const sortedTimestamps = [...timestamps].sort((a, b) => a.time - b.time);
+  const handleSeekTo = (time: number) => {
+    if (onSeekTo) {
+      onSeekTo(time);
+    }
+  };
+
+  const handleEditLink = (link: TimestampLink) => {
+    setEditingLink(link);
+    setFormData({
+      videoId: link.videoId,
+      title: link.title,
+      description: link.description || '',
+      startTime: link.startTime,
+      endTime: link.endTime,
+      isHighlight: link.isHighlight,
+      tags: link.tags,
+      isPublic: link.isPublic
+    });
+    setShowCreateDialog(true);
+    setAnchorEl(null);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      videoId,
+      title: '',
+      description: '',
+      startTime: Math.floor(currentTime),
+      endTime: undefined,
+      isHighlight: false,
+      tags: [],
+      isPublic: true
+    });
+    setEditingLink(null);
+  };
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, link: TimestampLink) => {
+    setAnchorEl(event.currentTarget);
+    setSelectedLink(link);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+    setSelectedLink(null);
+  };
+
+  const handleTagsChange = (tagsString: string) => {
+    const tags = tagsString.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+    setFormData(prev => ({ ...prev, tags }));
+  };
+
+  if (loading) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <Typography>タイムスタンプリンクを読み込み中...</Typography>
+      </Box>
+    );
+  }
 
   return (
-    <Box>
-      <Card>
-        <CardContent>
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              mb: 2,
-            }}
-          >
-            <Typography variant='h6' component='h3'>
-              タイムスタンプ
-            </Typography>
-            {!readonly && (
-              <Button
-                variant='contained'
-                startIcon={<AddIcon />}
-                onClick={handleAddTimestamp}
-                size='small'
-              >
-                追加
-              </Button>
-            )}
-          </Box>
+    <Box sx={{ p: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h6">
+          タイムスタンプリンク
+        </Typography>
+        <Button
+          variant="contained"
+          startIcon={<Add />}
+          onClick={() => setShowCreateDialog(true)}
+        >
+          新規作成
+        </Button>
+      </Box>
 
-          {sortedTimestamps.length === 0 ? (
-            <Typography
-              variant='body2'
-              color='text.secondary'
-              sx={{ textAlign: 'center', py: 2 }}
-            >
-              タイムスタンプがありません
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      {copySuccess && (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          {copySuccess}
+        </Alert>
+      )}
+
+      {links.length === 0 ? (
+        <Card>
+          <CardContent sx={{ textAlign: 'center', py: 4 }}>
+            <Schedule sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+            <Typography variant="h6" color="text.secondary" gutterBottom>
+              タイムスタンプリンクがありません
             </Typography>
-          ) : (
-            <List dense>
-              {sortedTimestamps.map(timestamp => (
-                <ListItem
-                  key={timestamp.id}
-                  sx={{
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    borderRadius: 1,
-                    mb: 1,
-                    backgroundColor:
-                      Math.abs(currentTime - timestamp.time) < 5
-                        ? 'action.hover'
-                        : 'transparent',
-                  }}
-                >
-                  <ListItemText
-                    primary={
-                      <Stack direction='row' spacing={1} alignItems='center'>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              動画の特定の時点へのリンクを作成できます
+            </Typography>
+            <Button
+              variant="outlined"
+              startIcon={<Add />}
+              onClick={() => setShowCreateDialog(true)}
+            >
+              最初のリンクを作成
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <List>
+          {links.map((link, index) => (
+            <React.Fragment key={link._id}>
+              <ListItem>
+                <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
+                  <IconButton
+                    size="small"
+                    onClick={() => handleSeekTo(link.startTime)}
+                    color="primary"
+                  >
+                    <PlayArrow />
+                  </IconButton>
+                </Box>
+                <ListItemText
+                  primary={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="subtitle1">
+                        {link.title}
+                      </Typography>
+                      {link.isHighlight && (
                         <Chip
-                          label={formatTime(timestamp.time)}
-                          size='small'
-                          sx={{
-                            backgroundColor:
-                              timestamp.color ||
-                              getCategoryColor(timestamp.category || ''),
-                            color: 'white',
-                            fontWeight: 'bold',
-                          }}
+                          size="small"
+                          label="ハイライト"
+                          color="secondary"
+                          icon={<Bookmark />}
                         />
-                        <Typography variant='body2' fontWeight='medium'>
-                          {timestamp.label}
-                        </Typography>
-                        {timestamp.category && (
-                          <Chip
-                            label={timestamp.category}
-                            size='small'
-                            variant='outlined'
-                          />
-                        )}
-                      </Stack>
-                    }
-                    secondary={timestamp.description}
-                  />
-                  <ListItemSecondaryAction>
-                    <Stack direction='row' spacing={0.5}>
-                      <Tooltip title='この時間にジャンプ'>
-                        <IconButton
-                          size='small'
-                          onClick={() => handleSeekToTimestamp(timestamp.time)}
-                        >
-                          <PlayIcon />
-                        </IconButton>
-                      </Tooltip>
-                      {!readonly && (
-                        <>
-                          <Tooltip title='編集'>
-                            <IconButton
-                              size='small'
-                              onClick={() => handleEditTimestamp(timestamp)}
-                            >
-                              <EditIcon />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title='削除'>
-                            <IconButton
-                              size='small'
-                              onClick={() =>
-                                handleDeleteTimestamp(timestamp.id)
-                              }
-                              color='error'
-                            >
-                              <DeleteIcon />
-                            </IconButton>
-                          </Tooltip>
-                        </>
                       )}
-                    </Stack>
-                  </ListItemSecondaryAction>
-                </ListItem>
-              ))}
-            </List>
-          )}
+                      {!link.isPublic && (
+                        <Chip
+                          size="small"
+                          label="非公開"
+                          variant="outlined"
+                        />
+                      )}
+                    </Box>
+                  }
+                  secondary={
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">
+                        {timestampService.formatTime(link.startTime)}
+                        {link.endTime && ` - ${timestampService.formatTime(link.endTime)}`}
+                        {link.isHighlight && link.endTime && (
+                          <span> (長さ: {timestampService.getHighlightDurationText(link.startTime, link.endTime)})</span>
+                        )}
+                      </Typography>
+                      {link.description && (
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                          {link.description}
+                        </Typography>
+                      )}
+                      {link.tags.length > 0 && (
+                        <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {link.tags.map((tag, tagIndex) => (
+                            <Chip
+                              key={tagIndex}
+                              size="small"
+                              label={tag}
+                              variant="outlined"
+                            />
+                          ))}
+                        </Box>
+                      )}
+                      <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Visibility fontSize="small" />
+                          <Typography variant="caption">
+                            {link.viewCount}回視聴
+                          </Typography>
+                        </Box>
+                        <Typography variant="caption" color="text.secondary">
+                          {timestampService.getRelativeTime(link.createdAt)}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  }
+                />
+                <ListItemSecondaryAction>
+                  <IconButton
+                    onClick={(e) => handleMenuOpen(e, link)}
+                  >
+                    <MoreVert />
+                  </IconButton>
+                </ListItemSecondaryAction>
+              </ListItem>
+              {index < links.length - 1 && <Divider />}
+            </React.Fragment>
+          ))}
+        </List>
+      )}
 
-          {/* 現在時刻のクイック追加 */}
-          {!readonly && (
-            <Box
-              sx={{
-                mt: 2,
-                p: 2,
-                backgroundColor: 'action.hover',
-                borderRadius: 1,
-              }}
-            >
-              <Stack direction='row' spacing={2} alignItems='center'>
-                <BookmarkIcon color='action' />
-                <Typography variant='body2' color='text.secondary'>
-                  現在時刻: {formatTime(currentTime)}
-                </Typography>
-                <Button
-                  size='small'
-                  variant='outlined'
-                  onClick={handleAddTimestamp}
-                  startIcon={<AddIcon />}
-                >
-                  ここにマーク
-                </Button>
-              </Stack>
-            </Box>
-          )}
-        </CardContent>
-      </Card>
+      {/* メニュー */}
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleMenuClose}
+      >
+        <MenuItem onClick={() => selectedLink && handleEditLink(selectedLink)}>
+          <Edit fontSize="small" sx={{ mr: 1 }} />
+          編集
+        </MenuItem>
+        <MenuItem onClick={() => selectedLink && handleCopyUrl(selectedLink)}>
+          <Share fontSize="small" sx={{ mr: 1 }} />
+          URLをコピー
+        </MenuItem>
+        <MenuItem onClick={() => selectedLink && handleCopyEmbedCode(selectedLink)}>
+          <Code fontSize="small" sx={{ mr: 1 }} />
+          埋め込みコードをコピー
+        </MenuItem>
+        <MenuItem 
+          onClick={() => selectedLink && handleDeleteLink(selectedLink._id)}
+          sx={{ color: 'error.main' }}
+        >
+          <Delete fontSize="small" sx={{ mr: 1 }} />
+          削除
+        </MenuItem>
+      </Menu>
 
-      {/* タイムスタンプ編集ダイアログ */}
+      {/* 作成/編集ダイアログ */}
       <Dialog
-        open={dialogOpen}
-        onClose={handleCloseDialog}
-        maxWidth='sm'
+        open={showCreateDialog}
+        onClose={() => {
+          setShowCreateDialog(false);
+          setEditingLink(null);
+          resetForm();
+        }}
+        maxWidth="md"
         fullWidth
       >
         <DialogTitle>
-          {editingTimestamp ? 'タイムスタンプを編集' : 'タイムスタンプを追加'}
+          {editingLink ? 'タイムスタンプリンクを編集' : 'タイムスタンプリンクを作成'}
         </DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField
-              label='時間（秒）'
-              type='number'
-              value={formData.time}
-              onChange={e =>
-                setFormData({
-                  ...formData,
-                  time: parseInt(e.target.value) || 0,
-                })
-              }
-              helperText={`${formatTime(formData.time)} の位置`}
-              fullWidth
-            />
-            <TextField
-              label='ラベル'
-              value={formData.label}
-              onChange={e =>
-                setFormData({ ...formData, label: e.target.value })
-              }
-              placeholder='例: 開始、見どころ、技名など'
-              required
-              fullWidth
-            />
-            <TextField
-              label='説明（任意）'
-              value={formData.description}
-              onChange={e =>
-                setFormData({ ...formData, description: e.target.value })
-              }
-              placeholder='詳細な説明を入力'
-              multiline
-              rows={2}
-              fullWidth
-            />
-            <TextField
-              label='カテゴリー'
-              select
-              value={formData.category}
-              onChange={e =>
-                setFormData({ ...formData, category: e.target.value })
-              }
-              SelectProps={{ native: true }}
-              fullWidth
-            >
-              {categories.map(category => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </TextField>
-          </Stack>
+        <DialogContent dividers>
+          <Grid container spacing={2}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="タイトル"
+                value={formData.title}
+                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                required
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="説明（任意）"
+                value={formData.description}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                multiline
+                rows={2}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                label="開始時間（秒）"
+                type="number"
+                value={formData.startTime}
+                onChange={(e) => setFormData(prev => ({ ...prev, startTime: Number(e.target.value) }))}
+                required
+                inputProps={{ min: 0 }}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                label="終了時間（秒）- ハイライト用"
+                type="number"
+                value={formData.endTime || ''}
+                onChange={(e) => setFormData(prev => ({ 
+                  ...prev, 
+                  endTime: e.target.value ? Number(e.target.value) : undefined 
+                }))}
+                inputProps={{ min: formData.startTime + 1 }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="タグ（カンマ区切り）"
+                value={formData.tags.join(', ')}
+                onChange={(e) => handleTagsChange(e.target.value)}
+                placeholder="例: ハイライト, 技術, 表現力"
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.isHighlight}
+                    onChange={(e) => setFormData(prev => ({ ...prev, isHighlight: e.target.checked }))}
+                  />
+                }
+                label="ハイライト区間として設定"
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.isPublic}
+                    onChange={(e) => setFormData(prev => ({ ...prev, isPublic: e.target.checked }))}
+                  />
+                }
+                label="公開する"
+              />
+            </Grid>
+          </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog}>キャンセル</Button>
-          <Button
-            onClick={handleSaveTimestamp}
-            variant='contained'
-            disabled={!formData.label.trim()}
+          <Button 
+            onClick={() => {
+              setShowCreateDialog(false);
+              setEditingLink(null);
+              resetForm();
+            }}
           >
-            {editingTimestamp ? '更新' : '追加'}
+            キャンセル
+          </Button>
+          <Button
+            onClick={editingLink ? handleUpdateLink : handleCreateLink}
+            variant="contained"
+            disabled={!formData.title.trim()}
+          >
+            {editingLink ? '更新' : '作成'}
           </Button>
         </DialogActions>
       </Dialog>
