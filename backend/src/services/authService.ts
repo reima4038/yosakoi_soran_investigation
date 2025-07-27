@@ -164,6 +164,8 @@ export class AuthService {
     } catch (error) {
       if (error instanceof jwt.TokenExpiredError) {
         throw new Error('パスワードリセットトークンの有効期限が切れています');
+      } else if (error instanceof Error && error.message === '無効なトークンタイプです') {
+        throw error;
       } else {
         throw new Error('無効なパスワードリセットトークンです');
       }

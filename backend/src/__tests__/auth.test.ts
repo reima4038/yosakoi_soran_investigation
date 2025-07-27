@@ -361,6 +361,7 @@ describe('Authentication System', () => {
       it('should generate and verify JWT token', () => {
         const payload = {
           userId: '507f1f77bcf86cd799439011',
+          username: 'testuser',
           email: 'test@example.com',
           role: UserRole.USER,
         };

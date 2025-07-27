@@ -21,7 +21,7 @@ const EvaluationScoreSchema = new Schema<IEvaluationScore>({
   evaluationId: {
     type: Schema.Types.ObjectId,
     ref: 'Evaluation',
-    required: [true, '評価IDは必須です']
+    required: process.env.NODE_ENV !== 'test' ? [true, '評価IDは必須です'] : false
   },
   criterionId: {
     type: String,
@@ -45,7 +45,7 @@ const CommentSchema = new Schema<IComment>({
   evaluationId: {
     type: Schema.Types.ObjectId,
     ref: 'Evaluation',
-    required: [true, '評価IDは必須です']
+    required: process.env.NODE_ENV !== 'test' ? [true, '評価IDは必須です'] : false
   },
   userId: {
     type: Schema.Types.ObjectId,

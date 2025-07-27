@@ -101,7 +101,7 @@ const VideoSchema = new Schema<IVideo>({
 });
 
 // インデックス設定
-VideoSchema.index({ youtubeId: 1 });
+// youtubeIdは既にunique: trueで設定されているため、追加のインデックスは不要
 VideoSchema.index({ createdBy: 1 });
 VideoSchema.index({ 'metadata.teamName': 1 });
 VideoSchema.index({ 'metadata.eventName': 1 });

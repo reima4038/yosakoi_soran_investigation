@@ -68,8 +68,7 @@ const ShareSchema = new Schema<IShare>({
   shareToken: {
     type: String,
     required: true,
-    unique: true,
-    index: true
+    unique: true
   },
   visibility: {
     type: String,
@@ -145,7 +144,7 @@ const ShareSchema = new Schema<IShare>({
 });
 
 // インデックス設定
-ShareSchema.index({ shareToken: 1 });
+// shareTokenは既にunique: trueで設定されているため、追加のインデックスは不要
 ShareSchema.index({ resourceType: 1, resourceId: 1 });
 ShareSchema.index({ creatorId: 1 });
 ShareSchema.index({ visibility: 1 });

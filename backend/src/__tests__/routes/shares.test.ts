@@ -28,17 +28,17 @@ describe('Shares API', () => {
       username: 'testuser',
       email: 'test@example.com',
       passwordHash: 'hashedpassword',
-      role: 'evaluator'
+      role: 'evaluator',
     });
     await user.save();
-    userId = user._id.toString();
+    userId = (user._id as mongoose.Types.ObjectId).toString();
 
     // 認証トークン生成
     authToken = AuthService.generateToken({
       userId: userId,
       username: user.username,
       email: user.email,
-      role: user.role
+      role: user.role,
     });
 
     // テスト用動画作成
@@ -49,7 +49,7 @@ describe('Shares API', () => {
       uploadDate: new Date(),
       description: 'テスト用の動画です',
       thumbnailUrl: 'https://example.com/thumbnail.jpg',
-      createdBy: new mongoose.Types.ObjectId(userId)
+      createdBy: new mongoose.Types.ObjectId(userId),
     });
     await video.save();
 
@@ -57,22 +57,26 @@ describe('Shares API', () => {
     const template = new Template({
       name: 'テストテンプレート',
       description: 'テスト用のテンプレートです',
-      categories: [{
-        id: 'category1',
-        name: 'カテゴリ1',
-        description: 'テストカテゴリ',
-        weight: 1.0,
-        criteria: [{
-          id: 'criterion1',
-          name: '評価項目1',
-          description: 'テスト評価項目',
-          type: 'numeric',
-          minValue: 0,
-          maxValue: 10,
-          weight: 1.0
-        }]
-      }],
-      createdBy: new mongoose.Types.ObjectId(userId)
+      categories: [
+        {
+          id: 'category1',
+          name: 'カテゴリ1',
+          description: 'テストカテゴリ',
+          weight: 1.0,
+          criteria: [
+            {
+              id: 'criterion1',
+              name: '評価項目1',
+              description: 'テスト評価項目',
+              type: 'numeric',
+              minValue: 0,
+              maxValue: 10,
+              weight: 1.0,
+            },
+          ],
+        },
+      ],
+      createdBy: new mongoose.Types.ObjectId(userId),
     });
     await template.save();
 
@@ -83,10 +87,10 @@ describe('Shares API', () => {
       videoId: video._id,
       templateId: template._id,
       creatorId: new mongoose.Types.ObjectId(userId),
-      evaluators: [new mongoose.Types.ObjectId(userId)]
+      evaluators: [new mongoose.Types.ObjectId(userId)],
     });
     await session.save();
-    sessionId = session._id.toString();
+    sessionId = (session._id as mongoose.Types.ObjectId).toString();
   });
 
   afterAll(async () => {
@@ -108,8 +112,8 @@ describe('Shares API', () => {
           allowComments: true,
           allowDownload: false,
           showEvaluatorNames: false,
-          showIndividualScores: true
-        }
+          showIndividualScores: true,
+        },
       };
 
       const response = await request(app)
@@ -127,13 +131,10 @@ describe('Shares API', () => {
       const shareData = {
         resourceType: ShareType.SESSION_RESULTS,
         resourceId: sessionId,
-        visibility: ShareVisibility.PUBLIC
+        visibility: ShareVisibility.PUBLIC,
       };
 
-      await request(app)
-        .post('/api/shares')
-        .send(shareData)
-        .expect(401);
+      await request(app).post('/api/shares').send(shareData).expect(401);
     });
   });
 
@@ -145,7 +146,7 @@ describe('Shares API', () => {
         creatorId: new mongoose.Types.ObjectId(userId),
         shareToken: Share.generateShareToken(),
         visibility: ShareVisibility.PUBLIC,
-        permissions: ['view']
+        permissions: ['view'],
       });
       await share.save();
     });
@@ -165,9 +166,7 @@ describe('Shares API', () => {
     });
 
     it('should return 401 without authentication', async () => {
-      await request(app)
-        .get('/api/shares')
-        .expect(401);
+      await request(app).get('/api/shares').expect(401);
     });
   });
 });

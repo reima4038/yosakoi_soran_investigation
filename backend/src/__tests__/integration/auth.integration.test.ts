@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { app } from '../../index';
+import app from '../../index';
 import { connectDB, disconnectDB } from '../setup';
 import { User } from '../../models/User';
 

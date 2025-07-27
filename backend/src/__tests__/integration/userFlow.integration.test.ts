@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { app } from '../../index';
+import app from '../../index';
 import { connectDB, disconnectDB } from '../setup';
 import { User } from '../../models/User';
 import { Video } from '../../models/Video';
@@ -87,17 +87,17 @@ describe('User Flow Integration Tests', () => {
       const templateId = templateResponse.body.data._id;
 
       // Step 2: Register a video (mock YouTube API response)
-      const videoData = {
-        youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-        metadata: {
-          teamName: 'テストチーム',
-          performanceName: 'テスト演舞',
-          eventName: 'テスト大会',
-          year: 2023,
-          location: 'テスト会場'
-        },
-        tags: ['テスト', 'よさこい']
-      };
+      // const videoData = {
+      //   youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      //   metadata: {
+      //     teamName: 'テストチーム',
+      //     performanceName: 'テスト演舞',
+      //     eventName: 'テスト大会',
+      //     year: 2023,
+      //     location: 'テスト会場'
+      //   },
+      //   tags: ['テスト', 'よさこい']
+      // };
 
       // Note: This will fail without proper YouTube API setup, but we can test the structure
       // For integration testing, we might need to mock the YouTube service
