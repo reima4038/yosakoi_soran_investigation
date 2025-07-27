@@ -6,6 +6,7 @@ import rateLimit from 'express-rate-limit';
 import mongoose from 'mongoose';
 import { config } from './config';
 import routes from './routes';
+import { securityMiddleware, securityLogger } from '../../security/security-config';
 
 // Load environment variables
 dotenv.config();
@@ -25,19 +26,23 @@ if (process.env.NODE_ENV !== 'test') {
     });
 }
 
-// Security middleware
-app.use(helmet());
-app.use(cors({
-  origin: config.frontendUrl,
-  credentials: true,
-}));
+// Enhanced security middleware
+securityMiddleware(app);
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+// Security event logging
+app.use((req, res, next) => {
+  res.on('finish', () => {
+    if (res.statusCode >= 400) {
+      securityLogger.logSecurityEvent('HTTP_ERROR', {
+        statusCode: res.statusCode,
+        method: req.method,
+        url: req.url,
+        userAgent: req.get('User-Agent')
+      }, req);
+    }
+  });
+  next();
 });
-app.use(limiter);
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));

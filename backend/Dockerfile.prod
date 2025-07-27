@@ -1,0 +1,34 @@
+FROM node:18-alpine
+
+# 作業ディレクトリを設定
+WORKDIR /app
+
+# パッケージファイルをコピー
+COPY package*.json ./
+
+# 本番用依存関係をインストール
+RUN npm ci --only=production && npm cache clean --force
+
+# ソースコードをコピー
+COPY . .
+
+# TypeScriptをビルド
+RUN npm run build
+
+# 非rootユーザーを作成
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nodejs -u 1001
+
+# ログディレクトリを作成
+RUN mkdir -p /app/logs && chown -R nodejs:nodejs /app/logs
+
+# ユーザーを切り替え
+USER nodejs
+
+# ヘルスチェック
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node healthcheck.js || exit 1
+
+EXPOSE 3001
+
+CMD ["node", "dist/index.js"]

@@ -16,7 +16,16 @@
     "test:frontend": "cd frontend && npm test",
     "lint": "npm run lint:backend && npm run lint:frontend",
     "lint:backend": "cd backend && npm run lint",
-    "lint:frontend": "cd frontend && npm run lint"
+    "lint:frontend": "cd frontend && npm run lint",
+    "docker:build": "docker-compose -f docker-compose.prod.yml build",
+    "docker:up": "docker-compose -f docker-compose.prod.yml up -d",
+    "docker:down": "docker-compose -f docker-compose.prod.yml down",
+    "docker:logs": "docker-compose -f docker-compose.prod.yml logs -f",
+    "deploy": "./scripts/deploy.sh",
+    "backup": "./scripts/backup.sh",
+    "security:audit": "node security/security-audit.js",
+    "security:test": "cd backend && npm run test -- --testPathPattern=security",
+    "security:scan": "npm audit && cd backend && npm audit && cd ../frontend && npm audit"
   },
   "keywords": ["yosakoi", "evaluation", "youtube", "react", "nodejs"],
   "author": "",
