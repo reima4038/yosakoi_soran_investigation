@@ -19,6 +19,7 @@ import {
   Alert,
   Tooltip,
   Divider,
+  Fab,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -29,6 +30,7 @@ import {
   Schedule as ScheduleIcon,
 } from '@mui/icons-material';
 import { Comment, evaluationService } from '../../services/evaluationService';
+import { useResponsive } from '../../hooks/useResponsive';
 
 interface TimelineCommentsProps {
   sessionId: string;
@@ -37,6 +39,7 @@ interface TimelineCommentsProps {
   onSeekTo: (time: number) => void;
   onCommentsUpdate: (comments: Comment[]) => void;
   readonly?: boolean;
+  compact?: boolean; // モバイル用コンパクト表示
 }
 
 interface CommentMarker {
@@ -51,7 +54,9 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
   onSeekTo,
   onCommentsUpdate,
   readonly = false,
+  compact = false,
 }) => {
+  const { isMobile, isTouchDevice } = useResponsive();
   const [newCommentText, setNewCommentText] = useState('');
   const [editingComment, setEditingComment] = useState<Comment | null>(null);
   const [editText, setEditText] = useState('');
@@ -193,6 +198,119 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
     onSeekTo(comment.timestamp);
   };
 
+  // コンパクト表示（モバイル用）
+  if (compact) {
+    return (
+      <Box sx={{ position: 'relative' }}>
+        {/* エラー表示 */}
+        {error && (
+          <Alert severity='error' sx={{ mb: 1 }} onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
+
+        {/* コンパクトタイムライン */}
+        <Box
+          ref={timelineRef}
+          sx={{
+            position: 'relative',
+            height: 40,
+            backgroundColor: 'grey.100',
+            borderRadius: 1,
+            cursor: readonly ? 'default' : 'pointer',
+            mb: 1,
+          }}
+          onClick={readonly ? undefined : handleTimelineClick}
+        >
+          {/* 現在時刻インジケーター */}
+          <Box
+            sx={{
+              position: 'absolute',
+              left: `${currentTimePosition}%`,
+              top: 0,
+              bottom: 0,
+              width: 2,
+              backgroundColor: 'primary.main',
+              zIndex: 2,
+            }}
+          />
+
+          {/* 現在時刻ラベル */}
+          <Chip
+            label={formatTime(currentTime)}
+            size='small'
+            color='primary'
+            sx={{
+              position: 'absolute',
+              left: `${Math.min(Math.max(currentTimePosition, 5), 90)}%`,
+              top: -6,
+              transform: 'translateX(-50%)',
+              zIndex: 3,
+              fontSize: '0.75rem',
+              height: 24,
+            }}
+          />
+
+          {/* コメントマーカー */}
+          {commentMarkers.map((marker, index) => (
+            <Box
+              key={index}
+              sx={{
+                position: 'absolute',
+                left: `${marker.position}%`,
+                top: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: isTouchDevice ? 16 : 12,
+                height: isTouchDevice ? 16 : 12,
+                backgroundColor: 'secondary.main',
+                borderRadius: '50%',
+                cursor: 'pointer',
+                border: '2px solid white',
+                zIndex: 1,
+                '&:active': isTouchDevice ? {
+                  backgroundColor: 'secondary.dark',
+                  transform: 'translate(-50%, -50%) scale(1.1)',
+                } : {},
+              }}
+              onClick={e => {
+                e.stopPropagation();
+                handleMarkerClick(marker.comment);
+              }}
+            />
+          ))}
+        </Box>
+
+        {/* コメント数表示 */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Typography variant='caption' color='text.secondary'>
+            {comments.length} コメント
+          </Typography>
+          <Typography variant='caption' color='text.secondary'>
+            {formatTime(videoDuration)}
+          </Typography>
+        </Box>
+
+        {/* フローティングアクションボタン */}
+        {!readonly && (
+          <Fab
+            size='small'
+            color='primary'
+            onClick={handleAddComment}
+            disabled={loading}
+            sx={{
+              position: 'absolute',
+              right: 8,
+              top: -20,
+              zIndex: 4,
+            }}
+          >
+            <AddIcon />
+          </Fab>
+        )}
+      </Box>
+    );
+  }
+
   return (
     <Box>
       {/* エラー表示 */}
@@ -204,26 +322,34 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
 
       {/* タイムライン */}
       <Card sx={{ mb: 2 }}>
-        <CardContent>
+        <CardContent sx={{ p: isMobile ? 1.5 : 2 }}>
           <Box
             display='flex'
             alignItems='center'
             justifyContent='space-between'
             mb={2}
+            flexWrap={isMobile ? 'wrap' : 'nowrap'}
+            gap={isMobile ? 1 : 0}
           >
-            <Typography variant='h6' display='flex' alignItems='center' gap={1}>
+            <Typography 
+              variant={isMobile ? 'subtitle1' : 'h6'} 
+              display='flex' 
+              alignItems='center' 
+              gap={1}
+            >
               <ScheduleIcon />
               タイムライン
             </Typography>
             {!readonly && (
               <Button
                 variant='contained'
-                size='small'
+                size={isMobile ? 'medium' : 'small'}
                 startIcon={<AddIcon />}
                 onClick={handleAddComment}
                 disabled={loading}
+                sx={{ minHeight: isMobile ? 44 : 'auto' }}
               >
-                コメント追加
+                {isMobile ? '追加' : 'コメント追加'}
               </Button>
             )}
           </Box>
@@ -233,7 +359,7 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
             ref={timelineRef}
             sx={{
               position: 'relative',
-              height: 60,
+              height: isMobile ? 50 : 60,
               backgroundColor: 'grey.100',
               borderRadius: 1,
               cursor: readonly ? 'default' : 'pointer',
@@ -265,6 +391,7 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
                 top: -8,
                 transform: 'translateX(-50%)',
                 zIndex: 3,
+                fontSize: isMobile ? '0.75rem' : '0.8125rem',
               }}
             />
 
@@ -283,6 +410,8 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
                   </Box>
                 }
                 arrow
+                disableHoverListener={isTouchDevice}
+                disableFocusListener={isTouchDevice}
               >
                 <Box
                   sx={{
@@ -290,17 +419,21 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
                     left: `${marker.position}%`,
                     top: '50%',
                     transform: 'translate(-50%, -50%)',
-                    width: 12,
-                    height: 12,
+                    width: isTouchDevice ? 16 : 12,
+                    height: isTouchDevice ? 16 : 12,
                     backgroundColor: 'secondary.main',
                     borderRadius: '50%',
                     cursor: 'pointer',
                     border: '2px solid white',
                     zIndex: 1,
-                    '&:hover': {
+                    '&:hover': !isTouchDevice ? {
                       backgroundColor: 'secondary.dark',
                       transform: 'translate(-50%, -50%) scale(1.2)',
-                    },
+                    } : {},
+                    '&:active': isTouchDevice ? {
+                      backgroundColor: 'secondary.dark',
+                      transform: 'translate(-50%, -50%) scale(1.1)',
+                    } : {},
                   }}
                   onClick={e => {
                     e.stopPropagation();
@@ -325,9 +458,9 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
 
       {/* コメント一覧 */}
       <Card>
-        <CardContent>
+        <CardContent sx={{ p: isMobile ? 1.5 : 2 }}>
           <Typography
-            variant='h6'
+            variant={isMobile ? 'subtitle1' : 'h6'}
             display='flex'
             alignItems='center'
             gap={1}
@@ -342,20 +475,32 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
               variant='body2'
               color='text.secondary'
               textAlign='center'
-              py={4}
+              py={isMobile ? 2 : 4}
             >
               まだコメントがありません
             </Typography>
           ) : (
-            <List>
+            <List sx={{ p: 0 }}>
               {comments
                 .sort((a, b) => a.timestamp - b.timestamp)
                 .map((comment, index) => (
                   <React.Fragment key={comment.id || index}>
-                    <ListItem alignItems='flex-start'>
+                    <ListItem 
+                      alignItems='flex-start'
+                      sx={{ 
+                        px: 0,
+                        py: isMobile ? 1.5 : 1,
+                        minHeight: isTouchDevice ? 64 : 'auto',
+                      }}
+                    >
                       <ListItemText
                         primary={
-                          <Box display='flex' alignItems='center' gap={1}>
+                          <Box 
+                            display='flex' 
+                            alignItems='center' 
+                            gap={1}
+                            flexWrap={isMobile ? 'wrap' : 'nowrap'}
+                          >
                             <Chip
                               label={formatTime(comment.timestamp)}
                               size='small'
@@ -363,21 +508,31 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
                               clickable
                               onClick={() => handleMarkerClick(comment)}
                               icon={<PlayArrowIcon />}
+                              sx={{ 
+                                minHeight: isTouchDevice ? 32 : 'auto',
+                                '& .MuiChip-label': {
+                                  fontSize: isMobile ? '0.75rem' : '0.8125rem',
+                                }
+                              }}
                             />
                             {comment.createdAt && (
                               <Typography
                                 variant='caption'
                                 color='text.secondary'
                               >
-                                {new Date(comment.createdAt).toLocaleString(
-                                  'ja-JP'
-                                )}
+                                {new Date(comment.createdAt).toLocaleString('ja-JP')}
                               </Typography>
                             )}
                           </Box>
                         }
                         secondary={
-                          <Typography variant='body2' sx={{ mt: 1 }}>
+                          <Typography 
+                            variant='body2' 
+                            sx={{ 
+                              mt: 1,
+                              fontSize: isMobile ? '0.875rem' : '0.875rem',
+                            }}
+                          >
                             {comment.text}
                           </Typography>
                         }
@@ -388,7 +543,11 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
                             edge='end'
                             onClick={() => handleEditComment(comment)}
                             disabled={loading}
-                            size='small'
+                            size={isMobile ? 'medium' : 'small'}
+                            sx={{ 
+                              minHeight: isTouchDevice ? 44 : 'auto',
+                              minWidth: isTouchDevice ? 44 : 'auto',
+                            }}
                           >
                             <EditIcon />
                           </IconButton>
@@ -396,8 +555,12 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
                             edge='end'
                             onClick={() => handleDeleteComment(comment)}
                             disabled={loading}
-                            size='small'
-                            sx={{ ml: 1 }}
+                            size={isMobile ? 'medium' : 'small'}
+                            sx={{ 
+                              ml: 1,
+                              minHeight: isTouchDevice ? 44 : 'auto',
+                              minWidth: isTouchDevice ? 44 : 'auto',
+                            }}
                           >
                             <DeleteIcon />
                           </IconButton>
@@ -418,28 +581,37 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
         onClose={() => setShowAddDialog(false)}
         maxWidth='sm'
         fullWidth
+        fullScreen={isMobile}
       >
         <DialogTitle>コメントを追加 - {formatTime(addCommentTime)}</DialogTitle>
         <DialogContent>
           <TextField
             fullWidth
             multiline
-            rows={3}
+            rows={isMobile ? 4 : 3}
             label='コメント内容'
             value={newCommentText}
             onChange={e => setNewCommentText(e.target.value)}
             placeholder='この時点でのコメントを入力してください'
             sx={{ mt: 1 }}
+            size={isMobile ? 'medium' : 'small'}
           />
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowAddDialog(false)} disabled={loading}>
+        <DialogActions sx={{ p: isMobile ? 2 : 1 }}>
+          <Button 
+            onClick={() => setShowAddDialog(false)} 
+            disabled={loading}
+            size={isMobile ? 'large' : 'medium'}
+            sx={{ minHeight: isMobile ? 48 : 'auto' }}
+          >
             キャンセル
           </Button>
           <Button
             onClick={handleSaveNewComment}
             variant='contained'
             disabled={loading || !newCommentText.trim()}
+            size={isMobile ? 'large' : 'medium'}
+            sx={{ minHeight: isMobile ? 48 : 'auto' }}
           >
             追加
           </Button>
@@ -452,6 +624,7 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
         onClose={() => setEditingComment(null)}
         maxWidth='sm'
         fullWidth
+        fullScreen={isMobile}
       >
         <DialogTitle>
           コメントを編集 -{' '}
@@ -461,21 +634,29 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
           <TextField
             fullWidth
             multiline
-            rows={3}
+            rows={isMobile ? 4 : 3}
             label='コメント内容'
             value={editText}
             onChange={e => setEditText(e.target.value)}
             sx={{ mt: 1 }}
+            size={isMobile ? 'medium' : 'small'}
           />
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEditingComment(null)} disabled={loading}>
+        <DialogActions sx={{ p: isMobile ? 2 : 1 }}>
+          <Button 
+            onClick={() => setEditingComment(null)} 
+            disabled={loading}
+            size={isMobile ? 'large' : 'medium'}
+            sx={{ minHeight: isMobile ? 48 : 'auto' }}
+          >
             キャンセル
           </Button>
           <Button
             onClick={handleSaveEdit}
             variant='contained'
             disabled={loading || !editText.trim()}
+            size={isMobile ? 'large' : 'medium'}
+            sx={{ minHeight: isMobile ? 48 : 'auto' }}
           >
             更新
           </Button>

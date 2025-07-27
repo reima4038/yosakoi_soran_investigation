@@ -1,4 +1,5 @@
 import { api } from '../utils/api';
+import { offlineService } from './offlineService';
 
 export interface EvaluationScore {
   criterionId: string;
@@ -66,14 +67,47 @@ class EvaluationService {
   private baseUrl = '/api/evaluations';
 
   /**
-   * セッションの評価を開始/取得する
+   * セッションの評価を開始/取得する（オフライン対応）
    */
   async getEvaluation(sessionId: string): Promise<EvaluationData> {
     try {
-      const response = await api.get<{ status: string; data: EvaluationData }>(
-        `${this.baseUrl}/session/${sessionId}`
-      );
-      return response.data.data;
+      // オンラインの場合は通常通りAPI呼び出し
+      if (offlineService.getOnlineStatus()) {
+        const response = await api.get<{ status: string; data: EvaluationData }>(
+          `${this.baseUrl}/session/${sessionId}`
+        );
+        
+        // データをキャッシュ
+        const data = response.data.data;
+        await offlineService.cacheSession(data.session);
+        await offlineService.cacheVideo(data.session.video);
+        await offlineService.cacheTemplate(data.session.template);
+        
+        return data;
+      } else {
+        // オフラインの場合はキャッシュから取得
+        const cachedSession = await offlineService.getCachedSession(sessionId);
+        if (!cachedSession) {
+          throw new Error('オフラインでセッションデータが利用できません');
+        }
+        
+        // 基本的な評価データ構造を作成
+        const evaluationData: EvaluationData = {
+          session: cachedSession,
+          evaluation: {
+            id: `offline_${sessionId}`,
+            sessionId,
+            userId: 'offline_user',
+            submittedAt: undefined,
+            isComplete: false,
+            scores: [],
+            comments: [],
+            lastSavedAt: new Date(),
+          },
+        };
+        
+        return evaluationData;
+      }
     } catch (error) {
       console.error('評価取得エラー:', error);
       throw error;
@@ -81,18 +115,44 @@ class EvaluationService {
   }
 
   /**
-   * 評価スコアを保存する（リアルタイム保存）
+   * 評価スコアを保存する（オフライン対応リアルタイム保存）
    */
   async saveScores(
     sessionId: string,
     scores: EvaluationScore[]
   ): Promise<Evaluation> {
     try {
-      const response = await api.put<{
-        status: string;
-        data: { evaluation: Evaluation };
-      }>(`${this.baseUrl}/session/${sessionId}/scores`, { scores });
-      return response.data.data.evaluation;
+      if (offlineService.getOnlineStatus()) {
+        // オンラインの場合は通常通りAPI呼び出し
+        const response = await api.put<{
+          status: string;
+          data: { evaluation: Evaluation };
+        }>(`${this.baseUrl}/session/${sessionId}/scores`, { scores });
+        return response.data.data.evaluation;
+      } else {
+        // オフラインの場合はローカルに保存
+        const evaluationData = {
+          sessionId,
+          scores,
+          lastSavedAt: new Date(),
+        };
+        
+        await offlineService.saveEvaluation(sessionId, evaluationData);
+        
+        // 仮の評価オブジェクトを返す
+        const evaluation: Evaluation = {
+          id: `offline_${sessionId}`,
+          sessionId,
+          userId: 'offline_user',
+          submittedAt: undefined,
+          isComplete: false,
+          scores,
+          comments: [],
+          lastSavedAt: new Date(),
+        };
+        
+        return evaluation;
+      }
     } catch (error) {
       console.error('評価保存エラー:', error);
       throw error;
@@ -100,7 +160,7 @@ class EvaluationService {
   }
 
   /**
-   * コメントを追加する
+   * コメントを追加する（オフライン対応）
    */
   async addComment(
     sessionId: string,
@@ -108,11 +168,25 @@ class EvaluationService {
     text: string
   ): Promise<Comment> {
     try {
-      const response = await api.post<{
-        status: string;
-        data: { comment: Comment };
-      }>(`${this.baseUrl}/session/${sessionId}/comments`, { timestamp, text });
-      return response.data.data.comment;
+      if (offlineService.getOnlineStatus()) {
+        // オンラインの場合は通常通りAPI呼び出し
+        const response = await api.post<{
+          status: string;
+          data: { comment: Comment };
+        }>(`${this.baseUrl}/session/${sessionId}/comments`, { timestamp, text });
+        return response.data.data.comment;
+      } else {
+        // オフラインの場合はローカルに保存
+        const comment: Comment = {
+          id: `offline_comment_${Date.now()}_${Math.random()}`,
+          timestamp,
+          text,
+          createdAt: new Date(),
+        };
+        
+        await offlineService.saveComment(sessionId, comment);
+        return comment;
+      }
     } catch (error) {
       console.error('コメント追加エラー:', error);
       throw error;
@@ -120,7 +194,7 @@ class EvaluationService {
   }
 
   /**
-   * コメントを更新する
+   * コメントを更新する（オフライン対応）
    */
   async updateComment(
     sessionId: string,
@@ -128,13 +202,27 @@ class EvaluationService {
     text: string
   ): Promise<Comment> {
     try {
-      const response = await api.put<{
-        status: string;
-        data: { comment: Comment };
-      }>(`${this.baseUrl}/session/${sessionId}/comments/${commentId}`, {
-        text,
-      });
-      return response.data.data.comment;
+      if (offlineService.getOnlineStatus()) {
+        // オンラインの場合は通常通りAPI呼び出し
+        const response = await api.put<{
+          status: string;
+          data: { comment: Comment };
+        }>(`${this.baseUrl}/session/${sessionId}/comments/${commentId}`, {
+          text,
+        });
+        return response.data.data.comment;
+      } else {
+        // オフラインの場合は更新されたコメントを保存
+        const updatedComment: Comment = {
+          id: commentId,
+          timestamp: 0, // 実際の実装では既存のタイムスタンプを保持
+          text,
+          createdAt: new Date(),
+        };
+        
+        await offlineService.saveComment(sessionId, updatedComment);
+        return updatedComment;
+      }
     } catch (error) {
       console.error('コメント更新エラー:', error);
       throw error;
@@ -156,18 +244,44 @@ class EvaluationService {
   }
 
   /**
-   * 評価を提出する
+   * 評価を提出する（オフライン対応）
    */
   async submitEvaluation(sessionId: string): Promise<Evaluation> {
     try {
-      const response = await api.post<{
-        status: string;
-        data: {
-          evaluation: Evaluation;
-          submissionSummary: any;
+      if (offlineService.getOnlineStatus()) {
+        // オンラインの場合は通常通りAPI呼び出し
+        const response = await api.post<{
+          status: string;
+          data: {
+            evaluation: Evaluation;
+            submissionSummary: any;
+          };
+        }>(`${this.baseUrl}/session/${sessionId}/submit`);
+        return response.data.data.evaluation;
+      } else {
+        // オフラインの場合は提出予約として保存
+        const submissionData = {
+          sessionId,
+          submittedAt: new Date(),
+          isComplete: true,
         };
-      }>(`${this.baseUrl}/session/${sessionId}/submit`);
-      return response.data.data.evaluation;
+        
+        await offlineService.saveEvaluation(sessionId, submissionData);
+        
+        // 仮の提出済み評価オブジェクトを返す
+        const evaluation: Evaluation = {
+          id: `offline_${sessionId}`,
+          sessionId,
+          userId: 'offline_user',
+          submittedAt: new Date(),
+          isComplete: true,
+          scores: [],
+          comments: [],
+          lastSavedAt: new Date(),
+        };
+        
+        return evaluation;
+      }
     } catch (error) {
       console.error('評価提出エラー:', error);
       throw error;

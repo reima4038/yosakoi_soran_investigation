@@ -33,6 +33,7 @@ import {
   Step,
   StepLabel,
   StepContent,
+  Fab,
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
@@ -48,6 +49,7 @@ import {
   EvaluationScore,
   evaluationService,
 } from '../../services/evaluationService';
+import { useResponsive } from '../../hooks/useResponsive';
 
 interface EvaluationFormProps {
   sessionId: string;
@@ -63,6 +65,7 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
   sessionId,
   onEvaluationSubmitted,
 }) => {
+  const { isMobile, isTouchDevice } = useResponsive();
   const [evaluationData, setEvaluationData] = useState<EvaluationData | null>(
     null
   );
@@ -343,9 +346,19 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
     const isCompleted = currentScore !== undefined;
 
     return (
-      <Box key={criterion.id} sx={{ mb: 3 }}>
-        <Box display='flex' alignItems='center' gap={1} mb={1}>
-          <Typography variant='subtitle1' fontWeight='medium'>
+      <Box key={criterion.id} sx={{ mb: isMobile ? 2 : 3 }}>
+        <Box 
+          display='flex' 
+          alignItems='center' 
+          gap={1} 
+          mb={1}
+          flexWrap={isMobile ? 'wrap' : 'nowrap'}
+        >
+          <Typography 
+            variant={isMobile ? 'body1' : 'subtitle1'} 
+            fontWeight='medium'
+            sx={{ flex: 1 }}
+          >
             {criterion.name}
           </Typography>
           {isCompleted && <CheckCircleIcon color='success' fontSize='small' />}
@@ -353,41 +366,89 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
             label={`重み: ${(criterion.weight * categoryWeight * 100).toFixed(0)}%`}
             size='small'
             variant='outlined'
+            sx={{ fontSize: isMobile ? '0.75rem' : '0.8125rem' }}
           />
         </Box>
 
         {criterion.description && (
-          <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
+          <Typography 
+            variant='body2' 
+            color='text.secondary' 
+            sx={{ 
+              mb: 2,
+              fontSize: isMobile ? '0.875rem' : '0.875rem',
+            }}
+          >
             {criterion.description}
           </Typography>
         )}
 
         {criterion.type === 'numeric' || criterion.type === 'scale' ? (
           <Box>
-            <Box display='flex' alignItems='center' gap={2} mb={1}>
-              <Typography variant='body2' sx={{ minWidth: 60 }}>
-                {criterion.minValue}
-              </Typography>
-              <Slider
-                value={currentScore?.score || criterion.minValue}
-                min={criterion.minValue}
-                max={criterion.maxValue}
-                step={1}
-                onChange={(_, value) =>
-                  handleScoreChange(
-                    criterion.id,
-                    value as number,
-                    currentScore?.comment
-                  )
-                }
-                valueLabelDisplay='on'
-                sx={{ flex: 1 }}
-              />
-              <Typography variant='body2' sx={{ minWidth: 60 }}>
-                {criterion.maxValue}
-              </Typography>
+            <Box 
+              display='flex' 
+              alignItems='center' 
+              gap={isMobile ? 1 : 2} 
+              mb={1}
+              flexDirection={isMobile ? 'column' : 'row'}
+            >
+              {!isMobile && (
+                <Typography variant='body2' sx={{ minWidth: 60 }}>
+                  {criterion.minValue}
+                </Typography>
+              )}
+              <Box sx={{ flex: 1, width: '100%' }}>
+                <Slider
+                  value={currentScore?.score || criterion.minValue}
+                  min={criterion.minValue}
+                  max={criterion.maxValue}
+                  step={1}
+                  onChange={(_, value) =>
+                    handleScoreChange(
+                      criterion.id,
+                      value as number,
+                      currentScore?.comment
+                    )
+                  }
+                  valueLabelDisplay='on'
+                  sx={{ 
+                    '& .MuiSlider-thumb': {
+                      width: isTouchDevice ? 24 : 20,
+                      height: isTouchDevice ? 24 : 20,
+                    },
+                    '& .MuiSlider-track': {
+                      height: isTouchDevice ? 6 : 4,
+                    },
+                    '& .MuiSlider-rail': {
+                      height: isTouchDevice ? 6 : 4,
+                    },
+                  }}
+                />
+              </Box>
+              {!isMobile && (
+                <Typography variant='body2' sx={{ minWidth: 60 }}>
+                  {criterion.maxValue}
+                </Typography>
+              )}
             </Box>
-            <Typography variant='h6' textAlign='center' color='primary'>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              {isMobile && (
+                <>
+                  <Typography variant='body2' color='text.secondary'>
+                    {criterion.minValue}
+                  </Typography>
+                  <Typography variant='body2' color='text.secondary'>
+                    {criterion.maxValue}
+                  </Typography>
+                </>
+              )}
+            </Box>
+            <Typography 
+              variant={isMobile ? 'h6' : 'h6'} 
+              textAlign='center' 
+              color='primary'
+              sx={{ mt: 1 }}
+            >
               {currentScore?.score || criterion.minValue} / {criterion.maxValue}
             </Typography>
           </Box>
@@ -402,10 +463,28 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
                   currentScore?.comment
                 )
               }
-              row
+              row={!isMobile}
             >
-              <FormControlLabel value='1' control={<Radio />} label='はい' />
-              <FormControlLabel value='0' control={<Radio />} label='いいえ' />
+              <FormControlLabel 
+                value='1' 
+                control={<Radio />} 
+                label='はい'
+                sx={{
+                  '& .MuiRadio-root': {
+                    padding: isTouchDevice ? 1.5 : 1,
+                  }
+                }}
+              />
+              <FormControlLabel 
+                value='0' 
+                control={<Radio />} 
+                label='いいえ'
+                sx={{
+                  '& .MuiRadio-root': {
+                    padding: isTouchDevice ? 1.5 : 1,
+                  }
+                }}
+              />
             </RadioGroup>
           </FormControl>
         ) : null}
@@ -413,7 +492,7 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
         <TextField
           fullWidth
           multiline
-          rows={2}
+          rows={isMobile ? 3 : 2}
           label='コメント（任意）'
           value={currentScore?.comment || ''}
           onChange={e =>
@@ -425,6 +504,7 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
           }
           sx={{ mt: 2 }}
           placeholder='この項目に関するコメントを入力してください'
+          size={isMobile ? 'medium' : 'small'}
         />
       </Box>
     );
@@ -453,14 +533,28 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
   return (
     <Box>
       {/* ヘッダー情報 */}
-      <Card sx={{ mb: 3 }}>
+      <Card sx={{ mb: isMobile ? 2 : 3 }}>
         <CardHeader
           title={evaluationData.session.name}
           subheader={`動画: ${evaluationData.session.video.title}`}
+          titleTypographyProps={{
+            variant: isMobile ? 'h6' : 'h5',
+          }}
+          subheaderTypographyProps={{
+            variant: isMobile ? 'body2' : 'subtitle1',
+          }}
+          sx={{ pb: isMobile ? 1 : 2 }}
         />
-        <CardContent>
+        <CardContent sx={{ pt: 0 }}>
           {evaluationData.session.description && (
-            <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
+            <Typography 
+              variant='body2' 
+              color='text.secondary' 
+              sx={{ 
+                mb: 2,
+                fontSize: isMobile ? '0.875rem' : '0.875rem',
+              }}
+            >
               {evaluationData.session.description}
             </Typography>
           )}
@@ -472,30 +566,50 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
               justifyContent='space-between'
               alignItems='center'
               mb={1}
+              flexWrap={isMobile ? 'wrap' : 'nowrap'}
+              gap={isMobile ? 0.5 : 0}
             >
-              <Typography variant='body2'>
+              <Typography 
+                variant='body2'
+                sx={{ fontSize: isMobile ? '0.875rem' : '0.875rem' }}
+              >
                 評価進捗: {progress.completedCriteria} /{' '}
                 {progress.totalCriteria} 項目完了
               </Typography>
-              <Typography variant='body2' fontWeight='bold'>
+              <Typography 
+                variant='body2' 
+                fontWeight='bold'
+                color='primary'
+                sx={{ fontSize: isMobile ? '0.875rem' : '0.875rem' }}
+              >
                 {progress.progressPercentage.toFixed(1)}%
               </Typography>
             </Box>
             <LinearProgress
               variant='determinate'
               value={progress.progressPercentage}
-              sx={{ height: 8, borderRadius: 4 }}
+              sx={{ 
+                height: isMobile ? 6 : 8, 
+                borderRadius: 4,
+              }}
             />
           </Box>
 
           {/* 提出状態 */}
           {isSubmitted ? (
-            <Alert severity='success' icon={<CheckCircleIcon />}>
+            <Alert 
+              severity='success' 
+              icon={<CheckCircleIcon />}
+              sx={{ fontSize: isMobile ? '0.875rem' : '0.875rem' }}
+            >
               評価は {new Date(isSubmitted).toLocaleString('ja-JP')}{' '}
               に提出済みです
             </Alert>
           ) : (
-            <Alert severity='info'>
+            <Alert 
+              severity='info'
+              sx={{ fontSize: isMobile ? '0.875rem' : '0.875rem' }}
+            >
               評価は自動保存されます。すべての項目を入力後、提出してください。
             </Alert>
           )}
@@ -504,7 +618,10 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
           {error && (
             <Alert
               severity='error'
-              sx={{ mt: 1 }}
+              sx={{ 
+                mt: 1,
+                fontSize: isMobile ? '0.875rem' : '0.875rem',
+              }}
               onClose={() => setError(null)}
             >
               {error}
@@ -514,7 +631,10 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
           {success && (
             <Alert
               severity='success'
-              sx={{ mt: 1 }}
+              sx={{ 
+                mt: 1,
+                fontSize: isMobile ? '0.875rem' : '0.875rem',
+              }}
               onClose={() => setSuccess(null)}
             >
               {success}
@@ -563,40 +683,109 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
 
       {/* アクションボタン */}
       {!isSubmitted && (
-        <Paper sx={{ p: 2, mt: 3, position: 'sticky', bottom: 0, zIndex: 1 }}>
-          <Box
-            display='flex'
-            justifyContent='space-between'
-            alignItems='center'
-          >
-            <Box display='flex' alignItems='center' gap={1}>
-              {saving && <CircularProgress size={20} />}
-              <Typography variant='body2' color='text.secondary'>
-                {saving ? '保存中...' : '自動保存済み'}
-              </Typography>
-            </Box>
+        <>
+          {/* デスクトップ用固定ボタン */}
+          {!isMobile && (
+            <Paper sx={{ p: 2, mt: 3, position: 'sticky', bottom: 0, zIndex: 1 }}>
+              <Box
+                display='flex'
+                justifyContent='space-between'
+                alignItems='center'
+              >
+                <Box display='flex' alignItems='center' gap={1}>
+                  {saving && <CircularProgress size={20} />}
+                  <Typography variant='body2' color='text.secondary'>
+                    {saving ? '保存中...' : '自動保存済み'}
+                  </Typography>
+                </Box>
 
-            <Button
-              variant='contained'
-              size='large'
-              startIcon={
-                submitting ? <CircularProgress size={20} /> : <SendIcon />
-              }
-              onClick={handleSubmitClick}
-              disabled={submitting}
-            >
-              {submitting ? '提出中...' : '評価を提出'}
-            </Button>
-          </Box>
+                <Button
+                  variant='contained'
+                  size='large'
+                  startIcon={
+                    submitting ? <CircularProgress size={20} /> : <SendIcon />
+                  }
+                  onClick={handleSubmitClick}
+                  disabled={submitting}
+                >
+                  {submitting ? '提出中...' : '評価を提出'}
+                </Button>
+              </Box>
 
-          {progress.progressPercentage < 100 && (
-            <Alert severity='warning' sx={{ mt: 2 }}>
-              <Typography variant='body2'>
-                未入力の項目: {progress.missingCriteria.join(', ')}
-              </Typography>
-            </Alert>
+              {progress.progressPercentage < 100 && (
+                <Alert severity='warning' sx={{ mt: 2 }}>
+                  <Typography variant='body2'>
+                    未入力の項目: {progress.missingCriteria.join(', ')}
+                  </Typography>
+                </Alert>
+              )}
+            </Paper>
           )}
-        </Paper>
+
+          {/* モバイル用フローティングアクションボタン */}
+          {isMobile && (
+            <Box sx={{ position: 'relative', height: 80 }}>
+              <Fab
+                variant='extended'
+                color='primary'
+                onClick={handleSubmitClick}
+                disabled={submitting}
+                sx={{
+                  position: 'fixed',
+                  bottom: 16,
+                  right: 16,
+                  zIndex: 1000,
+                  minHeight: 56,
+                  px: 3,
+                }}
+              >
+                {submitting ? (
+                  <CircularProgress size={24} sx={{ mr: 1 }} />
+                ) : (
+                  <SendIcon sx={{ mr: 1 }} />
+                )}
+                {submitting ? '提出中...' : '評価を提出'}
+              </Fab>
+
+              {/* 保存状態表示 */}
+              <Box
+                sx={{
+                  position: 'fixed',
+                  bottom: 80,
+                  right: 16,
+                  zIndex: 999,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  backgroundColor: 'background.paper',
+                  px: 2,
+                  py: 1,
+                  borderRadius: 1,
+                  boxShadow: 1,
+                }}
+              >
+                {saving && <CircularProgress size={16} />}
+                <Typography variant='caption' color='text.secondary'>
+                  {saving ? '保存中...' : '自動保存済み'}
+                </Typography>
+              </Box>
+
+              {progress.progressPercentage < 100 && (
+                <Alert 
+                  severity='warning' 
+                  sx={{ 
+                    mt: 2,
+                    fontSize: '0.875rem',
+                  }}
+                >
+                  <Typography variant='body2'>
+                    未入力の項目があります
+                  </Typography>
+                </Alert>
+              )}
+            </Box>
+          )}
+        </>
       )}
 
       {/* 完了チェックダイアログ */}

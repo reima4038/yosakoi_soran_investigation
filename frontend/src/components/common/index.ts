@@ -1,2 +1,2 @@
-// Common UI components will be implemented in subsequent tasks
-export const commonComponentsPlaceholder = 'Common UI components will be implemented in subsequent tasks';
+export { default as OfflineStatus } from './OfflineStatus';
+export { default as OfflineNotificationSettings } from './OfflineNotificationSettings';
