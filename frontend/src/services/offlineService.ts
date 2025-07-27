@@ -105,39 +105,51 @@ class OfflineService {
         upgrade(db) {
           // 評価データストア
           if (!db.objectStoreNames.contains('evaluations')) {
-            const evaluationStore = db.createObjectStore('evaluations', { keyPath: 'id' });
+            const evaluationStore = db.createObjectStore('evaluations', {
+              keyPath: 'id',
+            });
             evaluationStore.createIndex('by-sessionId', 'sessionId');
             evaluationStore.createIndex('by-synced', 'synced');
           }
 
           // コメントストア
           if (!db.objectStoreNames.contains('comments')) {
-            const commentStore = db.createObjectStore('comments', { keyPath: 'id' });
+            const commentStore = db.createObjectStore('comments', {
+              keyPath: 'id',
+            });
             commentStore.createIndex('by-sessionId', 'sessionId');
             commentStore.createIndex('by-synced', 'synced');
           }
 
           // セッションストア
           if (!db.objectStoreNames.contains('sessions')) {
-            const sessionStore = db.createObjectStore('sessions', { keyPath: 'id' });
+            const sessionStore = db.createObjectStore('sessions', {
+              keyPath: 'id',
+            });
             sessionStore.createIndex('by-cached', 'cached');
           }
 
           // 動画ストア
           if (!db.objectStoreNames.contains('videos')) {
-            const videoStore = db.createObjectStore('videos', { keyPath: 'id' });
+            const videoStore = db.createObjectStore('videos', {
+              keyPath: 'id',
+            });
             videoStore.createIndex('by-cached', 'cached');
           }
 
           // テンプレートストア
           if (!db.objectStoreNames.contains('templates')) {
-            const templateStore = db.createObjectStore('templates', { keyPath: 'id' });
+            const templateStore = db.createObjectStore('templates', {
+              keyPath: 'id',
+            });
             templateStore.createIndex('by-cached', 'cached');
           }
 
           // 同期キューストア
           if (!db.objectStoreNames.contains('syncQueue')) {
-            const syncStore = db.createObjectStore('syncQueue', { keyPath: 'id' });
+            const syncStore = db.createObjectStore('syncQueue', {
+              keyPath: 'id',
+            });
             syncStore.createIndex('by-timestamp', 'timestamp');
             syncStore.createIndex('by-type', 'type');
           }
@@ -188,7 +200,10 @@ class OfflineService {
   }
 
   // 評価データの保存（オフライン対応）
-  public async saveEvaluation(sessionId: string, evaluationData: any): Promise<void> {
+  public async saveEvaluation(
+    sessionId: string,
+    evaluationData: any
+  ): Promise<void> {
     if (!this.db) return;
 
     const id = `${sessionId}_${Date.now()}`;
@@ -209,12 +224,18 @@ class OfflineService {
       } else {
         // オフライン保存の通知
         if (this.notificationSettings.dataSaved) {
-          this.addOfflineNotification('data_saved', '評価データをローカルに保存しました');
+          this.addOfflineNotification(
+            'data_saved',
+            '評価データをローカルに保存しました'
+          );
         }
       }
     } catch (error) {
       console.error('Failed to save evaluation offline:', error);
-      this.addOfflineNotification('sync_failed', '評価データの保存に失敗しました');
+      this.addOfflineNotification(
+        'sync_failed',
+        '評価データの保存に失敗しました'
+      );
       throw error;
     }
   }
@@ -240,12 +261,18 @@ class OfflineService {
       } else {
         // オフライン保存の通知
         if (this.notificationSettings.dataSaved) {
-          this.addOfflineNotification('data_saved', 'コメントをローカルに保存しました');
+          this.addOfflineNotification(
+            'data_saved',
+            'コメントをローカルに保存しました'
+          );
         }
       }
     } catch (error) {
       console.error('Failed to save comment offline:', error);
-      this.addOfflineNotification('sync_failed', 'コメントの保存に失敗しました');
+      this.addOfflineNotification(
+        'sync_failed',
+        'コメントの保存に失敗しました'
+      );
       throw error;
     }
   }
@@ -348,7 +375,11 @@ class OfflineService {
     if (!this.db) return [];
 
     try {
-      const unsynced = await this.db.getAllFromIndex('evaluations', 'by-synced', false);
+      const unsynced = await this.db.getAllFromIndex(
+        'evaluations',
+        'by-synced',
+        false
+      );
       return unsynced.map(item => item.data);
     } catch (error) {
       console.error('Failed to get unsynced evaluations:', error);
@@ -361,7 +392,11 @@ class OfflineService {
     if (!this.db) return [];
 
     try {
-      const unsynced = await this.db.getAllFromIndex('comments', 'by-synced', false);
+      const unsynced = await this.db.getAllFromIndex(
+        'comments',
+        'by-synced',
+        false
+      );
       return unsynced.map(item => item.data);
     } catch (error) {
       console.error('Failed to get unsynced comments:', error);
@@ -395,7 +430,13 @@ class OfflineService {
 
   // オンライン時の同期処理
   public async syncWhenOnline(): Promise<void> {
-    if (!this.isOnline || this.syncInProgress || !this.db || !this.shouldSyncNow()) return;
+    if (
+      !this.isOnline ||
+      this.syncInProgress ||
+      !this.db ||
+      !this.shouldSyncNow()
+    )
+      return;
 
     this.syncInProgress = true;
     let syncedItems = 0;
@@ -404,7 +445,7 @@ class OfflineService {
     try {
       // 同期キューの処理
       const syncQueue = await this.db.getAll('syncQueue');
-      
+
       for (const item of syncQueue) {
         try {
           await this.processSyncItem(item);
@@ -413,7 +454,7 @@ class OfflineService {
         } catch (error) {
           console.error('Failed to sync item:', error);
           failedItems++;
-          
+
           // リトライ回数を増やす
           item.retryCount++;
           if (item.retryCount < 3) {
@@ -422,7 +463,10 @@ class OfflineService {
             // 最大リトライ回数に達した場合は削除
             await this.db.delete('syncQueue', item.id);
             if (this.notificationSettings.syncFailed) {
-              this.addOfflineNotification('sync_failed', `${item.type}の同期に失敗しました（最大リトライ回数に達しました）`);
+              this.addOfflineNotification(
+                'sync_failed',
+                `${item.type}の同期に失敗しました（最大リトライ回数に達しました）`
+              );
             }
           }
         }
@@ -433,8 +477,11 @@ class OfflineService {
 
       // 同期完了の通知
       if (syncedItems > 0 && this.notificationSettings.syncCompleted) {
-        this.addOfflineNotification('sync_completed', `${syncedItems}件のデータを同期しました`);
-        
+        this.addOfflineNotification(
+          'sync_completed',
+          `${syncedItems}件のデータを同期しました`
+        );
+
         // プッシュ通知も送信
         await this.sendPushNotification(
           '同期完了',
@@ -444,12 +491,18 @@ class OfflineService {
       }
 
       if (failedItems > 0 && this.notificationSettings.syncFailed) {
-        this.addOfflineNotification('sync_failed', `${failedItems}件のデータの同期に失敗しました`);
+        this.addOfflineNotification(
+          'sync_failed',
+          `${failedItems}件のデータの同期に失敗しました`
+        );
       }
     } catch (error) {
       console.error('Sync failed:', error);
       if (this.notificationSettings.syncFailed) {
-        this.addOfflineNotification('sync_failed', '同期処理でエラーが発生しました');
+        this.addOfflineNotification(
+          'sync_failed',
+          '同期処理でエラーが発生しました'
+        );
       }
     } finally {
       this.syncInProgress = false;
@@ -513,7 +566,9 @@ class OfflineService {
   }
 
   // 古いデータの削除
-  public async cleanupOldData(maxAge: number = 7 * 24 * 60 * 60 * 1000): Promise<void> {
+  public async cleanupOldData(
+    maxAge: number = 7 * 24 * 60 * 60 * 1000
+  ): Promise<void> {
     if (!this.db) return;
 
     const cutoffTime = Date.now() - maxAge;
@@ -548,7 +603,10 @@ class OfflineService {
   }
 
   // ストレージ使用量の取得
-  public async getStorageUsage(): Promise<{ used: number; quota: number } | null> {
+  public async getStorageUsage(): Promise<{
+    used: number;
+    quota: number;
+  } | null> {
     if ('storage' in navigator && 'estimate' in navigator.storage) {
       try {
         const estimate = await navigator.storage.estimate();
@@ -574,11 +632,12 @@ class OfflineService {
     }
 
     try {
-      const [unsyncedEvaluations, unsyncedComments, queuedItems] = await Promise.all([
-        this.db.getAllFromIndex('evaluations', 'by-synced', false),
-        this.db.getAllFromIndex('comments', 'by-synced', false),
-        this.db.getAll('syncQueue'),
-      ]);
+      const [unsyncedEvaluations, unsyncedComments, queuedItems] =
+        await Promise.all([
+          this.db.getAllFromIndex('evaluations', 'by-synced', false),
+          this.db.getAllFromIndex('comments', 'by-synced', false),
+          this.db.getAll('syncQueue'),
+        ]);
 
       return {
         unsyncedEvaluations: unsyncedEvaluations.length,
@@ -600,25 +659,30 @@ class OfflineService {
   }> = [];
 
   // オフライン通知の追加
-  public addOfflineNotification(type: 'sync_failed' | 'data_saved' | 'sync_completed', message: string): void {
+  public addOfflineNotification(
+    type: 'sync_failed' | 'data_saved' | 'sync_completed',
+    message: string
+  ): void {
     const notification = {
       id: `offline_${Date.now()}_${Math.random()}`,
       type,
       message,
       timestamp: Date.now(),
     };
-    
+
     this.offlineNotifications.push(notification);
-    
+
     // 最大50件まで保持
     if (this.offlineNotifications.length > 50) {
       this.offlineNotifications = this.offlineNotifications.slice(-50);
     }
-    
+
     // カスタムイベントを発火
-    window.dispatchEvent(new CustomEvent('offline-notification', {
-      detail: notification
-    }));
+    window.dispatchEvent(
+      new CustomEvent('offline-notification', {
+        detail: notification,
+      })
+    );
   }
 
   // オフライン通知の取得
@@ -649,7 +713,10 @@ class OfflineService {
     const saved = localStorage.getItem('offline_notification_settings');
     if (saved) {
       try {
-        this.notificationSettings = { ...this.notificationSettings, ...JSON.parse(saved) };
+        this.notificationSettings = {
+          ...this.notificationSettings,
+          ...JSON.parse(saved),
+        };
       } catch (error) {
         console.error('Failed to parse notification settings:', error);
       }
@@ -658,19 +725,32 @@ class OfflineService {
   }
 
   // 通知設定の更新
-  public updateNotificationSettings(settings: Partial<typeof this.notificationSettings>): void {
+  public updateNotificationSettings(
+    settings: Partial<typeof this.notificationSettings>
+  ): void {
     this.notificationSettings = { ...this.notificationSettings, ...settings };
-    localStorage.setItem('offline_notification_settings', JSON.stringify(this.notificationSettings));
+    localStorage.setItem(
+      'offline_notification_settings',
+      JSON.stringify(this.notificationSettings)
+    );
   }
 
   // プッシュ通知の送信（モバイル対応）
-  private async sendPushNotification(title: string, body: string, data?: any): Promise<void> {
+  private async sendPushNotification(
+    title: string,
+    body: string,
+    data?: any
+  ): Promise<void> {
     if ('serviceWorker' in navigator && 'PushManager' in window) {
       try {
         const registration = await navigator.serviceWorker.ready;
         if (registration.pushManager) {
           // プッシュ通知の実装は将来的に追加
-          console.log('Push notification would be sent:', { title, body, data });
+          console.log('Push notification would be sent:', {
+            title,
+            body,
+            data,
+          });
         }
       } catch (error) {
         console.error('Failed to send push notification:', error);
@@ -680,15 +760,16 @@ class OfflineService {
 
   // バックグラウンド同期の登録
   public async registerBackgroundSync(): Promise<void> {
-    if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
+    if (
+      'serviceWorker' in navigator &&
+      'sync' in window.ServiceWorkerRegistration.prototype
+    ) {
       try {
         const registration = await navigator.serviceWorker.ready;
         // TypeScript doesn't recognize sync API, so we cast to any
         await (registration as any).sync.register('evaluation-sync');
         console.log('Background sync registered');
-      } catch (error) {
-        
-      }
+      } catch (error) {}
     }
   }
 
@@ -698,11 +779,14 @@ class OfflineService {
   private monitorNetworkQuality(): void {
     if ('connection' in navigator) {
       const connection = (navigator as any).connection;
-      
+
       const updateNetworkQuality = () => {
         if (!this.isOnline) {
           this.networkQuality = 'offline';
-        } else if (connection.effectiveType === 'slow-2g' || connection.effectiveType === '2g') {
+        } else if (
+          connection.effectiveType === 'slow-2g' ||
+          connection.effectiveType === '2g'
+        ) {
           this.networkQuality = 'poor';
         } else {
           this.networkQuality = 'good';
@@ -723,7 +807,7 @@ class OfflineService {
   public shouldSyncNow(): boolean {
     if (!this.isOnline) return false;
     if (this.networkQuality === 'poor') return false;
-    
+
     // バッテリー残量をチェック（対応ブラウザのみ）
     if ('getBattery' in navigator) {
       (navigator as any).getBattery().then((battery: any) => {
@@ -732,7 +816,7 @@ class OfflineService {
         }
       });
     }
-    
+
     return true;
   }
 }
