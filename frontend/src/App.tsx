@@ -11,11 +11,14 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Box, Container } from '@mui/material';
 import { store } from './store';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, UserRole } from './contexts/AuthContext';
 import { VideoManagement, VideoDetailPage } from './components/video';
 import { Dashboard } from './components/dashboard';
 import { LoginPage, RegisterPage, ProfilePage, PasswordResetPage } from './components/auth';
 import { Navigation, ProtectedRoute, OfflineStatus } from './components/common';
+import { SessionList, SessionDetailPage } from './components/session';
+import { TemplateList, TemplateDetailPage, TemplateCreatePage } from './components/template';
+import { EvaluationPage } from './components/evaluation';
 import './App.css';
 
 const theme = createTheme({
@@ -219,6 +222,62 @@ const AppContent: React.FC = () => {
             element={
               <ProtectedRoute>
                 <VideoDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path='/sessions'
+            element={
+              <ProtectedRoute requiredRoles={[UserRole.ADMIN, UserRole.EVALUATOR]}>
+                <SessionList />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path='/sessions/:id'
+            element={
+              <ProtectedRoute requiredRoles={[UserRole.ADMIN, UserRole.EVALUATOR]}>
+                <SessionDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path='/templates'
+            element={
+              <ProtectedRoute requiredRoles={[UserRole.ADMIN, UserRole.EVALUATOR]}>
+                <TemplateList />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path='/templates/create'
+            element={
+              <ProtectedRoute requiredRoles={[UserRole.ADMIN, UserRole.EVALUATOR]}>
+                <TemplateCreatePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path='/templates/:id'
+            element={
+              <ProtectedRoute requiredRoles={[UserRole.ADMIN, UserRole.EVALUATOR]}>
+                <TemplateDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path='/evaluations'
+            element={
+              <ProtectedRoute>
+                <EvaluationPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path='/sessions/:sessionId/evaluate'
+            element={
+              <ProtectedRoute>
+                <EvaluationPage />
               </ProtectedRoute>
             }
           />

@@ -1,476 +1,691 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
-  Grid,
   Card,
   CardContent,
   Typography,
+  Button,
+  Grid,
+  Slider,
+  TextField,
+  Chip,
+  LinearProgress,
   Alert,
-  CircularProgress,
-  Tabs,
-  Tab,
-  Paper,
-  useTheme,
-  useMediaQuery,
-  Drawer,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
   IconButton,
-  AppBar,
-  Toolbar,
+  Tooltip,
+  Fab,
 } from '@mui/material';
 import {
-  VideoLibrary as VideoIcon,
-  Assessment as AssessmentIcon,
+  PlayArrow as PlayArrowIcon,
+  Pause as PauseIcon,
+  Replay as ReplayIcon,
+  VolumeUp as VolumeUpIcon,
+  Fullscreen as FullscreenIcon,
+  ExpandMore as ExpandMoreIcon,
+  Save as SaveIcon,
+  Send as SendIcon,
+  Comment as CommentIcon,
   Schedule as ScheduleIcon,
-  Menu as MenuIcon,
-  Close as CloseIcon,
 } from '@mui/icons-material';
-import { useParams } from 'react-router-dom';
-import EvaluationForm from './EvaluationForm';
-import TimelineComments from './TimelineComments';
-import YouTubePlayerComponent, {
-  YouTubePlayerRef,
-} from '../video/YouTubePlayer';
-import {
-  EvaluationData,
-  Comment,
-  evaluationService,
-} from '../../services/evaluationService';
-import { useResponsive } from '../../hooks/useResponsive';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
+// 評価データの型定義
+interface EvaluationScore {
+  criterionId: string;
+  score: number;
+  comment: string;
 }
 
-const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => (
-  <div hidden={value !== index} style={{ height: '100%' }}>
-    {value === index && children}
-  </div>
-);
+interface TimelineComment {
+  id: string;
+  timestamp: number;
+  comment: string;
+  criterionId?: string;
+}
+
+interface EvaluationData {
+  sessionId: string;
+  scores: EvaluationScore[];
+  timelineComments: TimelineComment[];
+  overallComment: string;
+  isSubmitted: boolean;
+}
+
+// セッション情報の型定義
+interface EvaluationSession {
+  id: string;
+  name: string;
+  description: string;
+  video: {
+    id: string;
+    title: string;
+    youtubeId: string;
+    duration: number;
+  };
+  template: {
+    id: string;
+    name: string;
+    categories: Array<{
+      id: string;
+      name: string;
+      description: string;
+      weight: number;
+      criteria: Array<{
+        id: string;
+        name: string;
+        description: string;
+        weight: number;
+        minScore: number;
+        maxScore: number;
+        isRequired: boolean;
+      }>;
+    }>;
+    settings: {
+      allowComments: boolean;
+      requireAllCriteria: boolean;
+      showWeights: boolean;
+    };
+  };
+  endDate: string;
+}
 
 const EvaluationPage: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
-  const theme = useTheme();
-  const { isMobile, isTablet, isTouchDevice } = useResponsive();
-  const [evaluationData, setEvaluationData] = useState<EvaluationData | null>(
-    null
-  );
-  const [comments, setComments] = useState<Comment[]>([]);
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  
+  const [session, setSession] = useState<EvaluationSession | null>(null);
+  const [evaluationData, setEvaluationData] = useState<EvaluationData>({
+    sessionId: sessionId || '',
+    scores: [],
+    timelineComments: [],
+    overallComment: '',
+    isSubmitted: false,
+  });
+  
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState(0);
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
-  const playerRef = useRef<YouTubePlayerRef>(null);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(1);
+  const [showCommentDialog, setShowCommentDialog] = useState(false);
+  const [commentTimestamp, setCommentTimestamp] = useState(0);
+  const [newComment, setNewComment] = useState('');
+  const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
 
-  // 評価データの読み込み
+  // セッション情報の取得
   useEffect(() => {
-    if (!sessionId) return;
-
-    const loadEvaluationData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const data = await evaluationService.getEvaluation(sessionId);
-        setEvaluationData(data);
-        setComments(data.evaluation.comments || []);
-        setIsSubmitted(!!data.evaluation.submittedAt);
-      } catch (err: any) {
-        setError(
-          err.response?.data?.message || '評価データの読み込みに失敗しました'
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadEvaluationData();
+    if (sessionId) {
+      fetchSession(sessionId);
+    }
   }, [sessionId]);
 
-  // 動画の現在時刻を更新
-  const handleTimeUpdate = (time: number) => {
-    setCurrentTime(time);
-  };
+  // 自動保存
+  useEffect(() => {
+    const autoSaveInterval = setInterval(() => {
+      if (!evaluationData.isSubmitted) {
+        handleAutoSave();
+      }
+    }, 30000); // 30秒ごと
 
-  // 指定時刻にシーク
-  const handleSeekTo = (time: number) => {
-    if (playerRef.current && playerRef.current.seekTo) {
-      playerRef.current.seekTo(time);
-    }
-  };
+    return () => clearInterval(autoSaveInterval);
+  }, [evaluationData]);
 
-  // コメント更新
-  const handleCommentsUpdate = (updatedComments: Comment[]) => {
-    setComments(updatedComments);
-  };
+  const fetchSession = async (id: string) => {
+    try {
+      setIsLoading(true);
+      // TODO: API呼び出し
+      // const response = await apiClient.get(`/api/sessions/${id}/evaluation`);
+      // setSession(response.data);
 
-  // 評価提出完了
-  const handleEvaluationSubmitted = () => {
-    setIsSubmitted(true);
-    setActiveTab(0); // 評価タブに戻る
-  };
-
-  // タブ変更
-  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
-    setActiveTab(newValue);
-    // モバイルでタブ変更時にドロワーを閉じる
-    if (isMobile) {
-      setMobileDrawerOpen(false);
-    }
-  };
-
-  // モバイルドロワーの開閉
-  const handleDrawerToggle = () => {
-    setMobileDrawerOpen(!mobileDrawerOpen);
-  };
-
-  if (loading) {
-    return (
-      <Box
-        display='flex'
-        justifyContent='center'
-        alignItems='center'
-        minHeight='400px'
-      >
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  if (error || !evaluationData) {
-    return (
-      <Alert severity='error'>
-        {error || '評価データを読み込めませんでした'}
-      </Alert>
-    );
-  }
-
-  // モバイル用のタブコンテンツ
-  const renderMobileTabContent = () => (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs
-          value={activeTab}
-          onChange={handleTabChange}
-          variant={isMobile ? 'fullWidth' : 'standard'}
-          sx={{
-            '& .MuiTab-root': {
-              minHeight: isMobile ? 56 : 48,
-              fontSize: isMobile ? '0.875rem' : '1rem',
+      // モックデータ
+      const mockSession: EvaluationSession = {
+        id,
+        name: '第45回よさこい祭り 本祭評価',
+        description: '本祭での各チームの演舞を評価します',
+        video: {
+          id: 'video1',
+          title: '鳴子踊り - 伝統チーム',
+          youtubeId: 'dQw4w9WgXcQ',
+          duration: 272, // 4:32
+        },
+        template: {
+          id: 'template1',
+          name: '本祭評価テンプレート',
+          categories: [
+            {
+              id: 'cat1',
+              name: '技術面',
+              description: '演舞の技術的な完成度を評価',
+              weight: 30,
+              criteria: [
+                {
+                  id: 'crit1',
+                  name: '基本動作の正確性',
+                  description: 'よさこいの基本動作が正確に実行されているか',
+                  weight: 40,
+                  minScore: 1,
+                  maxScore: 5,
+                  isRequired: true,
+                },
+                {
+                  id: 'crit2',
+                  name: '鳴子の扱い',
+                  description: '鳴子を効果的に使用できているか',
+                  weight: 30,
+                  minScore: 1,
+                  maxScore: 5,
+                  isRequired: true,
+                },
+              ],
             },
-          }}
-        >
-          <Tab
-            label={isMobile ? '評価' : '評価フォーム'}
-            icon={<AssessmentIcon />}
-            iconPosition={isMobile ? 'top' : 'start'}
+            {
+              id: 'cat2',
+              name: '表現力',
+              description: '演舞の表現力と感情の伝達を評価',
+              weight: 25,
+              criteria: [
+                {
+                  id: 'crit3',
+                  name: '表情・感情表現',
+                  description: '豊かな表情で感情を表現できているか',
+                  weight: 50,
+                  minScore: 1,
+                  maxScore: 5,
+                  isRequired: true,
+                },
+              ],
+            },
+          ],
+          settings: {
+            allowComments: true,
+            requireAllCriteria: false,
+            showWeights: true,
+          },
+        },
+        endDate: '2024-08-15T23:59:59Z',
+      };
+      setSession(mockSession);
+
+      // 評価データの初期化
+      const initialScores = mockSession.template.categories.flatMap(cat =>
+        cat.criteria.map(crit => ({
+          criterionId: crit.id,
+          score: 0,
+          comment: '',
+        }))
+      );
+      setEvaluationData(prev => ({
+        ...prev,
+        scores: initialScores,
+      }));
+    } catch (error: any) {
+      setError('セッション情報の取得に失敗しました');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 動画制御
+  const handlePlayPause = () => {
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.pause();
+      } else {
+        videoRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  const handleTimeUpdate = () => {
+    if (videoRef.current) {
+      setCurrentTime(videoRef.current.currentTime);
+    }
+  };
+
+  const handleLoadedMetadata = () => {
+    if (videoRef.current) {
+      setDuration(videoRef.current.duration);
+    }
+  };
+
+  const handleSeek = (value: number) => {
+    if (videoRef.current) {
+      videoRef.current.currentTime = value;
+      setCurrentTime(value);
+    }
+  };
+
+  const handleVolumeChange = (value: number) => {
+    if (videoRef.current) {
+      videoRef.current.volume = value;
+      setVolume(value);
+    }
+  };
+
+  // 評価スコアの更新
+  const handleScoreChange = (criterionId: string, score: number) => {
+    setEvaluationData(prev => ({
+      ...prev,
+      scores: prev.scores.map(s =>
+        s.criterionId === criterionId ? { ...s, score } : s
+      ),
+    }));
+  };
+
+  // 評価コメントの更新
+  const handleCommentChange = (criterionId: string, comment: string) => {
+    setEvaluationData(prev => ({
+      ...prev,
+      scores: prev.scores.map(s =>
+        s.criterionId === criterionId ? { ...s, comment } : s
+      ),
+    }));
+  };
+
+  // タイムラインコメントの追加
+  const handleAddTimelineComment = () => {
+    setCommentTimestamp(currentTime);
+    setShowCommentDialog(true);
+  };
+
+  const handleSaveTimelineComment = () => {
+    if (newComment.trim()) {
+      const comment: TimelineComment = {
+        id: `comment_${Date.now()}`,
+        timestamp: commentTimestamp,
+        comment: newComment.trim(),
+      };
+      setEvaluationData(prev => ({
+        ...prev,
+        timelineComments: [...prev.timelineComments, comment],
+      }));
+      setNewComment('');
+      setShowCommentDialog(false);
+    }
+  };
+
+  // 自動保存
+  const handleAutoSave = async () => {
+    try {
+      setAutoSaveStatus('saving');
+      // TODO: API呼び出し
+      // await apiClient.put(`/api/evaluations/${sessionId}`, evaluationData);
+      setAutoSaveStatus('saved');
+    } catch (error) {
+      setAutoSaveStatus('error');
+    }
+  };
+
+  // 評価提出
+  const handleSubmit = async () => {
+    try {
+      // TODO: API呼び出し
+      // await apiClient.post(`/api/evaluations/${sessionId}/submit`, evaluationData);
+      setEvaluationData(prev => ({ ...prev, isSubmitted: true }));
+      setSubmitDialogOpen(false);
+      navigate(`/sessions/${sessionId}/results`);
+    } catch (error: any) {
+      setError('評価の提出に失敗しました');
+    }
+  };
+
+  // 時間フォーマット
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // 進捗計算
+  const getProgress = () => {
+    if (!session) return 0;
+    const totalCriteria = session.template.categories.flatMap(cat => cat.criteria).length;
+    const completedCriteria = evaluationData.scores.filter(s => s.score > 0).length;
+    return Math.round((completedCriteria / totalCriteria) * 100);
+  };
+
+  // バリデーション
+  const canSubmit = () => {
+    if (!session) return false;
+    const requiredCriteria = session.template.categories
+      .flatMap(cat => cat.criteria)
+      .filter(crit => crit.isRequired);
+    return requiredCriteria.every(crit =>
+      evaluationData.scores.find(s => s.criterionId === crit.id)?.score > 0
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <LinearProgress />
+        <Typography variant="body2" sx={{ mt: 2, textAlign: 'center' }}>
+          評価画面を読み込み中...
+        </Typography>
+      </Box>
+    );
+  }
+
+  if (error || !session) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error">{error || 'セッションが見つかりません'}</Alert>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ p: 3 }}>
+      {/* ヘッダー */}
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h4" gutterBottom>
+          {session.name}
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Chip
+            label={`進捗: ${getProgress()}%`}
+            color={getProgress() === 100 ? 'success' : 'primary'}
           />
-          <Tab
-            label={
-              isMobile
-                ? `コメント (${comments.length})`
-                : `コメント (${comments.length})`
-            }
-            icon={<ScheduleIcon />}
-            iconPosition={isMobile ? 'top' : 'start'}
+          <Chip
+            label={autoSaveStatus === 'saved' ? '保存済み' : autoSaveStatus === 'saving' ? '保存中...' : '保存エラー'}
+            color={autoSaveStatus === 'saved' ? 'success' : autoSaveStatus === 'saving' ? 'info' : 'error'}
+            size="small"
           />
-        </Tabs>
+          <Typography variant="body2" color="text.secondary">
+            評価者: {user?.profile?.displayName || user?.username}
+          </Typography>
+        </Box>
       </Box>
 
-      <Box sx={{ flex: 1, overflow: 'auto' }}>
-        <TabPanel value={activeTab} index={0}>
-          <Box sx={{ p: isMobile ? 1 : 2, height: '100%' }}>
-            <EvaluationForm
-              sessionId={sessionId!}
-              onEvaluationSubmitted={handleEvaluationSubmitted}
-            />
-          </Box>
-        </TabPanel>
-
-        <TabPanel value={activeTab} index={1}>
-          <Box sx={{ p: isMobile ? 1 : 2 }}>
-            <Typography variant='h6' gutterBottom>
-              タイムラインコメント
-            </Typography>
-            <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
-              動画の特定の時点に関するコメントです。タイムスタンプをクリックすると該当箇所にジャンプします。
-            </Typography>
-
-            {comments.length === 0 ? (
-              <Alert severity='info'>
-                まだコメントがありません。動画を見ながら気になった箇所にコメントを追加してください。
-              </Alert>
-            ) : (
-              <Box>
-                {comments
-                  .sort((a, b) => a.timestamp - b.timestamp)
-                  .map((comment, index) => (
-                    <Card
-                      key={comment.id || index}
-                      variant='outlined'
+      <Grid container spacing={3}>
+        {/* 動画プレーヤー */}
+        <Grid item xs={12} lg={8}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                {session.video.title}
+              </Typography>
+              
+              {/* 動画エリア */}
+              <Box sx={{ position: 'relative', mb: 2 }}>
+                <video
+                  ref={videoRef}
+                  width="100%"
+                  height="400"
+                  onTimeUpdate={handleTimeUpdate}
+                  onLoadedMetadata={handleLoadedMetadata}
+                  style={{ borderRadius: 8 }}
+                >
+                  <source src={`https://example.com/videos/${session.video.id}.mp4`} type="video/mp4" />
+                  お使いのブラウザは動画再生に対応していません。
+                </video>
+                
+                {/* タイムラインコメント表示 */}
+                {session.template.settings.allowComments && evaluationData.timelineComments.map(comment => (
+                  <Tooltip
+                    key={comment.id}
+                    title={comment.comment}
+                    placement="top"
+                  >
+                    <Box
                       sx={{
-                        mb: 2,
-                        '& .MuiCardContent-root': {
-                          p: isMobile ? 1.5 : 2,
-                        },
+                        position: 'absolute',
+                        bottom: 60,
+                        left: `${(comment.timestamp / duration) * 100}%`,
+                        width: 4,
+                        height: 20,
+                        bgcolor: 'primary.main',
+                        cursor: 'pointer',
                       }}
-                    >
-                      <CardContent>
-                        <Box
-                          display='flex'
-                          alignItems='center'
-                          gap={1}
-                          mb={1}
-                          flexWrap={isMobile ? 'wrap' : 'nowrap'}
-                        >
-                          <Typography
-                            variant='body2'
-                            color='primary'
-                            sx={{
-                              cursor: 'pointer',
-                              fontWeight: 'bold',
-                              minHeight: isTouchDevice ? 44 : 'auto',
-                              display: 'flex',
-                              alignItems: 'center',
-                            }}
-                            onClick={() => handleSeekTo(comment.timestamp)}
-                          >
-                            {Math.floor(comment.timestamp / 60)}:
-                            {(comment.timestamp % 60)
-                              .toFixed(0)
-                              .padStart(2, '0')}
-                          </Typography>
-                          {comment.createdAt && (
-                            <Typography
-                              variant='caption'
-                              color='text.secondary'
-                            >
-                              {new Date(comment.createdAt).toLocaleString(
-                                'ja-JP'
+                      onClick={() => handleSeek(comment.timestamp)}
+                    />
+                  </Tooltip>
+                ))}
+              </Box>
+
+              {/* 動画コントロール */}
+              <Box sx={{ mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                  <IconButton onClick={handlePlayPause}>
+                    {isPlaying ? <PauseIcon /> : <PlayArrowIcon />}
+                  </IconButton>
+                  <Typography variant="body2">
+                    {formatTime(currentTime)} / {formatTime(duration)}
+                  </Typography>
+                  <Box sx={{ flexGrow: 1, mx: 2 }}>
+                    <Slider
+                      value={currentTime}
+                      max={duration}
+                      onChange={(_, value) => handleSeek(value as number)}
+                      size="small"
+                    />
+                  </Box>
+                  <VolumeUpIcon />
+                  <Slider
+                    value={volume}
+                    max={1}
+                    step={0.1}
+                    onChange={(_, value) => handleVolumeChange(value as number)}
+                    sx={{ width: 100 }}
+                    size="small"
+                  />
+                </Box>
+              </Box>
+
+              {/* タイムラインコメント追加ボタン */}
+              {session.template.settings.allowComments && (
+                <Button
+                  startIcon={<CommentIcon />}
+                  onClick={handleAddTimelineComment}
+                  variant="outlined"
+                  size="small"
+                >
+                  この時点にコメント追加
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* 評価フォーム */}
+        <Grid item xs={12} lg={4}>
+          <Card sx={{ position: 'sticky', top: 20 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                評価フォーム
+              </Typography>
+              
+              <LinearProgress
+                variant="determinate"
+                value={getProgress()}
+                sx={{ mb: 2 }}
+              />
+
+              {/* 評価項目 */}
+              {session.template.categories.map(category => (
+                <Accordion key={category.id} defaultExpanded>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Box>
+                      <Typography variant="subtitle1">
+                        {category.name}
+                        {session.template.settings.showWeights && (
+                          <Chip label={`${category.weight}%`} size="small" sx={{ ml: 1 }} />
+                        )}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {category.description}
+                      </Typography>
+                    </Box>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    {category.criteria.map(criterion => {
+                      const score = evaluationData.scores.find(s => s.criterionId === criterion.id);
+                      return (
+                        <Box key={criterion.id} sx={{ mb: 3 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <Typography variant="body2" sx={{ flexGrow: 1 }}>
+                              {criterion.name}
+                              {criterion.isRequired && (
+                                <Chip label="必須" size="small" color="error" sx={{ ml: 1 }} />
                               )}
                             </Typography>
-                          )}
+                            {session.template.settings.showWeights && (
+                              <Chip label={`${criterion.weight}%`} size="small" variant="outlined" />
+                            )}
+                          </Box>
+                          
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                            {criterion.description}
+                          </Typography>
+
+                          <Box sx={{ px: 1 }}>
+                            <Slider
+                              value={score?.score || 0}
+                              min={criterion.minScore}
+                              max={criterion.maxScore}
+                              step={1}
+                              marks
+                              valueLabelDisplay="on"
+                              onChange={(_, value) => handleScoreChange(criterion.id, value as number)}
+                            />
+                          </Box>
+
+                          <TextField
+                            placeholder="コメント（任意）"
+                            value={score?.comment || ''}
+                            onChange={(e) => handleCommentChange(criterion.id, e.target.value)}
+                            multiline
+                            rows={2}
+                            fullWidth
+                            size="small"
+                            sx={{ mt: 1 }}
+                          />
                         </Box>
-                        <Typography variant='body2'>{comment.text}</Typography>
-                      </CardContent>
-                    </Card>
-                  ))}
-              </Box>
-            )}
-          </Box>
-        </TabPanel>
-      </Box>
-    </Box>
-  );
+                      );
+                    })}
+                  </AccordionDetails>
+                </Accordion>
+              ))}
 
-  if (isMobile) {
-    return (
-      <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-        {/* モバイル用ヘッダー */}
-        <AppBar position='static' elevation={1}>
-          <Toolbar>
-            <IconButton
-              color='inherit'
-              aria-label='メニューを開く'
-              edge='start'
-              onClick={handleDrawerToggle}
-              sx={{ mr: 2 }}
-            >
-              <MenuIcon />
-            </IconButton>
-            <Typography
-              variant='h6'
-              noWrap
-              component='div'
-              sx={{ flexGrow: 1 }}
-            >
-              {evaluationData?.session.name || '評価セッション'}
-            </Typography>
-          </Toolbar>
-        </AppBar>
-
-        {/* 動画プレーヤー */}
-        <Box sx={{ position: 'relative', backgroundColor: 'black' }}>
-          <YouTubePlayerComponent
-            ref={playerRef}
-            videoId={evaluationData?.session.video.youtubeId || ''}
-            onTimeUpdate={handleTimeUpdate}
-            height={isMobile ? 200 : 300}
-          />
-        </Box>
-
-        {/* タイムラインコメント（モバイル用コンパクト表示） */}
-        <Box
-          sx={{
-            px: 1,
-            py: 0.5,
-            backgroundColor: 'background.paper',
-            borderBottom: 1,
-            borderColor: 'divider',
-          }}
-        >
-          <TimelineComments
-            sessionId={sessionId!}
-            comments={comments}
-            currentTime={currentTime}
-            onSeekTo={handleSeekTo}
-            onCommentsUpdate={handleCommentsUpdate}
-            readonly={isSubmitted}
-            compact={true}
-          />
-        </Box>
-
-        {/* 評価フォーム/コメント */}
-        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          {renderMobileTabContent()}
-        </Box>
-
-        {/* モバイル用ドロワー */}
-        <Drawer
-          variant='temporary'
-          anchor='left'
-          open={mobileDrawerOpen}
-          onClose={handleDrawerToggle}
-          ModalProps={{
-            keepMounted: true, // Better open performance on mobile.
-          }}
-          sx={{
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: 280,
-            },
-          }}
-        >
-          <Box sx={{ p: 2 }}>
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                mb: 2,
-              }}
-            >
-              <Typography variant='h6'>セッション情報</Typography>
-              <IconButton onClick={handleDrawerToggle}>
-                <CloseIcon />
-              </IconButton>
-            </Box>
-
-            <Typography variant='subtitle1' gutterBottom>
-              {evaluationData?.session.name}
-            </Typography>
-            <Typography variant='body2' color='text.secondary' gutterBottom>
-              動画: {evaluationData?.session.video.title}
-            </Typography>
-
-            {isSubmitted && (
-              <Alert severity='success' sx={{ mt: 2 }}>
-                評価は提出済みです。
-              </Alert>
-            )}
-
-            {evaluationData?.session.description && (
-              <Box sx={{ mt: 2 }}>
-                <Typography variant='body2' color='text.secondary'>
-                  {evaluationData.session.description}
+              {/* 総合コメント */}
+              <Box sx={{ mt: 3 }}>
+                <Typography variant="subtitle1" gutterBottom>
+                  総合コメント
                 </Typography>
-              </Box>
-            )}
-          </Box>
-        </Drawer>
-      </Box>
-    );
-  }
-
-  // デスクトップ/タブレット用レイアウト
-  return (
-    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* ヘッダー */}
-      <Paper sx={{ p: { xs: 1, sm: 2 }, mb: { xs: 1, sm: 2 } }}>
-        <Typography variant='h4' gutterBottom>
-          {evaluationData.session.name}
-        </Typography>
-        <Typography variant='subtitle1' color='text.secondary'>
-          動画: {evaluationData.session.video.title}
-        </Typography>
-        {isSubmitted && (
-          <Alert severity='success' sx={{ mt: 1 }}>
-            評価は提出済みです。結果を確認できます。
-          </Alert>
-        )}
-      </Paper>
-
-      <Grid
-        container
-        spacing={{ xs: 1, sm: 2 }}
-        sx={{ flex: 1, overflow: 'hidden' }}
-      >
-        {/* 左側: 動画プレーヤー */}
-        <Grid
-          item
-          xs={12}
-          md={6}
-          sx={{ display: 'flex', flexDirection: 'column' }}
-        >
-          <Card sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <CardContent
-              sx={{
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                p: { xs: 1, sm: 2 },
-              }}
-            >
-              <Typography
-                variant='h6'
-                display='flex'
-                alignItems='center'
-                gap={1}
-                mb={2}
-              >
-                <VideoIcon />
-                動画再生
-              </Typography>
-
-              <Box sx={{ flex: 1, minHeight: { xs: 200, sm: 300 } }}>
-                <YouTubePlayerComponent
-                  ref={playerRef}
-                  videoId={evaluationData.session.video.youtubeId}
-                  onTimeUpdate={handleTimeUpdate}
-                  height='100%'
+                <TextField
+                  placeholder="演舞全体に対する総合的なコメントをお書きください"
+                  value={evaluationData.overallComment}
+                  onChange={(e) => setEvaluationData(prev => ({ ...prev, overallComment: e.target.value }))}
+                  multiline
+                  rows={4}
+                  fullWidth
                 />
+              </Box>
+
+              {/* 提出ボタン */}
+              <Box sx={{ mt: 3, display: 'flex', gap: 1 }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<SaveIcon />}
+                  onClick={handleAutoSave}
+                  disabled={autoSaveStatus === 'saving'}
+                >
+                  保存
+                </Button>
+                <Button
+                  variant="contained"
+                  startIcon={<SendIcon />}
+                  onClick={() => setSubmitDialogOpen(true)}
+                  disabled={!canSubmit()}
+                  fullWidth
+                >
+                  評価を提出
+                </Button>
               </Box>
             </CardContent>
           </Card>
-
-          {/* タイムラインコメント */}
-          <Box sx={{ mt: { xs: 1, sm: 2 } }}>
-            <TimelineComments
-              sessionId={sessionId!}
-              comments={comments}
-              currentTime={currentTime}
-              onSeekTo={handleSeekTo}
-              onCommentsUpdate={handleCommentsUpdate}
-              readonly={isSubmitted}
-            />
-          </Box>
-        </Grid>
-
-        {/* 右側: 評価フォーム */}
-        <Grid
-          item
-          xs={12}
-          md={6}
-          sx={{ display: 'flex', flexDirection: 'column' }}
-        >
-          <Card sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            {renderMobileTabContent()}
-          </Card>
         </Grid>
       </Grid>
+
+      {/* タイムラインコメント追加ダイアログ */}
+      <Dialog
+        open={showCommentDialog}
+        onClose={() => setShowCommentDialog(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          タイムラインコメント追加 ({formatTime(commentTimestamp)})
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            label="コメント"
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            multiline
+            rows={3}
+            fullWidth
+            placeholder="この時点での気づきやコメントを入力してください"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowCommentDialog(false)}>
+            キャンセル
+          </Button>
+          <Button onClick={handleSaveTimelineComment} variant="contained">
+            追加
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 提出確認ダイアログ */}
+      <Dialog
+        open={submitDialogOpen}
+        onClose={() => setSubmitDialogOpen(false)}
+      >
+        <DialogTitle>評価の提出</DialogTitle>
+        <DialogContent>
+          <Typography gutterBottom>
+            評価を提出しますか？提出後は内容を変更できません。
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            進捗: {getProgress()}% 完了
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSubmitDialogOpen(false)}>
+            キャンセル
+          </Button>
+          <Button onClick={handleSubmit} variant="contained" color="primary">
+            提出する
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* フローティングアクションボタン */}
+      {session.template.settings.allowComments && (
+        <Fab
+          color="primary"
+          sx={{ position: 'fixed', bottom: 16, right: 16 }}
+          onClick={handleAddTimelineComment}
+        >
+          <CommentIcon />
+        </Fab>
+      )}
     </Box>
   );
 };
