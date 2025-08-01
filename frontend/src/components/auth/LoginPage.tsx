@@ -25,7 +25,10 @@ const LoginPage: React.FC = () => {
     password: '',
   });
 
+  // ディープリンク対応: 元のURLに戻る
   const from = location.state?.from?.pathname || '/dashboard';
+  const fromSearch = location.state?.from?.search || '';
+  const redirectTo = from + fromSearch;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -40,7 +43,7 @@ const LoginPage: React.FC = () => {
     e.preventDefault();
     try {
       await login(formData.email, formData.password);
-      navigate(from, { replace: true });
+      navigate(redirectTo, { replace: true });
     } catch (err) {
       // エラーは useAuth フックで処理される
     }

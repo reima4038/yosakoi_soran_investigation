@@ -42,6 +42,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   // 未認証の場合はログインページにリダイレクト
   if (!isAuthenticated) {
+    // ディープリンク対応: 元のURLを保存
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
   }
 

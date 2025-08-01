@@ -15,7 +15,7 @@ import { AuthProvider, UserRole } from './contexts/AuthContext';
 import { VideoManagement, VideoDetailPage } from './components/video';
 import { Dashboard } from './components/dashboard';
 import { LoginPage, RegisterPage, ProfilePage, PasswordResetPage } from './components/auth';
-import { Navigation, ProtectedRoute, OfflineStatus } from './components/common';
+import { Navigation, ProtectedRoute, OfflineStatus, NotFoundPage, Breadcrumbs, ErrorBoundary, GlobalStateManager } from './components/common';
 import { SessionList, SessionDetailPage } from './components/session';
 import { TemplateList, TemplateDetailPage, TemplateCreatePage } from './components/template';
 import { EvaluationPage } from './components/evaluation';
@@ -176,18 +176,23 @@ const theme = createTheme({
 const AppContent: React.FC = () => {
   const location = useLocation();
   const isAuthPage = ['/login', '/register', '/password-reset'].includes(location.pathname);
+  const isNotFoundPage = location.pathname === '/404';
 
   return (
-    <Box sx={{ flexGrow: 1 }}>
-      {/* 認証ページ以外でナビゲーションを表示 */}
-      {!isAuthPage && <Navigation />}
+    <Box sx={{ flexGrow: 1, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {/* 認証ページと404ページ以外でナビゲーションを表示 */}
+      {!isAuthPage && !isNotFoundPage && <Navigation />}
+      
+      {/* パンくずナビゲーション */}
+      {!isAuthPage && !isNotFoundPage && <Breadcrumbs />}
 
       <Container
         maxWidth={false}
         sx={{
-          mt: isAuthPage ? 0 : { xs: 1, sm: 2 },
+          flexGrow: 1,
+          mt: isAuthPage || isNotFoundPage ? 0 : { xs: 1, sm: 2 },
           mb: { xs: 2, sm: 4 },
-          px: isAuthPage ? 0 : { xs: 1, sm: 2 },
+          px: isAuthPage || isNotFoundPage ? 0 : { xs: 1, sm: 2 },
         }}
       >
         <Routes>
@@ -315,28 +320,34 @@ const AppContent: React.FC = () => {
               </ProtectedRoute>
             }
           />
-          <Route path='*' element={<Navigate to='/dashboard' replace />} />
+          <Route path='/404' element={<NotFoundPage />} />
+          <Route path='*' element={<Navigate to='/404' replace />} />
         </Routes>
       </Container>
 
       {/* オフライン状態表示 */}
       <OfflineStatus showPersistent={true} position='bottom' />
+      
+      {/* グローバル状態管理 */}
+      <GlobalStateManager />
     </Box>
   );
 };
 
 function App() {
   return (
-    <Provider store={store}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <AuthProvider>
-          <Router>
-            <AppContent />
-          </Router>
-        </AuthProvider>
-      </ThemeProvider>
-    </Provider>
+    <ErrorBoundary>
+      <Provider store={store}>
+        <ThemeProvider theme={theme}>
+          <CssBaseline />
+          <AuthProvider>
+            <Router>
+              <AppContent />
+            </Router>
+          </AuthProvider>
+        </ThemeProvider>
+      </Provider>
+    </ErrorBoundary>
   );
 }
 
