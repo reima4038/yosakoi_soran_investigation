@@ -333,10 +333,10 @@ const ResultsPage: React.FC = () => {
 
   const getEvaluatorComparisonData = () => {
     if (!results) return [];
-    return results.evaluations.map(eval => ({
-      name: eval.evaluatorName,
-      総合スコア: eval.overallScore,
-      ...eval.categoryScores.reduce((acc, cat) => ({
+    return results.evaluations.map(evaluation => ({
+      name: evaluation.evaluatorName,
+      総合スコア: evaluation.overallScore,
+      ...evaluation.categoryScores.reduce((acc, cat) => ({
         ...acc,
         [cat.categoryName]: cat.score,
       }), {}),
@@ -481,9 +481,9 @@ const ResultsPage: React.FC = () => {
             label="評価者フィルター"
           >
             <MenuItem value="all">すべての評価者</MenuItem>
-            {results.evaluations.map(eval => (
-              <MenuItem key={eval.id} value={eval.id}>
-                {eval.evaluatorName}
+            {results.evaluations.map(evaluation => (
+              <MenuItem key={evaluation.id} value={evaluation.id}>
+                {evaluation.evaluatorName}
               </MenuItem>
             ))}
           </Select>

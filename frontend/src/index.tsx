@@ -13,8 +13,8 @@ root.render(
   </React.StrictMode>
 );
 
-// Service Worker registration for offline support
-if ('serviceWorker' in navigator) {
+// Service Worker registration for offline support (temporarily disabled for debugging)
+if (false && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
       .register('/sw.js')

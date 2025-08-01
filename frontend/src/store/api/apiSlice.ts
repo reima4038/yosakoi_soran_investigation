@@ -3,7 +3,9 @@ import type { RootState } from '../index';
 
 // API基本設定
 const baseQuery = fetchBaseQuery({
-  baseUrl: '/api',
+  baseUrl: process.env.NODE_ENV === 'development' 
+    ? 'http://localhost:3001/api' 
+    : '/api',
   prepareHeaders: (headers, { getState }) => {
     // 認証トークンを自動的に追加
     const token = localStorage.getItem('authToken');

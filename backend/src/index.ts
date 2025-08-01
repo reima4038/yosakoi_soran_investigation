@@ -1,4 +1,5 @@
 import express from 'express';
+import cors from 'cors';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import { config } from './config';
@@ -46,6 +47,14 @@ if (process.env.NODE_ENV !== 'test') {
     console.warn('Security configuration not loaded:', error instanceof Error ? error.message : String(error));
   }
 }
+
+// CORS configuration
+app.use(cors({
+  origin: process.env.NODE_ENV === 'development' ? true : config.frontendUrl,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));

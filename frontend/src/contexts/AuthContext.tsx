@@ -120,16 +120,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     const initializeAuth = async () => {
       const token = localStorage.getItem('authToken');
+      console.log('Auth initialization - token:', token ? 'exists' : 'none');
+      
       if (token) {
         try {
           dispatch({ type: 'AUTH_START' });
-          const response = await apiClient.get('/api/users/me');
-          dispatch({ type: 'AUTH_SUCCESS', payload: response.data });
+          const response = await apiClient.get('/auth/me');
+          console.log('Auth success:', response.data);
+          dispatch({ type: 'AUTH_SUCCESS', payload: response.data.data?.user || response.data });
         } catch (error) {
+          console.log('Auth failed, removing token');
           localStorage.removeItem('authToken');
           dispatch({ type: 'AUTH_FAILURE', payload: '認証に失敗しました' });
         }
       } else {
+        console.log('No token, setting unauthenticated');
         dispatch({ type: 'AUTH_FAILURE', payload: '' });
       }
     };
@@ -141,11 +146,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const login = async (email: string, password: string): Promise<void> => {
     try {
       dispatch({ type: 'AUTH_START' });
-      const response = await apiClient.post('/api/auth/login', {
+      const response = await apiClient.post('/auth/login', {
         email,
         password,
       });
-      const { token, user } = response.data;
+      const { token, user } = response.data.data || response.data;
 
       localStorage.setItem('authToken', token);
       dispatch({ type: 'AUTH_SUCCESS', payload: user });
@@ -167,8 +172,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const register = async (userData: RegisterData): Promise<void> => {
     try {
       dispatch({ type: 'AUTH_START' });
-      const response = await apiClient.post('/api/auth/register', userData);
-      const { token, user } = response.data;
+      const response = await apiClient.post('/auth/register', userData);
+      const { token, user } = response.data.data || response.data;
 
       localStorage.setItem('authToken', token);
       dispatch({ type: 'AUTH_SUCCESS', payload: user });

@@ -9,18 +9,37 @@ import {
 import { Provider } from 'react-redux';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { Box, Container } from '@mui/material';
+import { Box, Container, CircularProgress } from '@mui/material';
 import { store } from './store';
 import { AuthProvider, UserRole } from './contexts/AuthContext';
 import { VideoManagement, VideoDetailPage } from './components/video';
 import { Dashboard } from './components/dashboard';
-import { LoginPage, RegisterPage, ProfilePage, PasswordResetPage } from './components/auth';
-import { Navigation, ProtectedRoute, OfflineStatus, NotFoundPage, Breadcrumbs, ErrorBoundary, GlobalStateManager } from './components/common';
+import {
+  LoginPage,
+  RegisterPage,
+  ProfilePage,
+  PasswordResetPage,
+} from './components/auth';
+import {
+  Navigation,
+  ProtectedRoute,
+  OfflineStatus,
+  NotFoundPage,
+  Breadcrumbs,
+  ErrorBoundary,
+  GlobalStateManager,
+} from './components/common';
 import { SessionList, SessionDetailPage } from './components/session';
-import { TemplateList, TemplateDetailPage, TemplateCreatePage } from './components/template';
+import {
+  TemplateList,
+  TemplateDetailPage,
+  TemplateCreatePage,
+} from './components/template';
 import { EvaluationPage } from './components/evaluation';
-import { ResultsPage } from './components/results';
 import { SharingPage } from './components/sharing';
+
+// 遅延読み込みでResultsPageを読み込む
+const ResultsPage = React.lazy(() => import('./components/results/ResultsPage'));
 import './App.css';
 
 const theme = createTheme({
@@ -175,14 +194,25 @@ const theme = createTheme({
 
 const AppContent: React.FC = () => {
   const location = useLocation();
-  const isAuthPage = ['/login', '/register', '/password-reset'].includes(location.pathname);
+  const isAuthPage = ['/login', '/register', '/password-reset'].includes(
+    location.pathname
+  );
   const isNotFoundPage = location.pathname === '/404';
 
+
+
   return (
-    <Box sx={{ flexGrow: 1, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <Box
+      sx={{
+        flexGrow: 1,
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
       {/* 認証ページと404ページ以外でナビゲーションを表示 */}
       {!isAuthPage && !isNotFoundPage && <Navigation />}
-      
+
       {/* パンくずナビゲーション */}
       {!isAuthPage && !isNotFoundPage && <Breadcrumbs />}
 
@@ -235,7 +265,9 @@ const AppContent: React.FC = () => {
           <Route
             path='/sessions'
             element={
-              <ProtectedRoute requiredRoles={[UserRole.ADMIN, UserRole.EVALUATOR]}>
+              <ProtectedRoute
+                requiredRoles={[UserRole.ADMIN, UserRole.EVALUATOR]}
+              >
                 <SessionList />
               </ProtectedRoute>
             }
@@ -243,7 +275,9 @@ const AppContent: React.FC = () => {
           <Route
             path='/sessions/:id'
             element={
-              <ProtectedRoute requiredRoles={[UserRole.ADMIN, UserRole.EVALUATOR]}>
+              <ProtectedRoute
+                requiredRoles={[UserRole.ADMIN, UserRole.EVALUATOR]}
+              >
                 <SessionDetailPage />
               </ProtectedRoute>
             }
@@ -251,7 +285,9 @@ const AppContent: React.FC = () => {
           <Route
             path='/templates'
             element={
-              <ProtectedRoute requiredRoles={[UserRole.ADMIN, UserRole.EVALUATOR]}>
+              <ProtectedRoute
+                requiredRoles={[UserRole.ADMIN, UserRole.EVALUATOR]}
+              >
                 <TemplateList />
               </ProtectedRoute>
             }
@@ -259,7 +295,9 @@ const AppContent: React.FC = () => {
           <Route
             path='/templates/create'
             element={
-              <ProtectedRoute requiredRoles={[UserRole.ADMIN, UserRole.EVALUATOR]}>
+              <ProtectedRoute
+                requiredRoles={[UserRole.ADMIN, UserRole.EVALUATOR]}
+              >
                 <TemplateCreatePage />
               </ProtectedRoute>
             }
@@ -267,7 +305,9 @@ const AppContent: React.FC = () => {
           <Route
             path='/templates/:id'
             element={
-              <ProtectedRoute requiredRoles={[UserRole.ADMIN, UserRole.EVALUATOR]}>
+              <ProtectedRoute
+                requiredRoles={[UserRole.ADMIN, UserRole.EVALUATOR]}
+              >
                 <TemplateDetailPage />
               </ProtectedRoute>
             }
@@ -291,16 +331,32 @@ const AppContent: React.FC = () => {
           <Route
             path='/sessions/:sessionId/results'
             element={
-              <ProtectedRoute requiredRoles={[UserRole.ADMIN, UserRole.EVALUATOR]}>
-                <ResultsPage />
+              <ProtectedRoute
+                requiredRoles={[UserRole.ADMIN, UserRole.EVALUATOR]}
+              >
+                <React.Suspense fallback={
+                  <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+                    <CircularProgress />
+                  </Box>
+                }>
+                  <ResultsPage />
+                </React.Suspense>
               </ProtectedRoute>
             }
           />
           <Route
             path='/analytics'
             element={
-              <ProtectedRoute requiredRoles={[UserRole.ADMIN, UserRole.EVALUATOR]}>
-                <ResultsPage />
+              <ProtectedRoute
+                requiredRoles={[UserRole.ADMIN, UserRole.EVALUATOR]}
+              >
+                <React.Suspense fallback={
+                  <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+                    <CircularProgress />
+                  </Box>
+                }>
+                  <ResultsPage />
+                </React.Suspense>
               </ProtectedRoute>
             }
           />
@@ -327,7 +383,7 @@ const AppContent: React.FC = () => {
 
       {/* オフライン状態表示 */}
       <OfflineStatus showPersistent={true} position='bottom' />
-      
+
       {/* グローバル状態管理 */}
       <GlobalStateManager />
     </Box>
