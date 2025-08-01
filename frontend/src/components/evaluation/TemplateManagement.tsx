@@ -90,7 +90,7 @@ const TemplateManagement: React.FC = () => {
       if (editingTemplate) {
         // 更新
         const updatedTemplate = await templateService.updateTemplate(
-          editingTemplate._id!,
+          editingTemplate.id!,
           {
             name: template.name,
             description: template.description,
@@ -98,7 +98,7 @@ const TemplateManagement: React.FC = () => {
           }
         );
         setTemplates(prev =>
-          prev.map(t => (t._id === updatedTemplate._id ? updatedTemplate : t))
+          prev.map(t => (t.id === updatedTemplate.id ? updatedTemplate : t))
         );
         setSuccess('テンプレートが正常に更新されました');
       } else {
@@ -126,8 +126,8 @@ const TemplateManagement: React.FC = () => {
     if (!templateToDelete) return;
 
     try {
-      await templateService.deleteTemplate(templateToDelete._id!);
-      setTemplates(prev => prev.filter(t => t._id !== templateToDelete._id));
+      await templateService.deleteTemplate(templateToDelete.id!);
+      setTemplates(prev => prev.filter(t => t.id !== templateToDelete.id));
       setSuccess('テンプレートが正常に削除されました');
       setDeleteDialogOpen(false);
       setTemplateToDelete(null);
@@ -142,7 +142,7 @@ const TemplateManagement: React.FC = () => {
   const handleDuplicateTemplate = async (template: Template) => {
     try {
       const duplicatedTemplate = await templateService.duplicateTemplate(
-        template._id!
+        template.id!
       );
       setTemplates(prev => [duplicatedTemplate, ...prev]);
       setSuccess('テンプレートが正常に複製されました');
@@ -206,7 +206,7 @@ const TemplateManagement: React.FC = () => {
   // 複数テンプレートエクスポート処理
   const handleExportSelected = () => {
     const templatesToExport = templates.filter(t =>
-      selectedTemplates.includes(t._id!)
+      selectedTemplates.includes(t.id!)
     );
     if (templatesToExport.length > 0) {
       templateService.exportMultipleTemplates(templatesToExport);
@@ -257,7 +257,7 @@ const TemplateManagement: React.FC = () => {
     if (selectedTemplates.length === templates.length) {
       setSelectedTemplates([]);
     } else {
-      setSelectedTemplates(templates.map(t => t._id!));
+      setSelectedTemplates(templates.map(t => t.id!));
     }
   };
 
@@ -394,11 +394,11 @@ const TemplateManagement: React.FC = () => {
               </TableRow>
             ) : (
               templates.map(template => (
-                <TableRow key={template._id} hover>
+                <TableRow key={template.id} hover>
                   <TableCell padding='checkbox'>
                     <Checkbox
-                      checked={selectedTemplates.includes(template._id!)}
-                      onChange={() => handleTemplateSelect(template._id!)}
+                      checked={selectedTemplates.includes(template.id!)}
+                      onChange={() => handleTemplateSelect(template.id!)}
                     />
                   </TableCell>
                   <TableCell>
@@ -423,7 +423,7 @@ const TemplateManagement: React.FC = () => {
                   </TableCell>
                   <TableCell>
                     <Typography variant='body2'>
-                      {template.creatorId?.username || 'Unknown'}
+                      {template.creatorId || 'Unknown'}
                     </Typography>
                   </TableCell>
                   <TableCell>

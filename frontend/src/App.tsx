@@ -4,14 +4,18 @@ import {
   Routes,
   Route,
   Navigate,
+  useLocation,
 } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { Box, AppBar, Toolbar, Typography, Container } from '@mui/material';
+import { Box, Container } from '@mui/material';
 import { store } from './store';
+import { AuthProvider } from './contexts/AuthContext';
 import { VideoManagement, VideoDetailPage } from './components/video';
-import { OfflineStatus } from './components/common';
+import { Dashboard } from './components/dashboard';
+import { LoginPage, RegisterPage, ProfilePage, PasswordResetPage } from './components/auth';
+import { Navigation, ProtectedRoute, OfflineStatus } from './components/common';
 import './App.css';
 
 const theme = createTheme({
@@ -164,41 +168,80 @@ const theme = createTheme({
   },
 });
 
+const AppContent: React.FC = () => {
+  const location = useLocation();
+  const isAuthPage = ['/login', '/register', '/password-reset'].includes(location.pathname);
+
+  return (
+    <Box sx={{ flexGrow: 1 }}>
+      {/* 認証ページ以外でナビゲーションを表示 */}
+      {!isAuthPage && <Navigation />}
+
+      <Container
+        maxWidth={false}
+        sx={{
+          mt: isAuthPage ? 0 : { xs: 1, sm: 2 },
+          mb: { xs: 2, sm: 4 },
+          px: isAuthPage ? 0 : { xs: 1, sm: 2 },
+        }}
+      >
+        <Routes>
+          <Route path='/' element={<Navigate to='/dashboard' replace />} />
+          <Route path='/login' element={<LoginPage />} />
+          <Route path='/register' element={<RegisterPage />} />
+          <Route path='/password-reset' element={<PasswordResetPage />} />
+          <Route
+            path='/profile'
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path='/dashboard'
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path='/videos'
+            element={
+              <ProtectedRoute>
+                <VideoManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path='/videos/:id'
+            element={
+              <ProtectedRoute>
+                <VideoDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path='*' element={<Navigate to='/dashboard' replace />} />
+        </Routes>
+      </Container>
+
+      {/* オフライン状態表示 */}
+      <OfflineStatus showPersistent={true} position='bottom' />
+    </Box>
+  );
+};
+
 function App() {
   return (
     <Provider store={store}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <Router>
-          <Box sx={{ flexGrow: 1 }}>
-            <AppBar position='static' elevation={1}>
-              <Toolbar>
-                <Typography variant='h6' component='div' sx={{ flexGrow: 1 }}>
-                  よさこい演舞評価システム
-                </Typography>
-              </Toolbar>
-            </AppBar>
-
-            <Container 
-              maxWidth={false} 
-              sx={{ 
-                mt: { xs: 1, sm: 2 }, 
-                mb: { xs: 2, sm: 4 },
-                px: { xs: 1, sm: 2 }
-              }}
-            >
-              <Routes>
-                <Route path='/' element={<Navigate to='/videos' replace />} />
-                <Route path='/videos' element={<VideoManagement />} />
-                <Route path='/videos/:id' element={<VideoDetailPage />} />
-                <Route path='*' element={<Navigate to='/videos' replace />} />
-              </Routes>
-            </Container>
-
-            {/* オフライン状態表示 */}
-            <OfflineStatus showPersistent={true} position="bottom" />
-          </Box>
-        </Router>
+        <AuthProvider>
+          <Router>
+            <AppContent />
+          </Router>
+        </AuthProvider>
       </ThemeProvider>
     </Provider>
   );

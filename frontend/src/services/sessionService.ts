@@ -1,4 +1,4 @@
-import { api } from '../utils/api';
+import { apiClient } from '../utils/api';
 import { Session, SessionStatus } from '../types';
 
 export interface CreateSessionRequest {

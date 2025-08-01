@@ -114,10 +114,15 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   return (
     <Box sx={{ width: '100%' }}>
       <Paper elevation={1} sx={{ mb: 3, p: 2 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant='h4'>
-            評価結果分析 - {session.name}
-          </Typography>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            mb: 2,
+          }}
+        >
+          <Typography variant='h4'>評価結果分析 - {session.name}</Typography>
           <DataExportManager
             sessionId={sessionId}
             sessionName={session.name}

@@ -65,7 +65,7 @@ export const useOffline = (): [OfflineState, OfflineActions] => {
 
   // オンライン状態の監視
   useEffect(() => {
-    const unsubscribe = offlineService.addOnlineListener((isOnline) => {
+    const unsubscribe = offlineService.addOnlineListener(isOnline => {
       setState(prev => ({ ...prev, isOnline }));
       if (isOnline) {
         updateState();
@@ -80,35 +80,41 @@ export const useOffline = (): [OfflineState, OfflineActions] => {
     const handleSyncEvaluations = () => {
       setState(prev => ({ ...prev, isSyncing: true }));
       offlineService.syncWhenOnline().finally(() => {
-        setState(prev => ({ 
-          ...prev, 
-          isSyncing: false, 
-          lastSyncTime: Date.now() 
+        setState(prev => ({
+          ...prev,
+          isSyncing: false,
+          lastSyncTime: Date.now(),
         }));
         updateState();
       });
     };
 
     const handleNetworkStatus = (event: CustomEvent) => {
-      setState(prev => ({ 
-        ...prev, 
-        isOnline: event.detail.online 
+      setState(prev => ({
+        ...prev,
+        isOnline: event.detail.online,
       }));
     };
 
     window.addEventListener('sw-sync-evaluations', handleSyncEvaluations);
-    window.addEventListener('sw-network-status', handleNetworkStatus as EventListener);
+    window.addEventListener(
+      'sw-network-status',
+      handleNetworkStatus as EventListener
+    );
 
     return () => {
       window.removeEventListener('sw-sync-evaluations', handleSyncEvaluations);
-      window.removeEventListener('sw-network-status', handleNetworkStatus as EventListener);
+      window.removeEventListener(
+        'sw-network-status',
+        handleNetworkStatus as EventListener
+      );
     };
   }, [updateState]);
 
   // 定期的な状態更新
   useEffect(() => {
     updateState();
-    
+
     const interval = setInterval(updateState, 10000); // 10秒ごと
     return () => clearInterval(interval);
   }, [updateState]);
@@ -119,9 +125,9 @@ export const useOffline = (): [OfflineState, OfflineActions] => {
       setState(prev => ({ ...prev, isSyncing: true }));
       try {
         await offlineService.syncWhenOnline();
-        setState(prev => ({ 
-          ...prev, 
-          lastSyncTime: Date.now() 
+        setState(prev => ({
+          ...prev,
+          lastSyncTime: Date.now(),
         }));
       } finally {
         setState(prev => ({ ...prev, isSyncing: false }));

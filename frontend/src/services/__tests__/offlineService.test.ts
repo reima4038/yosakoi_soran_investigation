@@ -67,7 +67,7 @@ describe('OfflineService', () => {
     it('should add and remove online listeners', () => {
       const listener = jest.fn();
       const unsubscribe = offlineService.addOnlineListener(listener);
-      
+
       expect(typeof unsubscribe).toBe('function');
       unsubscribe();
     });
@@ -76,58 +76,69 @@ describe('OfflineService', () => {
   describe('Data Storage', () => {
     it('should save evaluation data', async () => {
       mockDB.put.mockResolvedValue(undefined);
-      
+
       await offlineService.saveEvaluation('session1', { score: 85 });
-      
-      expect(mockDB.put).toHaveBeenCalledWith('evaluations', expect.objectContaining({
-        sessionId: 'session1',
-        data: { score: 85 },
-        synced: expect.any(Boolean),
-      }));
+
+      expect(mockDB.put).toHaveBeenCalledWith(
+        'evaluations',
+        expect.objectContaining({
+          sessionId: 'session1',
+          data: { score: 85 },
+          synced: expect.any(Boolean),
+        })
+      );
     });
 
     it('should save comment data', async () => {
       mockDB.put.mockResolvedValue(undefined);
-      
-      await offlineService.saveComment('session1', { text: 'Great performance!' });
-      
-      expect(mockDB.put).toHaveBeenCalledWith('comments', expect.objectContaining({
-        sessionId: 'session1',
-        data: { text: 'Great performance!' },
-        synced: expect.any(Boolean),
-      }));
+
+      await offlineService.saveComment('session1', {
+        text: 'Great performance!',
+      });
+
+      expect(mockDB.put).toHaveBeenCalledWith(
+        'comments',
+        expect.objectContaining({
+          sessionId: 'session1',
+          data: { text: 'Great performance!' },
+          synced: expect.any(Boolean),
+        })
+      );
     });
   });
 
   describe('Cache Management', () => {
     it('should cache session data', async () => {
       mockDB.put.mockResolvedValue(undefined);
-      
+
       const sessionData = { id: 'session1', name: 'Test Session' };
       await offlineService.cacheSession(sessionData);
-      
-      expect(mockDB.put).toHaveBeenCalledWith('sessions', expect.objectContaining({
-        id: 'session1',
-        data: sessionData,
-        cached: true,
-      }));
+
+      expect(mockDB.put).toHaveBeenCalledWith(
+        'sessions',
+        expect.objectContaining({
+          id: 'session1',
+          data: sessionData,
+          cached: true,
+        })
+      );
     });
 
     it('should retrieve cached session', async () => {
       const cachedData = { id: 'session1', data: { name: 'Test Session' } };
       mockDB.get.mockResolvedValue(cachedData);
-      
+
       const result = await offlineService.getCachedSession('session1');
-      
+
       expect(mockDB.get).toHaveBeenCalledWith('sessions', 'session1');
       expect(result).toEqual(cachedData.data);
     });
 
     it('should clear cache', async () => {
       mockDB.clear.mockResolvedValue(undefined);
-      
+
       await offlineService.clearCache();
-      
+
       expect(mockDB.clear).toHaveBeenCalledWith('sessions');
       expect(mockDB.clear).toHaveBeenCalledWith('videos');
       expect(mockDB.clear).toHaveBeenCalledWith('templates');
@@ -138,9 +149,9 @@ describe('OfflineService', () => {
     it('should get sync status', async () => {
       mockDB.getAllFromIndex.mockResolvedValue([{ id: '1' }, { id: '2' }]);
       mockDB.getAll.mockResolvedValue([{ id: '3' }]);
-      
+
       const status = await offlineService.getSyncStatus();
-      
+
       expect(status).toEqual({
         unsyncedEvaluations: 2,
         unsyncedComments: 2,
@@ -152,7 +163,7 @@ describe('OfflineService', () => {
   describe('Notification Settings', () => {
     it('should get notification settings', () => {
       const settings = offlineService.getNotificationSettings();
-      
+
       expect(settings).toHaveProperty('offlineMode');
       expect(settings).toHaveProperty('syncCompleted');
       expect(settings).toHaveProperty('syncFailed');
@@ -161,9 +172,9 @@ describe('OfflineService', () => {
 
     it('should update notification settings', () => {
       const newSettings = { offlineMode: false };
-      
+
       offlineService.updateNotificationSettings(newSettings);
-      
+
       const settings = offlineService.getNotificationSettings();
       expect(settings.offlineMode).toBe(false);
     });
@@ -172,7 +183,7 @@ describe('OfflineService', () => {
   describe('Offline Notifications', () => {
     it('should add offline notification', () => {
       offlineService.addOfflineNotification('data_saved', 'Data saved locally');
-      
+
       const notifications = offlineService.getOfflineNotifications();
       expect(notifications).toHaveLength(1);
       expect(notifications[0]).toMatchObject({
@@ -184,7 +195,7 @@ describe('OfflineService', () => {
     it('should clear offline notifications', () => {
       offlineService.addOfflineNotification('data_saved', 'Test message');
       offlineService.clearOfflineNotifications();
-      
+
       const notifications = offlineService.getOfflineNotifications();
       expect(notifications).toHaveLength(0);
     });
@@ -193,7 +204,7 @@ describe('OfflineService', () => {
   describe('Storage Usage', () => {
     it('should get storage usage', async () => {
       const usage = await offlineService.getStorageUsage();
-      
+
       expect(usage).toEqual({
         used: 1000,
         quota: 10000,

@@ -152,15 +152,15 @@ const EvaluationPage: React.FC = () => {
   const renderMobileTabContent = () => (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Tabs 
-          value={activeTab} 
+        <Tabs
+          value={activeTab}
           onChange={handleTabChange}
           variant={isMobile ? 'fullWidth' : 'standard'}
           sx={{
             '& .MuiTab-root': {
               minHeight: isMobile ? 56 : 48,
               fontSize: isMobile ? '0.875rem' : '1rem',
-            }
+            },
           }}
         >
           <Tab
@@ -169,7 +169,11 @@ const EvaluationPage: React.FC = () => {
             iconPosition={isMobile ? 'top' : 'start'}
           />
           <Tab
-            label={isMobile ? `コメント (${comments.length})` : `コメント (${comments.length})`}
+            label={
+              isMobile
+                ? `コメント (${comments.length})`
+                : `コメント (${comments.length})`
+            }
             icon={<ScheduleIcon />}
             iconPosition={isMobile ? 'top' : 'start'}
           />
@@ -191,11 +195,7 @@ const EvaluationPage: React.FC = () => {
             <Typography variant='h6' gutterBottom>
               タイムラインコメント
             </Typography>
-            <Typography
-              variant='body2'
-              color='text.secondary'
-              sx={{ mb: 2 }}
-            >
+            <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
               動画の特定の時点に関するコメントです。タイムスタンプをクリックすると該当箇所にジャンプします。
             </Typography>
 
@@ -211,11 +211,11 @@ const EvaluationPage: React.FC = () => {
                     <Card
                       key={comment.id || index}
                       variant='outlined'
-                      sx={{ 
+                      sx={{
                         mb: 2,
                         '& .MuiCardContent-root': {
                           p: isMobile ? 1.5 : 2,
-                        }
+                        },
                       }}
                     >
                       <CardContent>
@@ -229,8 +229,8 @@ const EvaluationPage: React.FC = () => {
                           <Typography
                             variant='body2'
                             color='primary'
-                            sx={{ 
-                              cursor: 'pointer', 
+                            sx={{
+                              cursor: 'pointer',
                               fontWeight: 'bold',
                               minHeight: isTouchDevice ? 44 : 'auto',
                               display: 'flex',
@@ -248,13 +248,13 @@ const EvaluationPage: React.FC = () => {
                               variant='caption'
                               color='text.secondary'
                             >
-                              {new Date(comment.createdAt).toLocaleString('ja-JP')}
+                              {new Date(comment.createdAt).toLocaleString(
+                                'ja-JP'
+                              )}
                             </Typography>
                           )}
                         </Box>
-                        <Typography variant='body2'>
-                          {comment.text}
-                        </Typography>
+                        <Typography variant='body2'>{comment.text}</Typography>
                       </CardContent>
                     </Card>
                   ))}
@@ -281,7 +281,12 @@ const EvaluationPage: React.FC = () => {
             >
               <MenuIcon />
             </IconButton>
-            <Typography variant='h6' noWrap component='div' sx={{ flexGrow: 1 }}>
+            <Typography
+              variant='h6'
+              noWrap
+              component='div'
+              sx={{ flexGrow: 1 }}
+            >
               {evaluationData?.session.name || '評価セッション'}
             </Typography>
           </Toolbar>
@@ -298,7 +303,15 @@ const EvaluationPage: React.FC = () => {
         </Box>
 
         {/* タイムラインコメント（モバイル用コンパクト表示） */}
-        <Box sx={{ px: 1, py: 0.5, backgroundColor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>
+        <Box
+          sx={{
+            px: 1,
+            py: 0.5,
+            backgroundColor: 'background.paper',
+            borderBottom: 1,
+            borderColor: 'divider',
+          }}
+        >
           <TimelineComments
             sessionId={sessionId!}
             comments={comments}
@@ -332,26 +345,33 @@ const EvaluationPage: React.FC = () => {
           }}
         >
           <Box sx={{ p: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                mb: 2,
+              }}
+            >
               <Typography variant='h6'>セッション情報</Typography>
               <IconButton onClick={handleDrawerToggle}>
                 <CloseIcon />
               </IconButton>
             </Box>
-            
+
             <Typography variant='subtitle1' gutterBottom>
               {evaluationData?.session.name}
             </Typography>
             <Typography variant='body2' color='text.secondary' gutterBottom>
               動画: {evaluationData?.session.video.title}
             </Typography>
-            
+
             {isSubmitted && (
               <Alert severity='success' sx={{ mt: 2 }}>
                 評価は提出済みです。
               </Alert>
             )}
-            
+
             {evaluationData?.session.description && (
               <Box sx={{ mt: 2 }}>
                 <Typography variant='body2' color='text.secondary'>
@@ -383,7 +403,11 @@ const EvaluationPage: React.FC = () => {
         )}
       </Paper>
 
-      <Grid container spacing={{ xs: 1, sm: 2 }} sx={{ flex: 1, overflow: 'hidden' }}>
+      <Grid
+        container
+        spacing={{ xs: 1, sm: 2 }}
+        sx={{ flex: 1, overflow: 'hidden' }}
+      >
         {/* 左側: 動画プレーヤー */}
         <Grid
           item
@@ -393,11 +417,11 @@ const EvaluationPage: React.FC = () => {
         >
           <Card sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
             <CardContent
-              sx={{ 
-                flex: 1, 
-                display: 'flex', 
+              sx={{
+                flex: 1,
+                display: 'flex',
                 flexDirection: 'column',
-                p: { xs: 1, sm: 2 }
+                p: { xs: 1, sm: 2 },
               }}
             >
               <Typography

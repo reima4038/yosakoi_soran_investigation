@@ -27,8 +27,6 @@ import {
   FullscreenExit as FullscreenExitIcon,
   Replay10 as Replay10Icon,
   Forward10 as Forward10Icon,
-  Settings as SettingsIcon,
-  Hd as HdIcon,
   SignalWifi1Bar as LowQualityIcon,
   SignalWifi4Bar as HighQualityIcon,
   BatteryAlert as BatteryIcon,
@@ -74,7 +72,7 @@ const YouTubePlayerComponent = forwardRef<
       showControls: showControlsProp = true,
       height = 360,
       width = 640,
-      mobileOptimized = true,
+      _mobileOptimized = true,
       adaptiveQuality = true,
       batteryOptimized = true,
     },
@@ -91,11 +89,13 @@ const YouTubePlayerComponent = forwardRef<
     const [isReady, setIsReady] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [controlsVisible, setControlsVisible] = useState(true);
-    const [networkQuality, setNetworkQuality] = useState<'high' | 'medium' | 'low'>('high');
+    const [networkQuality, setNetworkQuality] = useState<
+      'high' | 'medium' | 'low'
+    >('high');
     const [batteryLevel, setBatteryLevel] = useState<number | null>(null);
     const [isLowPowerMode, setIsLowPowerMode] = useState(false);
     const [currentQuality, setCurrentQuality] = useState<string>('auto');
-    const [availableQualities, setAvailableQualities] = useState<string[]>([]);
+    const [, setAvailableQualities] = useState<string[]>([]);
 
     const playerRef = useRef<HTMLDivElement>(null);
     const timeUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -109,12 +109,12 @@ const YouTubePlayerComponent = forwardRef<
           const battery = await (navigator as any).getBattery();
           setBatteryLevel(battery.level);
           setIsLowPowerMode(battery.level < 0.2 || !battery.charging);
-          
+
           battery.addEventListener('levelchange', () => {
             setBatteryLevel(battery.level);
             setIsLowPowerMode(battery.level < 0.2 || !battery.charging);
           });
-          
+
           battery.addEventListener('chargingchange', () => {
             setIsLowPowerMode(battery.level < 0.2 || !battery.charging);
           });
@@ -128,7 +128,7 @@ const YouTubePlayerComponent = forwardRef<
     const monitorNetworkQuality = useCallback(() => {
       if ('connection' in navigator && adaptiveQuality) {
         const connection = (navigator as any).connection;
-        
+
         const updateNetworkQuality = () => {
           const effectiveType = connection.effectiveType;
           switch (effectiveType) {
@@ -149,7 +149,7 @@ const YouTubePlayerComponent = forwardRef<
 
         updateNetworkQuality();
         connection.addEventListener('change', updateNetworkQuality);
-        
+
         return () => {
           connection.removeEventListener('change', updateNetworkQuality);
         };
@@ -189,7 +189,7 @@ const YouTubePlayerComponent = forwardRef<
       if (controlsTimeoutRef.current) {
         clearTimeout(controlsTimeoutRef.current);
       }
-      
+
       if (isMobile && isPlaying) {
         controlsTimeoutRef.current = setTimeout(() => {
           setControlsVisible(false);
@@ -204,37 +204,40 @@ const YouTubePlayerComponent = forwardRef<
     }, [hideControlsAfterDelay]);
 
     // 品質の自動調整
-    const adjustQualityBasedOnConditions = useCallback((playerInstance: YouTubePlayer) => {
-      if (!adaptiveQuality) return;
+    const adjustQualityBasedOnConditions = useCallback(
+      (playerInstance: YouTubePlayer) => {
+        if (!adaptiveQuality) return;
 
-      let targetQuality = 'auto';
-      
-      // ネットワーク品質に基づく調整
-      if (networkQuality === 'low') {
-        targetQuality = 'small'; // 240p
-      } else if (networkQuality === 'medium') {
-        targetQuality = 'medium'; // 360p
-      } else if (isLowPowerMode) {
-        targetQuality = 'medium'; // バッテリー節約のため360pに制限
-      }
+        let targetQuality = 'auto';
 
-      // モバイルデバイスでの最適化
-      if (isMobile && !isFullscreen) {
-        // 小さい画面では高画質は不要
-        if (targetQuality === 'auto') {
-          targetQuality = 'large'; // 480p
+        // ネットワーク品質に基づく調整
+        if (networkQuality === 'low') {
+          targetQuality = 'small'; // 240p
+        } else if (networkQuality === 'medium') {
+          targetQuality = 'medium'; // 360p
+        } else if (isLowPowerMode) {
+          targetQuality = 'medium'; // バッテリー節約のため360pに制限
         }
-      }
 
-      try {
-        if (targetQuality !== 'auto') {
-          playerInstance.setPlaybackQuality(targetQuality);
-          setCurrentQuality(targetQuality);
+        // モバイルデバイスでの最適化
+        if (isMobile && !isFullscreen) {
+          // 小さい画面では高画質は不要
+          if (targetQuality === 'auto') {
+            targetQuality = 'large'; // 480p
+          }
         }
-      } catch (error) {
-        // Quality setting failed
-      }
-    }, [adaptiveQuality, networkQuality, isLowPowerMode, isMobile, isFullscreen]);
+
+        try {
+          if (targetQuality !== 'auto') {
+            playerInstance.setPlaybackQuality(targetQuality);
+            setCurrentQuality(targetQuality);
+          }
+        } catch (error) {
+          // Quality setting failed
+        }
+      },
+      [adaptiveQuality, networkQuality, isLowPowerMode, isMobile, isFullscreen]
+    );
 
     // 外部からアクセス可能なメソッドを公開
     useImperativeHandle(
@@ -305,7 +308,15 @@ const YouTubePlayerComponent = forwardRef<
           hideControlsAfterDelay();
         }
       },
-      [onDurationChange, volume, onPlayerReady, startTimeTracking, isMobile, adjustQualityBasedOnConditions, hideControlsAfterDelay]
+      [
+        onDurationChange,
+        volume,
+        onPlayerReady,
+        startTimeTracking,
+        isMobile,
+        adjustQualityBasedOnConditions,
+        hideControlsAfterDelay,
+      ]
     );
 
     // 再生状態変更時
@@ -350,7 +361,7 @@ const YouTubePlayerComponent = forwardRef<
     useEffect(() => {
       monitorBatteryStatus();
       const networkCleanup = monitorNetworkQuality();
-      
+
       return () => {
         if (timeUpdateIntervalRef.current) {
           clearInterval(timeUpdateIntervalRef.current);
@@ -372,7 +383,14 @@ const YouTubePlayerComponent = forwardRef<
       if (player && isReady) {
         adjustQualityBasedOnConditions(player);
       }
-    }, [player, isReady, networkQuality, isLowPowerMode, isFullscreen, adjustQualityBasedOnConditions]);
+    }, [
+      player,
+      isReady,
+      networkQuality,
+      isLowPowerMode,
+      isFullscreen,
+      adjustQualityBasedOnConditions,
+    ]);
 
     // 再生/一時停止の切り替え
     const togglePlayPause = useCallback(() => {
@@ -496,7 +514,12 @@ const YouTubePlayerComponent = forwardRef<
         playsinline: isMobile ? 1 : 0, // iOSでインライン再生
         enablejsapi: 1,
         // 品質設定
-        vq: networkQuality === 'low' ? 'small' : networkQuality === 'medium' ? 'medium' : 'auto',
+        vq:
+          networkQuality === 'low'
+            ? 'small'
+            : networkQuality === 'medium'
+              ? 'medium'
+              : 'auto',
         // バッテリー最適化
         html5: 1, // HTML5プレーヤーを強制使用
         cc_load_policy: isLowPowerMode ? 0 : 1, // 低電力時は字幕を無効化
@@ -504,10 +527,10 @@ const YouTubePlayerComponent = forwardRef<
     };
 
     return (
-      <Box 
-        ref={playerRef} 
-        sx={{ 
-          position: 'relative', 
+      <Box
+        ref={playerRef}
+        sx={{
+          position: 'relative',
           width: '100%',
           backgroundColor: 'black',
           // モバイル用タッチ最適化
@@ -541,7 +564,7 @@ const YouTubePlayerComponent = forwardRef<
         {/* ネットワーク/バッテリー状態表示 */}
         {(isLowPowerMode || networkQuality === 'low') && (
           <Alert
-            severity="warning"
+            severity='warning'
             sx={{
               position: 'absolute',
               top: 8,
@@ -552,7 +575,9 @@ const YouTubePlayerComponent = forwardRef<
             }}
           >
             {isLowPowerMode && <BatteryIcon sx={{ mr: 1, fontSize: 16 }} />}
-            {networkQuality === 'low' && <LowQualityIcon sx={{ mr: 1, fontSize: 16 }} />}
+            {networkQuality === 'low' && (
+              <LowQualityIcon sx={{ mr: 1, fontSize: 16 }} />
+            )}
             {isLowPowerMode ? 'バッテリー節約モード' : '低速ネットワーク検出'}
           </Alert>
         )}
@@ -593,20 +618,25 @@ const YouTubePlayerComponent = forwardRef<
                   }}
                 />
                 <Box
-                  sx={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
                     mt: 0.5,
                     alignItems: 'center',
                   }}
                 >
-                  <Typography variant='caption' sx={{ fontSize: isMobile ? '0.75rem' : '0.75rem' }}>
+                  <Typography
+                    variant='caption'
+                    sx={{ fontSize: isMobile ? '0.75rem' : '0.75rem' }}
+                  >
                     {formatTime(currentTime)}
                   </Typography>
-                  
+
                   {/* 品質インジケーター */}
                   {adaptiveQuality && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Box
+                      sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                    >
                       {networkQuality === 'high' ? (
                         <HighQualityIcon sx={{ fontSize: 14 }} />
                       ) : (
@@ -617,24 +647,27 @@ const YouTubePlayerComponent = forwardRef<
                       </Typography>
                     </Box>
                   )}
-                  
-                  <Typography variant='caption' sx={{ fontSize: isMobile ? '0.75rem' : '0.75rem' }}>
+
+                  <Typography
+                    variant='caption'
+                    sx={{ fontSize: isMobile ? '0.75rem' : '0.75rem' }}
+                  >
                     {formatTime(duration)}
                   </Typography>
                 </Box>
               </Box>
 
               {/* コントロールボタン */}
-              <Stack 
-                direction='row' 
-                spacing={isMobile ? 0.5 : 1} 
+              <Stack
+                direction='row'
+                spacing={isMobile ? 0.5 : 1}
                 alignItems='center'
                 justifyContent={isMobile ? 'space-around' : 'flex-start'}
               >
                 <Tooltip title='10秒戻る' disableHoverListener={isTouchDevice}>
-                  <IconButton 
-                    onClick={skipBackward} 
-                    sx={{ 
+                  <IconButton
+                    onClick={skipBackward}
+                    sx={{
                       color: 'white',
                       minHeight: isTouchDevice ? 44 : 'auto',
                       minWidth: isTouchDevice ? 44 : 'auto',
@@ -644,10 +677,13 @@ const YouTubePlayerComponent = forwardRef<
                   </IconButton>
                 </Tooltip>
 
-                <Tooltip title={isPlaying ? '一時停止' : '再生'} disableHoverListener={isTouchDevice}>
-                  <IconButton 
-                    onClick={togglePlayPause} 
-                    sx={{ 
+                <Tooltip
+                  title={isPlaying ? '一時停止' : '再生'}
+                  disableHoverListener={isTouchDevice}
+                >
+                  <IconButton
+                    onClick={togglePlayPause}
+                    sx={{
                       color: 'white',
                       minHeight: isTouchDevice ? 44 : 'auto',
                       minWidth: isTouchDevice ? 44 : 'auto',
@@ -658,9 +694,9 @@ const YouTubePlayerComponent = forwardRef<
                 </Tooltip>
 
                 <Tooltip title='10秒進む' disableHoverListener={isTouchDevice}>
-                  <IconButton 
-                    onClick={skipForward} 
-                    sx={{ 
+                  <IconButton
+                    onClick={skipForward}
+                    sx={{
                       color: 'white',
                       minHeight: isTouchDevice ? 44 : 'auto',
                       minWidth: isTouchDevice ? 44 : 'auto',
@@ -702,10 +738,13 @@ const YouTubePlayerComponent = forwardRef<
 
                 {/* モバイル用ミュートボタン */}
                 {isMobile && (
-                  <Tooltip title={isMuted ? 'ミュート解除' : 'ミュート'} disableHoverListener={isTouchDevice}>
-                    <IconButton 
-                      onClick={toggleMute} 
-                      sx={{ 
+                  <Tooltip
+                    title={isMuted ? 'ミュート解除' : 'ミュート'}
+                    disableHoverListener={isTouchDevice}
+                  >
+                    <IconButton
+                      onClick={toggleMute}
+                      sx={{
                         color: 'white',
                         minHeight: 44,
                         minWidth: 44,
@@ -720,9 +759,9 @@ const YouTubePlayerComponent = forwardRef<
                   title={isFullscreen ? 'フルスクリーン終了' : 'フルスクリーン'}
                   disableHoverListener={isTouchDevice}
                 >
-                  <IconButton 
-                    onClick={toggleFullscreen} 
-                    sx={{ 
+                  <IconButton
+                    onClick={toggleFullscreen}
+                    sx={{
                       color: 'white',
                       minHeight: isTouchDevice ? 44 : 'auto',
                       minWidth: isTouchDevice ? 44 : 'auto',

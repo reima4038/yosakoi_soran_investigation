@@ -25,7 +25,7 @@ export interface Video {
   youtubeId: string;
   title: string;
   channelName: string;
-  uploadDate: Date;
+  uploadDate: string;
   description: string;
   metadata: {
     teamName?: string;
@@ -36,7 +36,7 @@ export interface Video {
   };
   tags: string[];
   thumbnailUrl: string;
-  createdAt: Date;
+  createdAt: string;
   createdBy: string;
 }
 
@@ -44,7 +44,7 @@ export interface Template {
   id: string;
   name: string;
   description: string;
-  createdAt: Date;
+  createdAt: string;
   creatorId: string;
   categories: Category[];
 }

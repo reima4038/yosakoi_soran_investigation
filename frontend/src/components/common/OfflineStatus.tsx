@@ -58,20 +58,23 @@ const OfflineStatus: React.FC<OfflineStatusProps> = ({
     quota: number;
   } | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [showNotificationSettings, setShowNotificationSettings] = useState(false);
-  const [offlineNotifications, setOfflineNotifications] = useState<Array<{
-    id: string;
-    type: 'sync_failed' | 'data_saved' | 'sync_completed';
-    message: string;
-    timestamp: number;
-  }>>([]);
+  const [showNotificationSettings, setShowNotificationSettings] =
+    useState(false);
+  const [, setOfflineNotifications] = useState<
+    Array<{
+      id: string;
+      type: 'sync_failed' | 'data_saved' | 'sync_completed';
+      message: string;
+      timestamp: number;
+    }>
+  >([]);
 
   // オンライン状態の監視
   useEffect(() => {
-    const unsubscribe = offlineService.addOnlineListener((online) => {
+    const unsubscribe = offlineService.addOnlineListener(online => {
       const wasOffline = !isOnline;
       setIsOnline(online);
-      
+
       if (online && wasOffline) {
         setShowSnackbar(true);
         setIsSyncing(true);
@@ -114,10 +117,16 @@ const OfflineStatus: React.FC<OfflineStatusProps> = ({
       setOfflineNotifications(prev => [...prev, event.detail]);
     };
 
-    window.addEventListener('offline-notification', handleOfflineNotification as EventListener);
-    
+    window.addEventListener(
+      'offline-notification',
+      handleOfflineNotification as EventListener
+    );
+
     return () => {
-      window.removeEventListener('offline-notification', handleOfflineNotification as EventListener);
+      window.removeEventListener(
+        'offline-notification',
+        handleOfflineNotification as EventListener
+      );
     };
   }, []);
 
@@ -125,11 +134,11 @@ const OfflineStatus: React.FC<OfflineStatusProps> = ({
   useEffect(() => {
     updateSyncStatus();
     updateStorageUsage();
-    
+
     // 既存のオフライン通知を読み込み
     const existingNotifications = offlineService.getOfflineNotifications();
     setOfflineNotifications(existingNotifications);
-    
+
     // 定期的に状態を更新
     const interval = setInterval(() => {
       updateSyncStatus();
@@ -142,7 +151,7 @@ const OfflineStatus: React.FC<OfflineStatusProps> = ({
   // 手動同期
   const handleManualSync = async () => {
     if (!isOnline) return;
-    
+
     setIsSyncing(true);
     try {
       await offlineService.syncWhenOnline();
@@ -181,9 +190,10 @@ const OfflineStatus: React.FC<OfflineStatusProps> = ({
   };
 
   // 未同期データがあるかチェック
-  const hasUnsyncedData = syncStatus.unsyncedEvaluations > 0 || 
-                         syncStatus.unsyncedComments > 0 || 
-                         syncStatus.queuedItems > 0;
+  const hasUnsyncedData =
+    syncStatus.unsyncedEvaluations > 0 ||
+    syncStatus.unsyncedComments > 0 ||
+    syncStatus.queuedItems > 0;
 
   // 永続表示用のコンポーネント
   if (showPersistent) {
@@ -207,7 +217,7 @@ const OfflineStatus: React.FC<OfflineStatusProps> = ({
           onClick={() => setShowDetails(true)}
           sx={{ cursor: 'pointer' }}
         />
-        
+
         {hasUnsyncedData && (
           <Chip
             icon={isSyncing ? <SyncIcon /> : <SyncDisabledIcon />}
@@ -237,9 +247,9 @@ const OfflineStatus: React.FC<OfflineStatusProps> = ({
           sx={{ width: '100%' }}
           action={
             <IconButton
-              size="small"
-              aria-label="詳細"
-              color="inherit"
+              size='small'
+              aria-label='詳細'
+              color='inherit'
               onClick={() => {
                 setShowDetails(true);
                 setShowSnackbar(false);
@@ -264,13 +274,17 @@ const OfflineStatus: React.FC<OfflineStatusProps> = ({
       <Dialog
         open={showDetails}
         onClose={() => setShowDetails(false)}
-        maxWidth="sm"
+        maxWidth='sm'
         fullWidth
         fullScreen={isMobile}
       >
         <DialogTitle>
-          <Box display="flex" alignItems="center" gap={1}>
-            {isOnline ? <OnlineIcon color="success" /> : <OfflineIcon color="warning" />}
+          <Box display='flex' alignItems='center' gap={1}>
+            {isOnline ? (
+              <OnlineIcon color='success' />
+            ) : (
+              <OfflineIcon color='warning' />
+            )}
             接続状態とオフライン機能
             <Box sx={{ ml: 'auto' }}>
               <IconButton onClick={() => setShowDetails(false)}>
@@ -279,25 +293,23 @@ const OfflineStatus: React.FC<OfflineStatusProps> = ({
             </Box>
           </Box>
         </DialogTitle>
-        
+
         <DialogContent>
           {/* 接続状態 */}
           <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" gutterBottom>
+            <Typography variant='h6' gutterBottom>
               現在の状態
             </Typography>
             <Alert severity={isOnline ? 'success' : 'warning'}>
-              {isOnline ? (
-                'インターネットに接続されています'
-              ) : (
-                'オフラインです。データはローカルに保存され、オンライン復帰時に同期されます。'
-              )}
+              {isOnline
+                ? 'インターネットに接続されています'
+                : 'オフラインです。データはローカルに保存され、オンライン復帰時に同期されます。'}
             </Alert>
           </Box>
 
           {/* 同期状態 */}
           <Box sx={{ mb: 3 }}>
-            <Typography variant="h6" gutterBottom>
+            <Typography variant='h6' gutterBottom>
               同期状態
             </Typography>
             <List dense>
@@ -306,7 +318,7 @@ const OfflineStatus: React.FC<OfflineStatusProps> = ({
                   <EvaluationIcon />
                 </ListItemIcon>
                 <ListItemText
-                  primary="未同期の評価"
+                  primary='未同期の評価'
                   secondary={`${syncStatus.unsyncedEvaluations} 件`}
                 />
               </ListItem>
@@ -315,7 +327,7 @@ const OfflineStatus: React.FC<OfflineStatusProps> = ({
                   <CommentIcon />
                 </ListItemIcon>
                 <ListItemText
-                  primary="未同期のコメント"
+                  primary='未同期のコメント'
                   secondary={`${syncStatus.unsyncedComments} 件`}
                 />
               </ListItem>
@@ -324,7 +336,7 @@ const OfflineStatus: React.FC<OfflineStatusProps> = ({
                   <QueueIcon />
                 </ListItemIcon>
                 <ListItemText
-                  primary="同期待ちアイテム"
+                  primary='同期待ちアイテム'
                   secondary={`${syncStatus.queuedItems} 件`}
                 />
               </ListItem>
@@ -332,7 +344,7 @@ const OfflineStatus: React.FC<OfflineStatusProps> = ({
 
             {isOnline && hasUnsyncedData && (
               <Button
-                variant="contained"
+                variant='contained'
                 startIcon={isSyncing ? <SyncIcon /> : <SyncIcon />}
                 onClick={handleManualSync}
                 disabled={isSyncing}
@@ -349,30 +361,35 @@ const OfflineStatus: React.FC<OfflineStatusProps> = ({
           {/* ストレージ使用量 */}
           {storageUsage && (
             <Box sx={{ mb: 3 }}>
-              <Typography variant="h6" gutterBottom>
+              <Typography variant='h6' gutterBottom>
                 ストレージ使用量
               </Typography>
               <Box sx={{ mb: 1 }}>
-                <Box display="flex" justifyContent="space-between" alignItems="center">
-                  <Typography variant="body2">
-                    {formatBytes(storageUsage.used)} / {formatBytes(storageUsage.quota)}
+                <Box
+                  display='flex'
+                  justifyContent='space-between'
+                  alignItems='center'
+                >
+                  <Typography variant='body2'>
+                    {formatBytes(storageUsage.used)} /{' '}
+                    {formatBytes(storageUsage.quota)}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant='body2' color='text.secondary'>
                     {getStoragePercentage().toFixed(1)}%
                   </Typography>
                 </Box>
                 <LinearProgress
-                  variant="determinate"
+                  variant='determinate'
                   value={getStoragePercentage()}
                   sx={{ mt: 1 }}
                 />
               </Box>
-              
+
               <Button
-                variant="outlined"
+                variant='outlined'
                 startIcon={<StorageIcon />}
                 onClick={handleClearCache}
-                size="small"
+                size='small'
                 fullWidth={isMobile}
               >
                 キャッシュをクリア
@@ -382,30 +399,30 @@ const OfflineStatus: React.FC<OfflineStatusProps> = ({
 
           {/* オフライン機能の説明 */}
           <Box>
-            <Typography variant="h6" gutterBottom>
+            <Typography variant='h6' gutterBottom>
               オフライン機能について
             </Typography>
-            <Typography variant="body2" color="text.secondary" paragraph>
+            <Typography variant='body2' color='text.secondary' paragraph>
               このアプリケーションはオフラインでも使用できます：
             </Typography>
             <List dense>
               <ListItem>
-                <Typography variant="body2">
+                <Typography variant='body2'>
                   • 評価データとコメントはローカルに保存されます
                 </Typography>
               </ListItem>
               <ListItem>
-                <Typography variant="body2">
+                <Typography variant='body2'>
                   • オンライン復帰時に自動的に同期されます
                 </Typography>
               </ListItem>
               <ListItem>
-                <Typography variant="body2">
+                <Typography variant='body2'>
                   • 一度読み込んだセッションや動画はキャッシュされます
                 </Typography>
               </ListItem>
               <ListItem>
-                <Typography variant="body2">
+                <Typography variant='body2'>
                   • 同期に失敗した場合は自動的にリトライされます
                 </Typography>
               </ListItem>
@@ -420,7 +437,7 @@ const OfflineStatus: React.FC<OfflineStatusProps> = ({
               setShowNotificationSettings(true);
               setShowDetails(false);
             }}
-            variant="outlined"
+            variant='outlined'
             sx={{ mr: 1 }}
           >
             通知設定

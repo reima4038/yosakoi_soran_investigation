@@ -1,4 +1,4 @@
-import { api } from '../utils/api';
+import { apiClient } from '../utils/api';
 import { offlineService } from './offlineService';
 
 export interface EvaluationScore {
@@ -73,16 +73,17 @@ class EvaluationService {
     try {
       // オンラインの場合は通常通りAPI呼び出し
       if (offlineService.getOnlineStatus()) {
-        const response = await api.get<{ status: string; data: EvaluationData }>(
-          `${this.baseUrl}/session/${sessionId}`
-        );
-        
+        const response = await api.get<{
+          status: string;
+          data: EvaluationData;
+        }>(`${this.baseUrl}/session/${sessionId}`);
+
         // データをキャッシュ
         const data = response.data.data;
         await offlineService.cacheSession(data.session);
         await offlineService.cacheVideo(data.session.video);
         await offlineService.cacheTemplate(data.session.template);
-        
+
         return data;
       } else {
         // オフラインの場合はキャッシュから取得
@@ -90,7 +91,7 @@ class EvaluationService {
         if (!cachedSession) {
           throw new Error('オフラインでセッションデータが利用できません');
         }
-        
+
         // 基本的な評価データ構造を作成
         const evaluationData: EvaluationData = {
           session: cachedSession,
@@ -105,7 +106,7 @@ class EvaluationService {
             lastSavedAt: new Date(),
           },
         };
-        
+
         return evaluationData;
       }
     } catch (error) {
@@ -136,9 +137,9 @@ class EvaluationService {
           scores,
           lastSavedAt: new Date(),
         };
-        
+
         await offlineService.saveEvaluation(sessionId, evaluationData);
-        
+
         // 仮の評価オブジェクトを返す
         const evaluation: Evaluation = {
           id: `offline_${sessionId}`,
@@ -150,7 +151,7 @@ class EvaluationService {
           comments: [],
           lastSavedAt: new Date(),
         };
-        
+
         return evaluation;
       }
     } catch (error) {
@@ -173,7 +174,10 @@ class EvaluationService {
         const response = await api.post<{
           status: string;
           data: { comment: Comment };
-        }>(`${this.baseUrl}/session/${sessionId}/comments`, { timestamp, text });
+        }>(`${this.baseUrl}/session/${sessionId}/comments`, {
+          timestamp,
+          text,
+        });
         return response.data.data.comment;
       } else {
         // オフラインの場合はローカルに保存
@@ -183,7 +187,7 @@ class EvaluationService {
           text,
           createdAt: new Date(),
         };
-        
+
         await offlineService.saveComment(sessionId, comment);
         return comment;
       }
@@ -219,7 +223,7 @@ class EvaluationService {
           text,
           createdAt: new Date(),
         };
-        
+
         await offlineService.saveComment(sessionId, updatedComment);
         return updatedComment;
       }
@@ -265,9 +269,9 @@ class EvaluationService {
           submittedAt: new Date(),
           isComplete: true,
         };
-        
+
         await offlineService.saveEvaluation(sessionId, submissionData);
-        
+
         // 仮の提出済み評価オブジェクトを返す
         const evaluation: Evaluation = {
           id: `offline_${sessionId}`,
@@ -279,7 +283,7 @@ class EvaluationService {
           comments: [],
           lastSavedAt: new Date(),
         };
-        
+
         return evaluation;
       }
     } catch (error) {

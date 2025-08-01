@@ -221,7 +221,12 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
   // 進捗計算
   const getProgress = () => {
     if (!evaluationData)
-      return { progressPercentage: 0, completedCriteria: 0, totalCriteria: 0 };
+      return { 
+        progressPercentage: 0, 
+        completedCriteria: 0, 
+        totalCriteria: 0,
+        missingCriteria: []
+      };
     return evaluationService.calculateProgress(
       evaluationData.evaluation,
       evaluationData.session.template
@@ -347,15 +352,15 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
 
     return (
       <Box key={criterion.id} sx={{ mb: isMobile ? 2 : 3 }}>
-        <Box 
-          display='flex' 
-          alignItems='center' 
-          gap={1} 
+        <Box
+          display='flex'
+          alignItems='center'
+          gap={1}
           mb={1}
           flexWrap={isMobile ? 'wrap' : 'nowrap'}
         >
-          <Typography 
-            variant={isMobile ? 'body1' : 'subtitle1'} 
+          <Typography
+            variant={isMobile ? 'body1' : 'subtitle1'}
             fontWeight='medium'
             sx={{ flex: 1 }}
           >
@@ -371,10 +376,10 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
         </Box>
 
         {criterion.description && (
-          <Typography 
-            variant='body2' 
-            color='text.secondary' 
-            sx={{ 
+          <Typography
+            variant='body2'
+            color='text.secondary'
+            sx={{
               mb: 2,
               fontSize: isMobile ? '0.875rem' : '0.875rem',
             }}
@@ -385,10 +390,10 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
 
         {criterion.type === 'numeric' || criterion.type === 'scale' ? (
           <Box>
-            <Box 
-              display='flex' 
-              alignItems='center' 
-              gap={isMobile ? 1 : 2} 
+            <Box
+              display='flex'
+              alignItems='center'
+              gap={isMobile ? 1 : 2}
               mb={1}
               flexDirection={isMobile ? 'column' : 'row'}
             >
@@ -411,7 +416,7 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
                     )
                   }
                   valueLabelDisplay='on'
-                  sx={{ 
+                  sx={{
                     '& .MuiSlider-thumb': {
                       width: isTouchDevice ? 24 : 20,
                       height: isTouchDevice ? 24 : 20,
@@ -431,7 +436,13 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
                 </Typography>
               )}
             </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
               {isMobile && (
                 <>
                   <Typography variant='body2' color='text.secondary'>
@@ -443,9 +454,9 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
                 </>
               )}
             </Box>
-            <Typography 
-              variant={isMobile ? 'h6' : 'h6'} 
-              textAlign='center' 
+            <Typography
+              variant={isMobile ? 'h6' : 'h6'}
+              textAlign='center'
               color='primary'
               sx={{ mt: 1 }}
             >
@@ -465,24 +476,24 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
               }
               row={!isMobile}
             >
-              <FormControlLabel 
-                value='1' 
-                control={<Radio />} 
+              <FormControlLabel
+                value='1'
+                control={<Radio />}
                 label='はい'
                 sx={{
                   '& .MuiRadio-root': {
                     padding: isTouchDevice ? 1.5 : 1,
-                  }
+                  },
                 }}
               />
-              <FormControlLabel 
-                value='0' 
-                control={<Radio />} 
+              <FormControlLabel
+                value='0'
+                control={<Radio />}
                 label='いいえ'
                 sx={{
                   '& .MuiRadio-root': {
                     padding: isTouchDevice ? 1.5 : 1,
-                  }
+                  },
                 }}
               />
             </RadioGroup>
@@ -547,10 +558,10 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
         />
         <CardContent sx={{ pt: 0 }}>
           {evaluationData.session.description && (
-            <Typography 
-              variant='body2' 
-              color='text.secondary' 
-              sx={{ 
+            <Typography
+              variant='body2'
+              color='text.secondary'
+              sx={{
                 mb: 2,
                 fontSize: isMobile ? '0.875rem' : '0.875rem',
               }}
@@ -569,15 +580,15 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
               flexWrap={isMobile ? 'wrap' : 'nowrap'}
               gap={isMobile ? 0.5 : 0}
             >
-              <Typography 
+              <Typography
                 variant='body2'
                 sx={{ fontSize: isMobile ? '0.875rem' : '0.875rem' }}
               >
                 評価進捗: {progress.completedCriteria} /{' '}
                 {progress.totalCriteria} 項目完了
               </Typography>
-              <Typography 
-                variant='body2' 
+              <Typography
+                variant='body2'
                 fontWeight='bold'
                 color='primary'
                 sx={{ fontSize: isMobile ? '0.875rem' : '0.875rem' }}
@@ -588,8 +599,8 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
             <LinearProgress
               variant='determinate'
               value={progress.progressPercentage}
-              sx={{ 
-                height: isMobile ? 6 : 8, 
+              sx={{
+                height: isMobile ? 6 : 8,
                 borderRadius: 4,
               }}
             />
@@ -597,8 +608,8 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
 
           {/* 提出状態 */}
           {isSubmitted ? (
-            <Alert 
-              severity='success' 
+            <Alert
+              severity='success'
               icon={<CheckCircleIcon />}
               sx={{ fontSize: isMobile ? '0.875rem' : '0.875rem' }}
             >
@@ -606,7 +617,7 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
               に提出済みです
             </Alert>
           ) : (
-            <Alert 
+            <Alert
               severity='info'
               sx={{ fontSize: isMobile ? '0.875rem' : '0.875rem' }}
             >
@@ -618,7 +629,7 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
           {error && (
             <Alert
               severity='error'
-              sx={{ 
+              sx={{
                 mt: 1,
                 fontSize: isMobile ? '0.875rem' : '0.875rem',
               }}
@@ -631,7 +642,7 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
           {success && (
             <Alert
               severity='success'
-              sx={{ 
+              sx={{
                 mt: 1,
                 fontSize: isMobile ? '0.875rem' : '0.875rem',
               }}
@@ -686,7 +697,9 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
         <>
           {/* デスクトップ用固定ボタン */}
           {!isMobile && (
-            <Paper sx={{ p: 2, mt: 3, position: 'sticky', bottom: 0, zIndex: 1 }}>
+            <Paper
+              sx={{ p: 2, mt: 3, position: 'sticky', bottom: 0, zIndex: 1 }}
+            >
               <Box
                 display='flex'
                 justifyContent='space-between'
@@ -771,9 +784,9 @@ const EvaluationForm: React.FC<EvaluationFormProps> = ({
               </Box>
 
               {progress.progressPercentage < 100 && (
-                <Alert 
-                  severity='warning' 
-                  sx={{ 
+                <Alert
+                  severity='warning'
+                  sx={{
                     mt: 2,
                     fontSize: '0.875rem',
                   }}

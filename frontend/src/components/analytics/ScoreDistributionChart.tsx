@@ -37,22 +37,25 @@ export const ScoreDistributionChart: React.FC<ScoreDistributionChartProps> = ({
   height = 400,
 }) => {
   // Create a map of criterion ID to criterion for easy lookup
-  const criteriaMap = criteria.reduce((acc, criterion) => {
-    acc[criterion.id] = criterion;
-    return acc;
-  }, {} as Record<string, Criterion>);
+  const criteriaMap = criteria.reduce(
+    (acc, criterion) => {
+      acc[criterion.id] = criterion;
+      return acc;
+    },
+    {} as Record<string, Criterion>
+  );
 
   // Filter scores by selected criterion or use all scores
   const targetCriterionId = selectedCriterionId || criteria[0]?.id;
   const targetCriterion = criteriaMap[targetCriterionId];
-  
+
   if (!targetCriterion) {
     return (
       <Paper elevation={2} sx={{ p: 2 }}>
-        <Typography variant="h6" gutterBottom>
+        <Typography variant='h6' gutterBottom>
           {title}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant='body2' color='text.secondary'>
           評価基準が見つかりません
         </Typography>
       </Paper>
@@ -66,10 +69,10 @@ export const ScoreDistributionChart: React.FC<ScoreDistributionChartProps> = ({
   if (criterionScores.length === 0) {
     return (
       <Paper elevation={2} sx={{ p: 2 }}>
-        <Typography variant="h6" gutterBottom>
+        <Typography variant='h6' gutterBottom>
           {title}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant='body2' color='text.secondary'>
           選択された評価項目のデータがありません
         </Typography>
       </Paper>
@@ -77,20 +80,29 @@ export const ScoreDistributionChart: React.FC<ScoreDistributionChartProps> = ({
   }
 
   // Calculate statistics
-  const average = criterionScores.reduce((sum, score) => sum + score, 0) / criterionScores.length;
+  const average =
+    criterionScores.reduce((sum, score) => sum + score, 0) /
+    criterionScores.length;
   const sortedScores = [...criterionScores].sort((a, b) => a - b);
-  const median = sortedScores.length % 2 === 0
-    ? (sortedScores[sortedScores.length / 2 - 1] + sortedScores[sortedScores.length / 2]) / 2
-    : sortedScores[Math.floor(sortedScores.length / 2)];
+  const median =
+    sortedScores.length % 2 === 0
+      ? (sortedScores[sortedScores.length / 2 - 1] +
+          sortedScores[sortedScores.length / 2]) /
+        2
+      : sortedScores[Math.floor(sortedScores.length / 2)];
   const min = Math.min(...criterionScores);
   const max = Math.max(...criterionScores);
-  const variance = criterionScores.reduce((sum, score) => sum + Math.pow(score - average, 2), 0) / criterionScores.length;
+  const variance =
+    criterionScores.reduce(
+      (sum, score) => sum + Math.pow(score - average, 2),
+      0
+    ) / criterionScores.length;
   const standardDeviation = Math.sqrt(variance);
 
   // Create histogram data
   const binSize = Math.max(1, Math.ceil((max - min) / 10));
   const bins: { [key: string]: number } = {};
-  
+
   for (let i = min; i <= max; i += binSize) {
     const binLabel = `${i}-${Math.min(i + binSize - 1, max)}`;
     bins[binLabel] = 0;
@@ -133,7 +145,10 @@ export const ScoreDistributionChart: React.FC<ScoreDistributionChartProps> = ({
       tooltip: {
         callbacks: {
           afterLabel: (context: any) => {
-            const percentage = ((context.parsed.y / criterionScores.length) * 100).toFixed(1);
+            const percentage = (
+              (context.parsed.y / criterionScores.length) *
+              100
+            ).toFixed(1);
             return `割合: ${percentage}%`;
           },
         },
@@ -161,67 +176,109 @@ export const ScoreDistributionChart: React.FC<ScoreDistributionChartProps> = ({
 
   return (
     <Paper elevation={2} sx={{ p: 2 }}>
-      <Typography variant="h6" gutterBottom>
+      <Typography variant='h6' gutterBottom>
         {title}
       </Typography>
-      
+
       <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid item xs={12} sm={6} md={2}>
-          <Box sx={{ textAlign: 'center', p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
-            <Typography variant="h6" color="primary">
+          <Box
+            sx={{
+              textAlign: 'center',
+              p: 1,
+              bgcolor: 'grey.50',
+              borderRadius: 1,
+            }}
+          >
+            <Typography variant='h6' color='primary'>
               {average.toFixed(1)}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant='body2' color='text.secondary'>
               平均
             </Typography>
           </Box>
         </Grid>
         <Grid item xs={12} sm={6} md={2}>
-          <Box sx={{ textAlign: 'center', p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
-            <Typography variant="h6" color="primary">
+          <Box
+            sx={{
+              textAlign: 'center',
+              p: 1,
+              bgcolor: 'grey.50',
+              borderRadius: 1,
+            }}
+          >
+            <Typography variant='h6' color='primary'>
               {median.toFixed(1)}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant='body2' color='text.secondary'>
               中央値
             </Typography>
           </Box>
         </Grid>
         <Grid item xs={12} sm={6} md={2}>
-          <Box sx={{ textAlign: 'center', p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
-            <Typography variant="h6" color="primary">
+          <Box
+            sx={{
+              textAlign: 'center',
+              p: 1,
+              bgcolor: 'grey.50',
+              borderRadius: 1,
+            }}
+          >
+            <Typography variant='h6' color='primary'>
               {standardDeviation.toFixed(1)}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant='body2' color='text.secondary'>
               標準偏差
             </Typography>
           </Box>
         </Grid>
         <Grid item xs={12} sm={6} md={2}>
-          <Box sx={{ textAlign: 'center', p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
-            <Typography variant="h6" color="primary">
+          <Box
+            sx={{
+              textAlign: 'center',
+              p: 1,
+              bgcolor: 'grey.50',
+              borderRadius: 1,
+            }}
+          >
+            <Typography variant='h6' color='primary'>
               {min}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant='body2' color='text.secondary'>
               最小値
             </Typography>
           </Box>
         </Grid>
         <Grid item xs={12} sm={6} md={2}>
-          <Box sx={{ textAlign: 'center', p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
-            <Typography variant="h6" color="primary">
+          <Box
+            sx={{
+              textAlign: 'center',
+              p: 1,
+              bgcolor: 'grey.50',
+              borderRadius: 1,
+            }}
+          >
+            <Typography variant='h6' color='primary'>
               {max}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant='body2' color='text.secondary'>
               最大値
             </Typography>
           </Box>
         </Grid>
         <Grid item xs={12} sm={6} md={2}>
-          <Box sx={{ textAlign: 'center', p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
-            <Typography variant="h6" color="primary">
+          <Box
+            sx={{
+              textAlign: 'center',
+              p: 1,
+              bgcolor: 'grey.50',
+              borderRadius: 1,
+            }}
+          >
+            <Typography variant='h6' color='primary'>
               {criterionScores.length}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant='body2' color='text.secondary'>
               評価数
             </Typography>
           </Box>

@@ -1,4 +1,4 @@
-import { api } from '../utils/api';
+import { apiClient } from '../utils/api';
 
 export interface ShareSettings {
   allowComments: boolean;
@@ -84,7 +84,9 @@ class ShareService {
   /**
    * 共有設定を作成
    */
-  async createShare(data: CreateShareRequest): Promise<{ share: Share; shareUrl: string }> {
+  async createShare(
+    data: CreateShareRequest
+  ): Promise<{ share: Share; shareUrl: string }> {
     const response = await api.post('/shares', data);
     return response.data.data;
   }
@@ -120,7 +122,10 @@ class ShareService {
   /**
    * 共有設定を更新
    */
-  async updateShare(id: string, data: Partial<CreateShareRequest>): Promise<Share> {
+  async updateShare(
+    id: string,
+    data: Partial<CreateShareRequest>
+  ): Promise<Share> {
     const response = await api.put(`/shares/${id}`, data);
     return response.data.data;
   }
@@ -135,7 +140,10 @@ class ShareService {
   /**
    * 共有コンテンツにアクセス（認証不要）
    */
-  async accessSharedContent(token: string, password?: string): Promise<SharedContent> {
+  async accessSharedContent(
+    token: string,
+    password?: string
+  ): Promise<SharedContent> {
     const params = password ? { password } : {};
     const response = await api.get(`/shares/public/${token}`, { params });
     return response.data.data;
@@ -161,7 +169,8 @@ class ShareService {
    * 共有URLを生成
    */
   generateShareUrl(token: string): string {
-    const baseUrl = process.env.REACT_APP_FRONTEND_URL || window.location.origin;
+    const baseUrl =
+      process.env.REACT_APP_FRONTEND_URL || window.location.origin;
     return `${baseUrl}/share/${token}`;
   }
 
@@ -187,7 +196,10 @@ class ShareService {
       errors.push('パスワード保護を選択した場合、パスワードは必須です');
     }
 
-    if (data.visibility === 'specific_users' && (!data.allowedUsers || data.allowedUsers.length === 0)) {
+    if (
+      data.visibility === 'specific_users' &&
+      (!data.allowedUsers || data.allowedUsers.length === 0)
+    ) {
       errors.push('特定ユーザーのみを選択した場合、ユーザーを指定してください');
     }
 
@@ -201,7 +213,10 @@ class ShareService {
   /**
    * 共有権限をチェック
    */
-  hasPermission(share: Share, permission: 'view' | 'comment' | 'edit'): boolean {
+  hasPermission(
+    share: Share,
+    permission: 'view' | 'comment' | 'edit'
+  ): boolean {
     return share.permissions.includes(permission);
   }
 

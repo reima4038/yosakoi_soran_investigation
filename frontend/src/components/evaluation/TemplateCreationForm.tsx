@@ -218,9 +218,9 @@ const TemplateCreationForm: React.FC<TemplateCreationFormProps> = ({
     setLoading(true);
     try {
       let savedTemplate: Template;
-      if (initialTemplate?._id) {
+      if (initialTemplate?.id) {
         savedTemplate = await templateService.updateTemplate(
-          initialTemplate._id,
+          initialTemplate.id,
           template
         );
       } else {

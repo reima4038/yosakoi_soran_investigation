@@ -21,31 +21,35 @@ describe('EvaluationService', () => {
           {
             criterionId: 'criterion1',
             score: 85,
-            comment: 'Good performance'
-          }
+            comment: 'Good performance',
+          },
         ],
         comments: [
           {
             userId: '507f1f77bcf86cd799439013',
             timestamp: 120,
             text: 'Great timing here',
-            createdAt: '2023-01-01T00:00:00Z'
-          }
+            createdAt: '2023-01-01T00:00:00Z',
+          },
         ],
-        lastSavedAt: '2023-01-01T00:00:00Z'
+        lastSavedAt: '2023-01-01T00:00:00Z',
       };
 
       const mockResponse = {
         data: {
-          data: mockEvaluation
-        }
+          data: mockEvaluation,
+        },
       };
 
       mockedApiClient.get.mockResolvedValue(mockResponse);
 
-      const result = await evaluationService.getEvaluation('507f1f77bcf86cd799439012');
+      const result = await evaluationService.getEvaluation(
+        '507f1f77bcf86cd799439012'
+      );
 
-      expect(mockedApiClient.get).toHaveBeenCalledWith('/evaluations/507f1f77bcf86cd799439012');
+      expect(mockedApiClient.get).toHaveBeenCalledWith(
+        '/evaluations/507f1f77bcf86cd799439012'
+      );
       expect(result).toEqual(mockEvaluation);
     });
   });
@@ -61,17 +65,17 @@ describe('EvaluationService', () => {
           {
             criterionId: 'criterion1',
             score: 90,
-            comment: 'Excellent performance'
-          }
+            comment: 'Excellent performance',
+          },
         ],
         comments: [],
-        lastSavedAt: '2023-01-01T00:00:00Z'
+        lastSavedAt: '2023-01-01T00:00:00Z',
       };
 
       const mockResponse = {
         data: {
-          data: mockEvaluation
-        }
+          data: mockEvaluation,
+        },
       };
 
       mockedApiClient.post.mockResolvedValue(mockResponse);
@@ -82,15 +86,18 @@ describe('EvaluationService', () => {
           {
             criterionId: 'criterion1',
             score: 90,
-            comment: 'Excellent performance'
-          }
+            comment: 'Excellent performance',
+          },
         ],
-        comments: []
+        comments: [],
       };
 
       const result = await evaluationService.saveEvaluation(evaluationData);
 
-      expect(mockedApiClient.post).toHaveBeenCalledWith('/evaluations', evaluationData);
+      expect(mockedApiClient.post).toHaveBeenCalledWith(
+        '/evaluations',
+        evaluationData
+      );
       expect(result).toEqual(mockEvaluation);
     });
   });
@@ -107,24 +114,28 @@ describe('EvaluationService', () => {
           {
             criterionId: 'criterion1',
             score: 90,
-            comment: 'Excellent performance'
-          }
+            comment: 'Excellent performance',
+          },
         ],
         comments: [],
-        lastSavedAt: '2023-01-01T00:00:00Z'
+        lastSavedAt: '2023-01-01T00:00:00Z',
       };
 
       const mockResponse = {
         data: {
-          data: mockEvaluation
-        }
+          data: mockEvaluation,
+        },
       };
 
       mockedApiClient.post.mockResolvedValue(mockResponse);
 
-      const result = await evaluationService.submitEvaluation('507f1f77bcf86cd799439011');
+      const result = await evaluationService.submitEvaluation(
+        '507f1f77bcf86cd799439011'
+      );
 
-      expect(mockedApiClient.post).toHaveBeenCalledWith('/evaluations/507f1f77bcf86cd799439011/submit');
+      expect(mockedApiClient.post).toHaveBeenCalledWith(
+        '/evaluations/507f1f77bcf86cd799439011/submit'
+      );
       expect(result).toEqual(mockEvaluation);
     });
   });
@@ -137,13 +148,13 @@ describe('EvaluationService', () => {
         userId: '507f1f77bcf86cd799439013',
         timestamp: 180,
         text: 'Nice move at this point',
-        createdAt: '2023-01-01T00:00:00Z'
+        createdAt: '2023-01-01T00:00:00Z',
       };
 
       const mockResponse = {
         data: {
-          data: mockComment
-        }
+          data: mockComment,
+        },
       };
 
       mockedApiClient.post.mockResolvedValue(mockResponse);
@@ -151,12 +162,15 @@ describe('EvaluationService', () => {
       const commentData = {
         evaluationId: '507f1f77bcf86cd799439011',
         timestamp: 180,
-        text: 'Nice move at this point'
+        text: 'Nice move at this point',
       };
 
       const result = await evaluationService.addComment(commentData);
 
-      expect(mockedApiClient.post).toHaveBeenCalledWith('/evaluations/comments', commentData);
+      expect(mockedApiClient.post).toHaveBeenCalledWith(
+        '/evaluations/comments',
+        commentData
+      );
       expect(result).toEqual(mockComment);
     });
   });
@@ -169,24 +183,30 @@ describe('EvaluationService', () => {
         userId: '507f1f77bcf86cd799439013',
         timestamp: 180,
         text: 'Updated comment text',
-        createdAt: '2023-01-01T00:00:00Z'
+        createdAt: '2023-01-01T00:00:00Z',
       };
 
       const mockResponse = {
         data: {
-          data: mockComment
-        }
+          data: mockComment,
+        },
       };
 
       mockedApiClient.put.mockResolvedValue(mockResponse);
 
       const updateData = {
-        text: 'Updated comment text'
+        text: 'Updated comment text',
       };
 
-      const result = await evaluationService.updateComment('507f1f77bcf86cd799439014', updateData);
+      const result = await evaluationService.updateComment(
+        '507f1f77bcf86cd799439014',
+        updateData
+      );
 
-      expect(mockedApiClient.put).toHaveBeenCalledWith('/evaluations/comments/507f1f77bcf86cd799439014', updateData);
+      expect(mockedApiClient.put).toHaveBeenCalledWith(
+        '/evaluations/comments/507f1f77bcf86cd799439014',
+        updateData
+      );
       expect(result).toEqual(mockComment);
     });
   });
@@ -197,7 +217,9 @@ describe('EvaluationService', () => {
 
       await evaluationService.deleteComment('507f1f77bcf86cd799439014');
 
-      expect(mockedApiClient.delete).toHaveBeenCalledWith('/evaluations/comments/507f1f77bcf86cd799439014');
+      expect(mockedApiClient.delete).toHaveBeenCalledWith(
+        '/evaluations/comments/507f1f77bcf86cd799439014'
+      );
     });
   });
 
@@ -211,26 +233,30 @@ describe('EvaluationService', () => {
           user: {
             _id: '507f1f77bcf86cd799439013',
             username: 'evaluator1',
-            email: 'evaluator1@example.com'
+            email: 'evaluator1@example.com',
           },
           isComplete: true,
           submittedAt: '2023-01-01T00:00:00Z',
           scores: [],
-          comments: []
-        }
+          comments: [],
+        },
       ];
 
       const mockResponse = {
         data: {
-          data: mockEvaluations
-        }
+          data: mockEvaluations,
+        },
       };
 
       mockedApiClient.get.mockResolvedValue(mockResponse);
 
-      const result = await evaluationService.getSessionEvaluations('507f1f77bcf86cd799439012');
+      const result = await evaluationService.getSessionEvaluations(
+        '507f1f77bcf86cd799439012'
+      );
 
-      expect(mockedApiClient.get).toHaveBeenCalledWith('/evaluations/session/507f1f77bcf86cd799439012');
+      expect(mockedApiClient.get).toHaveBeenCalledWith(
+        '/evaluations/session/507f1f77bcf86cd799439012'
+      );
       expect(result).toEqual(mockEvaluations);
     });
   });
@@ -243,27 +269,31 @@ describe('EvaluationService', () => {
         completedEvaluations: 3,
         averageScores: {
           criterion1: 85.5,
-          criterion2: 78.2
+          criterion2: 78.2,
         },
         scoreDistribution: {
           criterion1: [80, 85, 90, 88, 82],
-          criterion2: [75, 78, 82, 76, 80]
+          criterion2: [75, 78, 82, 76, 80],
         },
         commentCount: 15,
-        lastUpdated: '2023-01-01T00:00:00Z'
+        lastUpdated: '2023-01-01T00:00:00Z',
       };
 
       const mockResponse = {
         data: {
-          data: mockSummary
-        }
+          data: mockSummary,
+        },
       };
 
       mockedApiClient.get.mockResolvedValue(mockResponse);
 
-      const result = await evaluationService.getEvaluationSummary('507f1f77bcf86cd799439012');
+      const result = await evaluationService.getEvaluationSummary(
+        '507f1f77bcf86cd799439012'
+      );
 
-      expect(mockedApiClient.get).toHaveBeenCalledWith('/evaluations/session/507f1f77bcf86cd799439012/summary');
+      expect(mockedApiClient.get).toHaveBeenCalledWith(
+        '/evaluations/session/507f1f77bcf86cd799439012/summary'
+      );
       expect(result).toEqual(mockSummary);
     });
   });
@@ -274,15 +304,16 @@ describe('EvaluationService', () => {
         response: {
           status: 404,
           data: {
-            message: 'Evaluation not found'
-          }
-        }
+            message: 'Evaluation not found',
+          },
+        },
       };
 
       mockedApiClient.get.mockRejectedValue(mockError);
 
-      await expect(evaluationService.getEvaluation('invalid-id'))
-        .rejects.toEqual(mockError);
+      await expect(
+        evaluationService.getEvaluation('invalid-id')
+      ).rejects.toEqual(mockError);
     });
 
     it('should handle validation errors when saving evaluation', async () => {
@@ -292,10 +323,10 @@ describe('EvaluationService', () => {
           data: {
             message: 'Validation error',
             errors: {
-              'scores.0.score': 'Score must be between 0 and 100'
-            }
-          }
-        }
+              'scores.0.score': 'Score must be between 0 and 100',
+            },
+          },
+        },
       };
 
       mockedApiClient.post.mockRejectedValue(mockError);
@@ -306,22 +337,24 @@ describe('EvaluationService', () => {
           {
             criterionId: 'criterion1',
             score: 150, // Invalid score
-            comment: 'Test comment'
-          }
+            comment: 'Test comment',
+          },
         ],
-        comments: []
+        comments: [],
       };
 
-      await expect(evaluationService.saveEvaluation(invalidData))
-        .rejects.toEqual(mockError);
+      await expect(
+        evaluationService.saveEvaluation(invalidData)
+      ).rejects.toEqual(mockError);
     });
 
     it('should handle network errors', async () => {
       const networkError = new Error('Network Error');
       mockedApiClient.get.mockRejectedValue(networkError);
 
-      await expect(evaluationService.getEvaluation('507f1f77bcf86cd799439012'))
-        .rejects.toThrow('Network Error');
+      await expect(
+        evaluationService.getEvaluation('507f1f77bcf86cd799439012')
+      ).rejects.toThrow('Network Error');
     });
   });
 });

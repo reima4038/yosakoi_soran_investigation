@@ -21,9 +21,8 @@ import {
   Menu,
   MenuItem,
   Alert,
-  Tooltip,
   Grid,
-  Divider
+  Divider,
 } from '@mui/material';
 import {
   Add,
@@ -31,19 +30,22 @@ import {
   Edit,
   Delete,
   Share,
-  ContentCopy,
   MoreVert,
   Bookmark,
   Schedule,
   Visibility,
-  Code
+  Code,
 } from '@mui/icons-material';
-import { timestampService, TimestampLink, CreateTimestampLinkRequest } from '../../services/timestampService';
+import {
+  timestampService,
+  TimestampLink,
+  CreateTimestampLinkRequest,
+} from '../../services/timestampService';
 
 interface TimestampManagerProps {
   videoId: string;
   youtubeId: string;
-  videoTitle: string;
+  _videoTitle: string;
   currentTime?: number;
   onSeekTo?: (time: number) => void;
 }
@@ -51,9 +53,9 @@ interface TimestampManagerProps {
 const TimestampManager: React.FC<TimestampManagerProps> = ({
   videoId,
   youtubeId,
-  videoTitle,
+  _videoTitle,
   currentTime = 0,
-  onSeekTo
+  onSeekTo,
 }) => {
   const [links, setLinks] = useState<TimestampLink[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,7 +74,7 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
     endTime: undefined,
     isHighlight: false,
     tags: [],
-    isPublic: true
+    isPublic: true,
   });
 
   useEffect(() => {
@@ -83,7 +85,7 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
     if (showCreateDialog && !editingLink) {
       setFormData(prev => ({
         ...prev,
-        startTime: Math.floor(currentTime)
+        startTime: Math.floor(currentTime),
       }));
     }
   }, [showCreateDialog, currentTime, editingLink]);
@@ -95,7 +97,10 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
       const result = await timestampService.getTimestampLinks({ videoId });
       setLinks(result.links);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'タイムスタンプリンクの取得に失敗しました');
+      setError(
+        err.response?.data?.message ||
+          'タイムスタンプリンクの取得に失敗しました'
+      );
     } finally {
       setLoading(false);
     }
@@ -109,24 +114,33 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
       setShowCreateDialog(false);
       resetForm();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'タイムスタンプリンクの作成に失敗しました');
+      setError(
+        err.response?.data?.message ||
+          'タイムスタンプリンクの作成に失敗しました'
+      );
     }
   };
 
   const handleUpdateLink = async () => {
     if (!editingLink) return;
-    
+
     setError(null);
     try {
-      const updatedLink = await timestampService.updateTimestampLink(editingLink._id, formData);
-      setLinks(prev => prev.map(link => 
-        link._id === editingLink._id ? updatedLink : link
-      ));
+      const updatedLink = await timestampService.updateTimestampLink(
+        editingLink.id,
+        formData
+      );
+      setLinks(prev =>
+        prev.map(link => (link.id === editingLink.id ? updatedLink : link))
+      );
       setShowCreateDialog(false);
       setEditingLink(null);
       resetForm();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'タイムスタンプリンクの更新に失敗しました');
+      setError(
+        err.response?.data?.message ||
+          'タイムスタンプリンクの更新に失敗しました'
+      );
     }
   };
 
@@ -137,10 +151,13 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
 
     try {
       await timestampService.deleteTimestampLink(linkId);
-      setLinks(prev => prev.filter(link => link._id !== linkId));
+      setLinks(prev => prev.filter(link => link.id !== linkId));
       setAnchorEl(null);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'タイムスタンプリンクの削除に失敗しました');
+      setError(
+        err.response?.data?.message ||
+          'タイムスタンプリンクの削除に失敗しました'
+      );
     }
   };
 
@@ -189,7 +206,7 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
       endTime: link.endTime,
       isHighlight: link.isHighlight,
       tags: link.tags,
-      isPublic: link.isPublic
+      isPublic: link.isPublic,
     });
     setShowCreateDialog(true);
     setAnchorEl(null);
@@ -204,12 +221,15 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
       endTime: undefined,
       isHighlight: false,
       tags: [],
-      isPublic: true
+      isPublic: true,
     });
     setEditingLink(null);
   };
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, link: TimestampLink) => {
+  const handleMenuOpen = (
+    event: React.MouseEvent<HTMLElement>,
+    link: TimestampLink
+  ) => {
     setAnchorEl(event.currentTarget);
     setSelectedLink(link);
   };
@@ -220,7 +240,10 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
   };
 
   const handleTagsChange = (tagsString: string) => {
-    const tags = tagsString.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+    const tags = tagsString
+      .split(',')
+      .map(tag => tag.trim())
+      .filter(tag => tag.length > 0);
     setFormData(prev => ({ ...prev, tags }));
   };
 
@@ -234,12 +257,17 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
 
   return (
     <Box sx={{ p: 2 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h6">
-          タイムスタンプリンク
-        </Typography>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          mb: 3,
+        }}
+      >
+        <Typography variant='h6'>タイムスタンプリンク</Typography>
         <Button
-          variant="contained"
+          variant='contained'
           startIcon={<Add />}
           onClick={() => setShowCreateDialog(true)}
         >
@@ -248,13 +276,13 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
       </Box>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity='error' sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
 
       {copySuccess && (
-        <Alert severity="success" sx={{ mb: 2 }}>
+        <Alert severity='success' sx={{ mb: 2 }}>
           {copySuccess}
         </Alert>
       )}
@@ -263,14 +291,14 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
         <Card>
           <CardContent sx={{ textAlign: 'center', py: 4 }}>
             <Schedule sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-            <Typography variant="h6" color="text.secondary" gutterBottom>
+            <Typography variant='h6' color='text.secondary' gutterBottom>
               タイムスタンプリンクがありません
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            <Typography variant='body2' color='text.secondary' sx={{ mb: 3 }}>
               動画の特定の時点へのリンクを作成できます
             </Typography>
             <Button
-              variant="outlined"
+              variant='outlined'
               startIcon={<Add />}
               onClick={() => setShowCreateDialog(true)}
             >
@@ -281,13 +309,13 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
       ) : (
         <List>
           {links.map((link, index) => (
-            <React.Fragment key={link._id}>
+            <React.Fragment key={link.id}>
               <ListItem>
                 <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
                   <IconButton
-                    size="small"
+                    size='small'
                     onClick={() => handleSeekTo(link.startTime)}
-                    color="primary"
+                    color='primary'
                   >
                     <PlayArrow />
                   </IconButton>
@@ -295,60 +323,87 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
                 <ListItemText
                   primary={
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography variant="subtitle1">
-                        {link.title}
-                      </Typography>
+                      <Typography variant='subtitle1'>{link.title}</Typography>
                       {link.isHighlight && (
                         <Chip
-                          size="small"
-                          label="ハイライト"
-                          color="secondary"
+                          size='small'
+                          label='ハイライト'
+                          color='secondary'
                           icon={<Bookmark />}
                         />
                       )}
                       {!link.isPublic && (
-                        <Chip
-                          size="small"
-                          label="非公開"
-                          variant="outlined"
-                        />
+                        <Chip size='small' label='非公開' variant='outlined' />
                       )}
                     </Box>
                   }
                   secondary={
                     <Box>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant='body2' color='text.secondary'>
                         {timestampService.formatTime(link.startTime)}
-                        {link.endTime && ` - ${timestampService.formatTime(link.endTime)}`}
+                        {link.endTime &&
+                          ` - ${timestampService.formatTime(link.endTime)}`}
                         {link.isHighlight && link.endTime && (
-                          <span> (長さ: {timestampService.getHighlightDurationText(link.startTime, link.endTime)})</span>
+                          <span>
+                            {' '}
+                            (長さ:{' '}
+                            {timestampService.getHighlightDurationText(
+                              link.startTime,
+                              link.endTime
+                            )}
+                            )
+                          </span>
                         )}
                       </Typography>
                       {link.description && (
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                        <Typography
+                          variant='body2'
+                          color='text.secondary'
+                          sx={{ mt: 0.5 }}
+                        >
                           {link.description}
                         </Typography>
                       )}
                       {link.tags.length > 0 && (
-                        <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        <Box
+                          sx={{
+                            mt: 1,
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: 0.5,
+                          }}
+                        >
                           {link.tags.map((tag, tagIndex) => (
                             <Chip
                               key={tagIndex}
-                              size="small"
+                              size='small'
                               label={tag}
-                              variant="outlined"
+                              variant='outlined'
                             />
                           ))}
                         </Box>
                       )}
-                      <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <Visibility fontSize="small" />
-                          <Typography variant="caption">
+                      <Box
+                        sx={{
+                          mt: 1,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 2,
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 0.5,
+                          }}
+                        >
+                          <Visibility fontSize='small' />
+                          <Typography variant='caption'>
                             {link.viewCount}回視聴
                           </Typography>
                         </Box>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant='caption' color='text.secondary'>
                           {timestampService.getRelativeTime(link.createdAt)}
                         </Typography>
                       </Box>
@@ -356,9 +411,7 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
                   }
                 />
                 <ListItemSecondaryAction>
-                  <IconButton
-                    onClick={(e) => handleMenuOpen(e, link)}
-                  >
+                  <IconButton onClick={e => handleMenuOpen(e, link)}>
                     <MoreVert />
                   </IconButton>
                 </ListItemSecondaryAction>
@@ -376,22 +429,24 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
         onClose={handleMenuClose}
       >
         <MenuItem onClick={() => selectedLink && handleEditLink(selectedLink)}>
-          <Edit fontSize="small" sx={{ mr: 1 }} />
+          <Edit fontSize='small' sx={{ mr: 1 }} />
           編集
         </MenuItem>
         <MenuItem onClick={() => selectedLink && handleCopyUrl(selectedLink)}>
-          <Share fontSize="small" sx={{ mr: 1 }} />
+          <Share fontSize='small' sx={{ mr: 1 }} />
           URLをコピー
         </MenuItem>
-        <MenuItem onClick={() => selectedLink && handleCopyEmbedCode(selectedLink)}>
-          <Code fontSize="small" sx={{ mr: 1 }} />
+        <MenuItem
+          onClick={() => selectedLink && handleCopyEmbedCode(selectedLink)}
+        >
+          <Code fontSize='small' sx={{ mr: 1 }} />
           埋め込みコードをコピー
         </MenuItem>
-        <MenuItem 
-          onClick={() => selectedLink && handleDeleteLink(selectedLink._id)}
+        <MenuItem
+          onClick={() => selectedLink && handleDeleteLink(selectedLink.id)}
           sx={{ color: 'error.main' }}
         >
-          <Delete fontSize="small" sx={{ mr: 1 }} />
+          <Delete fontSize='small' sx={{ mr: 1 }} />
           削除
         </MenuItem>
       </Menu>
@@ -404,29 +459,38 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
           setEditingLink(null);
           resetForm();
         }}
-        maxWidth="md"
+        maxWidth='md'
         fullWidth
       >
         <DialogTitle>
-          {editingLink ? 'タイムスタンプリンクを編集' : 'タイムスタンプリンクを作成'}
+          {editingLink
+            ? 'タイムスタンプリンクを編集'
+            : 'タイムスタンプリンクを作成'}
         </DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={2}>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="タイトル"
+                label='タイトル'
                 value={formData.title}
-                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                onChange={e =>
+                  setFormData(prev => ({ ...prev, title: e.target.value }))
+                }
                 required
               />
             </Grid>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="説明（任意）"
+                label='説明（任意）'
                 value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                onChange={e =>
+                  setFormData(prev => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
                 multiline
                 rows={2}
               />
@@ -434,10 +498,15 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
             <Grid item xs={6}>
               <TextField
                 fullWidth
-                label="開始時間（秒）"
-                type="number"
+                label='開始時間（秒）'
+                type='number'
                 value={formData.startTime}
-                onChange={(e) => setFormData(prev => ({ ...prev, startTime: Number(e.target.value) }))}
+                onChange={e =>
+                  setFormData(prev => ({
+                    ...prev,
+                    startTime: Number(e.target.value),
+                  }))
+                }
                 required
                 inputProps={{ min: 0 }}
               />
@@ -445,23 +514,27 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
             <Grid item xs={6}>
               <TextField
                 fullWidth
-                label="終了時間（秒）- ハイライト用"
-                type="number"
+                label='終了時間（秒）- ハイライト用'
+                type='number'
                 value={formData.endTime || ''}
-                onChange={(e) => setFormData(prev => ({ 
-                  ...prev, 
-                  endTime: e.target.value ? Number(e.target.value) : undefined 
-                }))}
+                onChange={e =>
+                  setFormData(prev => ({
+                    ...prev,
+                    endTime: e.target.value
+                      ? Number(e.target.value)
+                      : undefined,
+                  }))
+                }
                 inputProps={{ min: formData.startTime + 1 }}
               />
             </Grid>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="タグ（カンマ区切り）"
+                label='タグ（カンマ区切り）'
                 value={formData.tags.join(', ')}
-                onChange={(e) => handleTagsChange(e.target.value)}
-                placeholder="例: ハイライト, 技術, 表現力"
+                onChange={e => handleTagsChange(e.target.value)}
+                placeholder='例: ハイライト, 技術, 表現力'
               />
             </Grid>
             <Grid item xs={12}>
@@ -469,10 +542,15 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
                 control={
                   <Switch
                     checked={formData.isHighlight}
-                    onChange={(e) => setFormData(prev => ({ ...prev, isHighlight: e.target.checked }))}
+                    onChange={e =>
+                      setFormData(prev => ({
+                        ...prev,
+                        isHighlight: e.target.checked,
+                      }))
+                    }
                   />
                 }
-                label="ハイライト区間として設定"
+                label='ハイライト区間として設定'
               />
             </Grid>
             <Grid item xs={12}>
@@ -480,16 +558,21 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
                 control={
                   <Switch
                     checked={formData.isPublic}
-                    onChange={(e) => setFormData(prev => ({ ...prev, isPublic: e.target.checked }))}
+                    onChange={e =>
+                      setFormData(prev => ({
+                        ...prev,
+                        isPublic: e.target.checked,
+                      }))
+                    }
                   />
                 }
-                label="公開する"
+                label='公開する'
               />
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button 
+          <Button
             onClick={() => {
               setShowCreateDialog(false);
               setEditingLink(null);
@@ -500,7 +583,7 @@ const TimestampManager: React.FC<TimestampManagerProps> = ({
           </Button>
           <Button
             onClick={editingLink ? handleUpdateLink : handleCreateLink}
-            variant="contained"
+            variant='contained'
             disabled={!formData.title.trim()}
           >
             {editingLink ? '更新' : '作成'}

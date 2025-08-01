@@ -4,12 +4,12 @@ export interface VideoMetadata {
   teamName?: string;
   performanceName?: string;
   eventName?: string;
-  year?: number | null;
+  year?: number;
   location?: string;
 }
 
 export interface Video {
-  _id: string;
+  id: string;
   youtubeId: string;
   title: string;
   channelName: string;
@@ -19,11 +19,7 @@ export interface Video {
   tags: string[];
   thumbnailUrl: string;
   createdAt: string;
-  createdBy: {
-    _id: string;
-    username: string;
-    email: string;
-  };
+  createdBy: string;
 }
 
 export interface YouTubeVideoInfo {

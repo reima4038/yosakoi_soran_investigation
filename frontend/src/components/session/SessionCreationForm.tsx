@@ -91,11 +91,11 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
         setLoadingData(true);
         const [videosData, templatesData] = await Promise.all([
           videoService.getVideos({ page: 1, limit: 100 }),
-          templateService.getTemplates({ page: 1, limit: 100 }),
+          templateService.getTemplates(),
         ]);
 
         setVideos(videosData.videos);
-        setTemplates(templatesData.templates);
+        setTemplates(templatesData);
 
         // 初期選択されたビデオとテンプレートを設定
         if (initialVideoId) {
@@ -104,7 +104,7 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
         }
 
         if (initialTemplateId) {
-          const template = templatesData.templates.find(
+          const template = templatesData.find(
             t => t.id === initialTemplateId
           );
           if (template) setSelectedTemplate(template);

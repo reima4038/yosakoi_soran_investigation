@@ -1,4 +1,4 @@
-import { api } from '../utils/api';
+import { apiClient as api } from '../utils/api';
 
 export interface TimestampLink {
   _id: string;
@@ -57,7 +57,9 @@ class TimestampService {
   /**
    * タイムスタンプリンクを作成
    */
-  async createTimestampLink(data: CreateTimestampLinkRequest): Promise<TimestampLink> {
+  async createTimestampLink(
+    data: CreateTimestampLinkRequest
+  ): Promise<TimestampLink> {
     const response = await api.post('/timestamps', data);
     return response.data.data;
   }
@@ -97,7 +99,10 @@ class TimestampService {
   /**
    * タイムスタンプリンクを更新
    */
-  async updateTimestampLink(id: string, data: Partial<CreateTimestampLinkRequest>): Promise<TimestampLink> {
+  async updateTimestampLink(
+    id: string,
+    data: Partial<CreateTimestampLinkRequest>
+  ): Promise<TimestampLink> {
     const response = await api.put(`/timestamps/${id}`, data);
     return response.data.data;
   }
@@ -119,40 +124,49 @@ class TimestampService {
   /**
    * YouTube URLにタイムスタンプを追加
    */
-  addTimestampToYouTubeUrl(youtubeId: string, startTime: number, endTime?: number): string {
+  addTimestampToYouTubeUrl(
+    youtubeId: string,
+    startTime: number,
+    endTime?: number
+  ): string {
     let url = `https://www.youtube.com/watch?v=${youtubeId}&t=${Math.floor(startTime)}s`;
-    
+
     if (endTime) {
       // YouTube doesn't support end time in regular URLs, but we can use embed parameters
       url = `https://www.youtube.com/embed/${youtubeId}?start=${Math.floor(startTime)}&end=${Math.floor(endTime)}`;
     }
-    
+
     return url;
   }
 
   /**
    * 埋め込み用URLを生成
    */
-  generateEmbedUrl(youtubeId: string, startTime: number, endTime?: number, options?: EmbedOptions): string {
+  generateEmbedUrl(
+    youtubeId: string,
+    startTime: number,
+    endTime?: number,
+    options?: EmbedOptions
+  ): string {
     const params = new URLSearchParams();
-    
+
     params.set('start', Math.floor(startTime).toString());
     if (endTime) {
       params.set('end', Math.floor(endTime).toString());
     }
-    
+
     if (options?.autoplay) {
       params.set('autoplay', '1');
     }
-    
+
     if (options?.controls === false) {
       params.set('controls', '0');
     }
-    
+
     if (options?.theme) {
       params.set('color', options.theme === 'dark' ? 'white' : 'red');
     }
-    
+
     return `https://www.youtube.com/embed/${youtubeId}?${params.toString()}`;
   }
 
@@ -160,18 +174,29 @@ class TimestampService {
    * 共有用URLを生成
    */
   generateShareUrl(token: string): string {
-    const baseUrl = process.env.REACT_APP_FRONTEND_URL || window.location.origin;
+    const baseUrl =
+      process.env.REACT_APP_FRONTEND_URL || window.location.origin;
     return `${baseUrl}/timestamp/${token}`;
   }
 
   /**
    * 埋め込みコードを生成
    */
-  generateEmbedCode(youtubeId: string, startTime: number, endTime?: number, options?: EmbedOptions): string {
+  generateEmbedCode(
+    youtubeId: string,
+    startTime: number,
+    endTime?: number,
+    options?: EmbedOptions
+  ): string {
     const width = options?.width || 560;
     const height = options?.height || 315;
-    const embedUrl = this.generateEmbedUrl(youtubeId, startTime, endTime, options);
-    
+    const embedUrl = this.generateEmbedUrl(
+      youtubeId,
+      startTime,
+      endTime,
+      options
+    );
+
     return `<iframe width="${width}" height="${height}" src="${embedUrl}" frameborder="0" allowfullscreen></iframe>`;
   }
 
@@ -182,7 +207,7 @@ class TimestampService {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = Math.floor(seconds % 60);
-    
+
     if (hours > 0) {
       return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     } else {
@@ -195,7 +220,7 @@ class TimestampService {
    */
   parseTime(timeString: string): number {
     const parts = timeString.split(':').map(Number);
-    
+
     if (parts.length === 3) {
       // h:m:s
       return parts[0] * 3600 + parts[1] * 60 + parts[2];
@@ -206,7 +231,7 @@ class TimestampService {
       // s
       return parts[0];
     }
-    
+
     return 0;
   }
 
@@ -228,33 +253,37 @@ class TimestampService {
   /**
    * タイムスタンプの妥当性をチェック
    */
-  validateTimestamp(startTime: number, endTime?: number, videoDuration?: number): string[] {
+  validateTimestamp(
+    startTime: number,
+    endTime?: number,
+    videoDuration?: number
+  ): string[] {
     const errors: string[] = [];
-    
+
     if (startTime < 0) {
       errors.push('開始時間は0以上である必要があります');
     }
-    
+
     if (endTime !== undefined) {
       if (endTime <= startTime) {
         errors.push('終了時間は開始時間より後である必要があります');
       }
-      
+
       if (endTime < 0) {
         errors.push('終了時間は0以上である必要があります');
       }
     }
-    
+
     if (videoDuration !== undefined) {
       if (startTime >= videoDuration) {
         errors.push('開始時間は動画の長さ以内である必要があります');
       }
-      
+
       if (endTime !== undefined && endTime > videoDuration) {
         errors.push('終了時間は動画の長さ以内である必要があります');
       }
     }
-    
+
     return errors;
   }
 
@@ -273,35 +302,52 @@ class TimestampService {
   ): TimestampLink[] {
     return links.filter(link => {
       if (filters.tags && filters.tags.length > 0) {
-        const hasMatchingTag = filters.tags.some(tag => 
-          link.tags.some(linkTag => linkTag.toLowerCase().includes(tag.toLowerCase()))
+        const hasMatchingTag = filters.tags.some(tag =>
+          link.tags.some(linkTag =>
+            linkTag.toLowerCase().includes(tag.toLowerCase())
+          )
         );
         if (!hasMatchingTag) return false;
       }
-      
-      if (filters.isHighlight !== undefined && link.isHighlight !== filters.isHighlight) {
+
+      if (
+        filters.isHighlight !== undefined &&
+        link.isHighlight !== filters.isHighlight
+      ) {
         return false;
       }
-      
+
       if (link.isHighlight && link.endTime) {
-        const duration = this.getHighlightDuration(link.startTime, link.endTime);
-        
-        if (filters.minDuration !== undefined && duration < filters.minDuration) {
+        const duration = this.getHighlightDuration(
+          link.startTime,
+          link.endTime
+        );
+
+        if (
+          filters.minDuration !== undefined &&
+          duration < filters.minDuration
+        ) {
           return false;
         }
-        
-        if (filters.maxDuration !== undefined && duration > filters.maxDuration) {
+
+        if (
+          filters.maxDuration !== undefined &&
+          duration > filters.maxDuration
+        ) {
           return false;
         }
       }
-      
+
       if (filters.dateRange) {
         const linkDate = new Date(link.createdAt);
-        if (linkDate < filters.dateRange.start || linkDate > filters.dateRange.end) {
+        if (
+          linkDate < filters.dateRange.start ||
+          linkDate > filters.dateRange.end
+        ) {
           return false;
         }
       }
-      
+
       return true;
     });
   }
@@ -311,11 +357,12 @@ class TimestampService {
    */
   searchTimestampLinks(links: TimestampLink[], query: string): TimestampLink[] {
     const lowercaseQuery = query.toLowerCase();
-    
-    return links.filter(link =>
-      link.title.toLowerCase().includes(lowercaseQuery) ||
-      link.description?.toLowerCase().includes(lowercaseQuery) ||
-      link.tags.some(tag => tag.toLowerCase().includes(lowercaseQuery))
+
+    return links.filter(
+      link =>
+        link.title.toLowerCase().includes(lowercaseQuery) ||
+        link.description?.toLowerCase().includes(lowercaseQuery) ||
+        link.tags.some(tag => tag.toLowerCase().includes(lowercaseQuery))
     );
   }
 
@@ -329,10 +376,11 @@ class TimestampService {
   ): TimestampLink[] {
     return [...links].sort((a, b) => {
       let comparison = 0;
-      
+
       switch (sortBy) {
         case 'createdAt':
-          comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          comparison =
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
           break;
         case 'startTime':
           comparison = a.startTime - b.startTime;
@@ -344,7 +392,7 @@ class TimestampService {
           comparison = a.title.localeCompare(b.title);
           break;
       }
-      
+
       return order === 'asc' ? comparison : -comparison;
     });
   }
@@ -382,7 +430,7 @@ class TimestampService {
     for (let i = 0; i < tag.length; i++) {
       hash = tag.charCodeAt(i) + ((hash << 5) - hash);
     }
-    
+
     const hue = Math.abs(hash) % 360;
     return `hsl(${hue}, 70%, 50%)`;
   }
@@ -400,15 +448,15 @@ class TimestampService {
     }>;
   } {
     const sortedLinks = this.sortTimestampLinks(links, 'startTime', 'asc');
-    
+
     return {
       title: `プレイリスト (${sortedLinks.length}件)`,
       items: sortedLinks.map(link => ({
         title: link.title,
         startTime: link.startTime,
         endTime: link.endTime,
-        url: this.generateShareUrl(link.shareToken)
-      }))
+        url: this.generateShareUrl(link.shareToken),
+      })),
     };
   }
 }

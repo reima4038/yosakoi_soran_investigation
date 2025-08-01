@@ -267,10 +267,12 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
                 cursor: 'pointer',
                 border: '2px solid white',
                 zIndex: 1,
-                '&:active': isTouchDevice ? {
-                  backgroundColor: 'secondary.dark',
-                  transform: 'translate(-50%, -50%) scale(1.1)',
-                } : {},
+                '&:active': isTouchDevice
+                  ? {
+                      backgroundColor: 'secondary.dark',
+                      transform: 'translate(-50%, -50%) scale(1.1)',
+                    }
+                  : {},
               }}
               onClick={e => {
                 e.stopPropagation();
@@ -281,7 +283,13 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
         </Box>
 
         {/* コメント数表示 */}
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
           <Typography variant='caption' color='text.secondary'>
             {comments.length} コメント
           </Typography>
@@ -331,10 +339,10 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
             flexWrap={isMobile ? 'wrap' : 'nowrap'}
             gap={isMobile ? 1 : 0}
           >
-            <Typography 
-              variant={isMobile ? 'subtitle1' : 'h6'} 
-              display='flex' 
-              alignItems='center' 
+            <Typography
+              variant={isMobile ? 'subtitle1' : 'h6'}
+              display='flex'
+              alignItems='center'
               gap={1}
             >
               <ScheduleIcon />
@@ -426,14 +434,18 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
                     cursor: 'pointer',
                     border: '2px solid white',
                     zIndex: 1,
-                    '&:hover': !isTouchDevice ? {
-                      backgroundColor: 'secondary.dark',
-                      transform: 'translate(-50%, -50%) scale(1.2)',
-                    } : {},
-                    '&:active': isTouchDevice ? {
-                      backgroundColor: 'secondary.dark',
-                      transform: 'translate(-50%, -50%) scale(1.1)',
-                    } : {},
+                    '&:hover': !isTouchDevice
+                      ? {
+                          backgroundColor: 'secondary.dark',
+                          transform: 'translate(-50%, -50%) scale(1.2)',
+                        }
+                      : {},
+                    '&:active': isTouchDevice
+                      ? {
+                          backgroundColor: 'secondary.dark',
+                          transform: 'translate(-50%, -50%) scale(1.1)',
+                        }
+                      : {},
                   }}
                   onClick={e => {
                     e.stopPropagation();
@@ -485,9 +497,9 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
                 .sort((a, b) => a.timestamp - b.timestamp)
                 .map((comment, index) => (
                   <React.Fragment key={comment.id || index}>
-                    <ListItem 
+                    <ListItem
                       alignItems='flex-start'
-                      sx={{ 
+                      sx={{
                         px: 0,
                         py: isMobile ? 1.5 : 1,
                         minHeight: isTouchDevice ? 64 : 'auto',
@@ -495,9 +507,9 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
                     >
                       <ListItemText
                         primary={
-                          <Box 
-                            display='flex' 
-                            alignItems='center' 
+                          <Box
+                            display='flex'
+                            alignItems='center'
                             gap={1}
                             flexWrap={isMobile ? 'wrap' : 'nowrap'}
                           >
@@ -508,11 +520,11 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
                               clickable
                               onClick={() => handleMarkerClick(comment)}
                               icon={<PlayArrowIcon />}
-                              sx={{ 
+                              sx={{
                                 minHeight: isTouchDevice ? 32 : 'auto',
                                 '& .MuiChip-label': {
                                   fontSize: isMobile ? '0.75rem' : '0.8125rem',
-                                }
+                                },
                               }}
                             />
                             {comment.createdAt && (
@@ -520,15 +532,17 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
                                 variant='caption'
                                 color='text.secondary'
                               >
-                                {new Date(comment.createdAt).toLocaleString('ja-JP')}
+                                {new Date(comment.createdAt).toLocaleString(
+                                  'ja-JP'
+                                )}
                               </Typography>
                             )}
                           </Box>
                         }
                         secondary={
-                          <Typography 
-                            variant='body2' 
-                            sx={{ 
+                          <Typography
+                            variant='body2'
+                            sx={{
                               mt: 1,
                               fontSize: isMobile ? '0.875rem' : '0.875rem',
                             }}
@@ -544,7 +558,7 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
                             onClick={() => handleEditComment(comment)}
                             disabled={loading}
                             size={isMobile ? 'medium' : 'small'}
-                            sx={{ 
+                            sx={{
                               minHeight: isTouchDevice ? 44 : 'auto',
                               minWidth: isTouchDevice ? 44 : 'auto',
                             }}
@@ -556,7 +570,7 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
                             onClick={() => handleDeleteComment(comment)}
                             disabled={loading}
                             size={isMobile ? 'medium' : 'small'}
-                            sx={{ 
+                            sx={{
                               ml: 1,
                               minHeight: isTouchDevice ? 44 : 'auto',
                               minWidth: isTouchDevice ? 44 : 'auto',
@@ -598,8 +612,8 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
           />
         </DialogContent>
         <DialogActions sx={{ p: isMobile ? 2 : 1 }}>
-          <Button 
-            onClick={() => setShowAddDialog(false)} 
+          <Button
+            onClick={() => setShowAddDialog(false)}
             disabled={loading}
             size={isMobile ? 'large' : 'medium'}
             sx={{ minHeight: isMobile ? 48 : 'auto' }}
@@ -643,8 +657,8 @@ const TimelineComments: React.FC<TimelineCommentsProps> = ({
           />
         </DialogContent>
         <DialogActions sx={{ p: isMobile ? 2 : 1 }}>
-          <Button 
-            onClick={() => setEditingComment(null)} 
+          <Button
+            onClick={() => setEditingComment(null)}
             disabled={loading}
             size={isMobile ? 'large' : 'medium'}
             sx={{ minHeight: isMobile ? 48 : 'auto' }}

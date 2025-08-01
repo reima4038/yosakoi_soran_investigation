@@ -1,4 +1,4 @@
-import { api } from '../utils/api';
+import { apiClient } from '../utils/api';
 
 export enum CriterionType {
   NUMERIC = 'numeric',
@@ -27,15 +27,11 @@ export interface Category {
 }
 
 export interface Template {
-  _id?: string;
+  id: string;
   name: string;
   description: string;
-  createdAt?: Date;
-  creatorId?: {
-    _id: string;
-    username: string;
-    email: string;
-  };
+  createdAt: string;
+  creatorId: string;
   categories: Category[];
   allowGeneralComments?: boolean;
 }

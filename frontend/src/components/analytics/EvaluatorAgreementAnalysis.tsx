@@ -51,7 +51,9 @@ interface CriterionAgreement {
   average: number;
 }
 
-export const EvaluatorAgreementAnalysis: React.FC<EvaluatorAgreementAnalysisProps> = ({
+export const EvaluatorAgreementAnalysis: React.FC<
+  EvaluatorAgreementAnalysisProps
+> = ({
   evaluations,
   criteria,
   users,
@@ -61,10 +63,10 @@ export const EvaluatorAgreementAnalysis: React.FC<EvaluatorAgreementAnalysisProp
   if (evaluations.length < 2) {
     return (
       <Paper elevation={2} sx={{ p: 2 }}>
-        <Typography variant="h6" gutterBottom>
+        <Typography variant='h6' gutterBottom>
           {title}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant='body2' color='text.secondary'>
           一致度分析には2人以上の評価者が必要です
         </Typography>
       </Paper>
@@ -72,21 +74,29 @@ export const EvaluatorAgreementAnalysis: React.FC<EvaluatorAgreementAnalysisProp
   }
 
   // Create maps for easy lookup
-  const criteriaMap = criteria.reduce((acc, criterion) => {
-    acc[criterion.id] = criterion;
-    return acc;
-  }, {} as Record<string, Criterion>);
+  const criteriaMap = criteria.reduce(
+    (acc, criterion) => {
+      acc[criterion.id] = criterion;
+      return acc;
+    },
+    {} as Record<string, Criterion>
+  );
 
-  const usersMap = users.reduce((acc, user) => {
-    acc[user.id] = user;
-    return acc;
-  }, {} as Record<string, User>);
+  const usersMap = users.reduce(
+    (acc, user) => {
+      acc[user.id] = user;
+      return acc;
+    },
+    {} as Record<string, User>
+  );
 
   // Calculate agreement for each criterion
   const criterionAgreements: CriterionAgreement[] = criteria.map(criterion => {
     const criterionScores = evaluations
-      .map(evaluation => 
-        evaluation.scores.find(score => score.criterionId === criterion.id)?.score
+      .map(
+        evaluation =>
+          evaluation.scores.find(score => score.criterionId === criterion.id)
+            ?.score
       )
       .filter((score): score is number => score !== undefined);
 
@@ -102,13 +112,20 @@ export const EvaluatorAgreementAnalysis: React.FC<EvaluatorAgreementAnalysisProp
       };
     }
 
-    const average = criterionScores.reduce((sum, score) => sum + score, 0) / criterionScores.length;
-    const variance = criterionScores.reduce((sum, score) => sum + Math.pow(score - average, 2), 0) / criterionScores.length;
+    const average =
+      criterionScores.reduce((sum, score) => sum + score, 0) /
+      criterionScores.length;
+    const variance =
+      criterionScores.reduce(
+        (sum, score) => sum + Math.pow(score - average, 2),
+        0
+      ) / criterionScores.length;
     const standardDeviation = Math.sqrt(variance);
-    
+
     // Agreement score: inverse of coefficient of variation, normalized to 0-1
     // Lower variance relative to mean = higher agreement
-    const coefficientOfVariation = average > 0 ? standardDeviation / average : 0;
+    const coefficientOfVariation =
+      average > 0 ? standardDeviation / average : 0;
     const agreement = Math.max(0, 1 - coefficientOfVariation);
 
     return {
@@ -123,10 +140,14 @@ export const EvaluatorAgreementAnalysis: React.FC<EvaluatorAgreementAnalysisProp
   });
 
   // Calculate overall agreement
-  const overallAgreement = criterionAgreements.reduce((sum, ca) => sum + ca.agreement, 0) / criterionAgreements.length;
+  const overallAgreement =
+    criterionAgreements.reduce((sum, ca) => sum + ca.agreement, 0) /
+    criterionAgreements.length;
 
   // Sort by agreement (lowest first to highlight problematic areas)
-  const sortedAgreements = [...criterionAgreements].sort((a, b) => a.agreement - b.agreement);
+  const sortedAgreements = [...criterionAgreements].sort(
+    (a, b) => a.agreement - b.agreement
+  );
 
   // Prepare chart data
   const labels = sortedAgreements.map(ca => ca.criterionName);
@@ -139,15 +160,20 @@ export const EvaluatorAgreementAnalysis: React.FC<EvaluatorAgreementAnalysisProp
       {
         label: '一致度 (%)',
         data: agreementData,
-        backgroundColor: agreementData.map(value => 
-          value >= 80 ? 'rgba(76, 175, 80, 0.6)' : // Green for high agreement
-          value >= 60 ? 'rgba(255, 193, 7, 0.6)' : // Yellow for medium agreement
-          'rgba(244, 67, 54, 0.6)' // Red for low agreement
+        backgroundColor: agreementData.map(
+          value =>
+            value >= 80
+              ? 'rgba(76, 175, 80, 0.6)' // Green for high agreement
+              : value >= 60
+                ? 'rgba(255, 193, 7, 0.6)' // Yellow for medium agreement
+                : 'rgba(244, 67, 54, 0.6)' // Red for low agreement
         ),
-        borderColor: agreementData.map(value => 
-          value >= 80 ? 'rgba(76, 175, 80, 1)' :
-          value >= 60 ? 'rgba(255, 193, 7, 1)' :
-          'rgba(244, 67, 54, 1)'
+        borderColor: agreementData.map(value =>
+          value >= 80
+            ? 'rgba(76, 175, 80, 1)'
+            : value >= 60
+              ? 'rgba(255, 193, 7, 1)'
+              : 'rgba(244, 67, 54, 1)'
         ),
         borderWidth: 1,
       },
@@ -188,7 +214,7 @@ export const EvaluatorAgreementAnalysis: React.FC<EvaluatorAgreementAnalysisProp
           text: '一致度 (%)',
         },
         ticks: {
-          callback: function(value: any) {
+          callback: function (value: any) {
             return value + '%';
           },
         },
@@ -220,47 +246,75 @@ export const EvaluatorAgreementAnalysis: React.FC<EvaluatorAgreementAnalysisProp
 
   return (
     <Paper elevation={2} sx={{ p: 2 }}>
-      <Typography variant="h6" gutterBottom>
+      <Typography variant='h6' gutterBottom>
         {title}
       </Typography>
-      
+
       <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid item xs={12} sm={6} md={3}>
-          <Box sx={{ textAlign: 'center', p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
-            <Typography variant="h6" color="primary">
+          <Box
+            sx={{
+              textAlign: 'center',
+              p: 1,
+              bgcolor: 'grey.50',
+              borderRadius: 1,
+            }}
+          >
+            <Typography variant='h6' color='primary'>
               {(overallAgreement * 100).toFixed(1)}%
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant='body2' color='text.secondary'>
               全体一致度
             </Typography>
           </Box>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <Box sx={{ textAlign: 'center', p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
-            <Typography variant="h6" color="primary">
+          <Box
+            sx={{
+              textAlign: 'center',
+              p: 1,
+              bgcolor: 'grey.50',
+              borderRadius: 1,
+            }}
+          >
+            <Typography variant='h6' color='primary'>
               {evaluations.length}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant='body2' color='text.secondary'>
               評価者数
             </Typography>
           </Box>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <Box sx={{ textAlign: 'center', p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
-            <Typography variant="h6" color="primary">
+          <Box
+            sx={{
+              textAlign: 'center',
+              p: 1,
+              bgcolor: 'grey.50',
+              borderRadius: 1,
+            }}
+          >
+            <Typography variant='h6' color='primary'>
               {criterionAgreements.filter(ca => ca.agreement >= 0.8).length}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant='body2' color='text.secondary'>
               高一致項目数
             </Typography>
           </Box>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <Box sx={{ textAlign: 'center', p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
-            <Typography variant="h6" color="primary">
+          <Box
+            sx={{
+              textAlign: 'center',
+              p: 1,
+              bgcolor: 'grey.50',
+              borderRadius: 1,
+            }}
+          >
+            <Typography variant='h6' color='primary'>
               {criterionAgreements.filter(ca => ca.agreement < 0.6).length}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant='body2' color='text.secondary'>
               要注意項目数
             </Typography>
           </Box>
@@ -271,44 +325,42 @@ export const EvaluatorAgreementAnalysis: React.FC<EvaluatorAgreementAnalysisProp
         <Bar data={chartData} options={options} />
       </Box>
 
-      <Typography variant="subtitle1" gutterBottom>
+      <Typography variant='subtitle1' gutterBottom>
         詳細分析結果
       </Typography>
       <TableContainer>
-        <Table size="small">
+        <Table size='small'>
           <TableHead>
             <TableRow>
               <TableCell>評価項目</TableCell>
-              <TableCell align="center">一致度</TableCell>
-              <TableCell align="center">平均スコア</TableCell>
-              <TableCell align="center">標準偏差</TableCell>
-              <TableCell align="center">評価数</TableCell>
-              <TableCell align="center">状態</TableCell>
+              <TableCell align='center'>一致度</TableCell>
+              <TableCell align='center'>平均スコア</TableCell>
+              <TableCell align='center'>標準偏差</TableCell>
+              <TableCell align='center'>評価数</TableCell>
+              <TableCell align='center'>状態</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {sortedAgreements.map((agreement) => (
+            {sortedAgreements.map(agreement => (
               <TableRow key={agreement.criterionId}>
-                <TableCell component="th" scope="row">
+                <TableCell component='th' scope='row'>
                   {agreement.criterionName}
                 </TableCell>
-                <TableCell align="center">
+                <TableCell align='center'>
                   {(agreement.agreement * 100).toFixed(1)}%
                 </TableCell>
-                <TableCell align="center">
+                <TableCell align='center'>
                   {agreement.average.toFixed(1)}
                 </TableCell>
-                <TableCell align="center">
+                <TableCell align='center'>
                   {agreement.standardDeviation.toFixed(2)}
                 </TableCell>
-                <TableCell align="center">
-                  {agreement.scores.length}
-                </TableCell>
-                <TableCell align="center">
+                <TableCell align='center'>{agreement.scores.length}</TableCell>
+                <TableCell align='center'>
                   <Chip
                     label={getAgreementLabel(agreement.agreement)}
                     color={getAgreementColor(agreement.agreement) as any}
-                    size="small"
+                    size='small'
                   />
                 </TableCell>
               </TableRow>

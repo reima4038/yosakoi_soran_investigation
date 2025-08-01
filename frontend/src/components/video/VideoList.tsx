@@ -26,7 +26,6 @@ import {
   Alert,
   Skeleton,
   Collapse,
-  Fab,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -103,7 +102,15 @@ const VideoList: React.FC<VideoListProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [currentPage, searchTerm, selectedYear, selectedTeam, selectedEvent, isMobile, isTablet]);
+  }, [
+    currentPage,
+    searchTerm,
+    selectedYear,
+    selectedTeam,
+    selectedEvent,
+    isMobile,
+    isTablet,
+  ]);
 
   useEffect(() => {
     fetchVideos();
@@ -150,7 +157,7 @@ const VideoList: React.FC<VideoListProps> = ({
     if (!videoToDelete) return;
 
     try {
-      await videoService.deleteVideo(videoToDelete._id);
+      await videoService.deleteVideo(videoToDelete.id);
       setDeleteDialogOpen(false);
       setVideoToDelete(null);
       fetchVideos(); // リストを更新
@@ -171,7 +178,7 @@ const VideoList: React.FC<VideoListProps> = ({
       onVideoSelect(video);
     } else {
       // デフォルトで詳細ページに遷移
-      navigate(`/videos/${video._id}`);
+      navigate(`/videos/${video.id}`);
     }
   };
 
@@ -227,8 +234,8 @@ const VideoList: React.FC<VideoListProps> = ({
               }}
               InputProps={{
                 endAdornment: (
-                  <IconButton 
-                    onClick={handleSearch} 
+                  <IconButton
+                    onClick={handleSearch}
                     size={isMobile ? 'medium' : 'small'}
                     sx={{ minHeight: isMobile ? 44 : 'auto' }}
                   >
@@ -247,7 +254,9 @@ const VideoList: React.FC<VideoListProps> = ({
                 variant='outlined'
                 onClick={toggleFilters}
                 startIcon={<FilterIcon />}
-                endIcon={filtersExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                endIcon={
+                  filtersExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />
+                }
                 sx={{ minHeight: 48 }}
               >
                 詳細フィルター
@@ -264,7 +273,9 @@ const VideoList: React.FC<VideoListProps> = ({
                   <Select
                     value={selectedYear}
                     label='年度'
-                    onChange={e => setSelectedYear(e.target.value as number | '')}
+                    onChange={e =>
+                      setSelectedYear(e.target.value as number | '')
+                    }
                   >
                     <MenuItem value=''>すべて</MenuItem>
                     {yearOptions.map(year => (
@@ -297,11 +308,13 @@ const VideoList: React.FC<VideoListProps> = ({
               </Grid>
 
               <Grid item xs={12} md={3}>
-                <Box sx={{ 
-                  display: 'flex', 
-                  gap: 1,
-                  flexDirection: isMobile ? 'column' : 'row'
-                }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    gap: 1,
+                    flexDirection: isMobile ? 'column' : 'row',
+                  }}
+                >
                   <Button
                     variant='contained'
                     onClick={handleSearch}
@@ -330,13 +343,13 @@ const VideoList: React.FC<VideoListProps> = ({
       {/* 動画一覧 */}
       <Grid container spacing={getSpacing()}>
         {videos.map(video => (
-          <Grid 
-            item 
-            xs={12} 
-            sm={6} 
-            md={4} 
-            lg={getGridColumns(1, 3, 4)} 
-            key={video._id}
+          <Grid
+            item
+            xs={12}
+            sm={6}
+            md={4}
+            lg={getGridColumns(1, 3, 4)}
+            key={video.id}
           >
             <Card
               sx={{
@@ -360,9 +373,11 @@ const VideoList: React.FC<VideoListProps> = ({
                   onClick={() => handleVideoClick(video)}
                   sx={{
                     cursor: 'pointer',
-                    '&:active': isMobile ? {
-                      opacity: 0.8,
-                    } : {},
+                    '&:active': isMobile
+                      ? {
+                          opacity: 0.8,
+                        }
+                      : {},
                   }}
                 />
                 <Box
@@ -377,7 +392,7 @@ const VideoList: React.FC<VideoListProps> = ({
                   <IconButton
                     size={isMobile ? 'medium' : 'small'}
                     onClick={e => handleMenuOpen(e, video)}
-                    sx={{ 
+                    sx={{
                       color: 'white',
                       minHeight: isMobile ? 44 : 'auto',
                       minWidth: isMobile ? 44 : 'auto',
@@ -401,37 +416,41 @@ const VideoList: React.FC<VideoListProps> = ({
                       '&:hover': { opacity: 1 },
                     }}
                   >
-                    <PlayIcon sx={{ 
-                      color: 'white', 
-                      fontSize: isMobile ? 40 : 32 
-                    }} />
+                    <PlayIcon
+                      sx={{
+                        color: 'white',
+                        fontSize: isMobile ? 40 : 32,
+                      }}
+                    />
                   </Box>
                 )}
               </Box>
 
-              <CardContent 
+              <CardContent
                 onClick={() => handleVideoClick(video)}
-                sx={{ 
+                sx={{
                   p: isMobile ? 1.5 : 2,
                   cursor: 'pointer',
-                  '&:active': isMobile ? {
-                    backgroundColor: 'action.selected',
-                  } : {},
+                  '&:active': isMobile
+                    ? {
+                        backgroundColor: 'action.selected',
+                      }
+                    : {},
                 }}
               >
-                <Typography 
-                  variant={isMobile ? 'subtitle1' : 'h6'} 
-                  component='h3' 
-                  gutterBottom 
+                <Typography
+                  variant={isMobile ? 'subtitle1' : 'h6'}
+                  component='h3'
+                  gutterBottom
                   noWrap
                   sx={{ fontWeight: isMobile ? 500 : 600 }}
                 >
                   {video.title}
                 </Typography>
 
-                <Typography 
-                  variant='body2' 
-                  color='text.secondary' 
+                <Typography
+                  variant='body2'
+                  color='text.secondary'
                   gutterBottom
                   noWrap
                 >
@@ -457,25 +476,25 @@ const VideoList: React.FC<VideoListProps> = ({
                 )}
 
                 <Box
-                  sx={{ 
-                    mt: 1, 
-                    display: 'flex', 
-                    flexWrap: 'wrap', 
+                  sx={{
+                    mt: 1,
+                    display: 'flex',
+                    flexWrap: 'wrap',
                     gap: 0.5,
-                    minHeight: isMobile ? 32 : 'auto'
+                    minHeight: isMobile ? 32 : 'auto',
                   }}
                 >
                   {video.tags.slice(0, isMobile ? 2 : 3).map((tag, index) => (
-                    <Chip 
-                      key={index} 
-                      label={tag} 
+                    <Chip
+                      key={index}
+                      label={tag}
                       size='small'
                       sx={{ fontSize: isMobile ? '0.75rem' : '0.8125rem' }}
                     />
                   ))}
                   {video.tags.length > (isMobile ? 2 : 3) && (
-                    <Chip 
-                      label={`+${video.tags.length - (isMobile ? 2 : 3)}`} 
+                    <Chip
+                      label={`+${video.tags.length - (isMobile ? 2 : 3)}`}
                       size='small'
                       sx={{ fontSize: isMobile ? '0.75rem' : '0.8125rem' }}
                     />
@@ -498,12 +517,14 @@ const VideoList: React.FC<VideoListProps> = ({
 
       {/* ページネーション */}
       {totalPages > 1 && (
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          mt: { xs: 2, sm: 3 },
-          mb: isMobile ? 2 : 0
-        }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            mt: { xs: 2, sm: 3 },
+            mb: isMobile ? 2 : 0,
+          }}
+        >
           <Pagination
             count={totalPages}
             page={currentPage}
@@ -514,7 +535,7 @@ const VideoList: React.FC<VideoListProps> = ({
               '& .MuiPaginationItem-root': {
                 minHeight: isMobile ? 44 : 'auto',
                 minWidth: isMobile ? 44 : 'auto',
-              }
+              },
             }}
           />
         </Box>

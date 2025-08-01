@@ -49,27 +49,31 @@ export const DataExportManager: React.FC<DataExportManagerProps> = ({
 
     try {
       const blob = await analyticsService.exportSessionData(sessionId, format);
-      
+
       // Create download link
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      
+
       // Set filename based on format
       const timestamp = new Date().toISOString().split('T')[0];
       const sanitizedName = sessionName.replace(/[^a-zA-Z0-9]/g, '_');
       link.download = `${sanitizedName}_analytics_${timestamp}.${format}`;
-      
+
       // Trigger download
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      
-      setSuccess(`${format.toUpperCase()}ファイルのダウンロードが開始されました`);
+
+      setSuccess(
+        `${format.toUpperCase()}ファイルのダウンロードが開始されました`
+      );
     } catch (err) {
       console.error('Export failed:', err);
-      setError(`エクスポートに失敗しました: ${err instanceof Error ? err.message : '不明なエラー'}`);
+      setError(
+        `エクスポートに失敗しました: ${err instanceof Error ? err.message : '不明なエラー'}`
+      );
     } finally {
       setLoading(false);
     }
@@ -83,7 +87,7 @@ export const DataExportManager: React.FC<DataExportManagerProps> = ({
     try {
       // Find all chart canvases in the current page
       const canvases = document.querySelectorAll('canvas');
-      
+
       if (canvases.length === 0) {
         throw new Error('エクスポート可能なチャートが見つかりません');
       }
@@ -91,7 +95,7 @@ export const DataExportManager: React.FC<DataExportManagerProps> = ({
       // Create a combined image from all charts
       const combinedCanvas = document.createElement('canvas');
       const ctx = combinedCanvas.getContext('2d');
-      
+
       if (!ctx) {
         throw new Error('Canvas context を取得できませんでした');
       }
@@ -100,7 +104,7 @@ export const DataExportManager: React.FC<DataExportManagerProps> = ({
       let totalHeight = 0;
       let maxWidth = 0;
       const canvasArray = Array.from(canvases);
-      
+
       canvasArray.forEach(canvas => {
         totalHeight += canvas.height + 20; // Add some spacing
         maxWidth = Math.max(maxWidth, canvas.width);
@@ -121,21 +125,21 @@ export const DataExportManager: React.FC<DataExportManagerProps> = ({
       });
 
       // Convert to blob and download
-      combinedCanvas.toBlob((blob) => {
+      combinedCanvas.toBlob(blob => {
         if (blob) {
           const url = window.URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.href = url;
-          
+
           const timestamp = new Date().toISOString().split('T')[0];
           const sanitizedName = sessionName.replace(/[^a-zA-Z0-9]/g, '_');
           link.download = `${sanitizedName}_charts_${timestamp}.png`;
-          
+
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
           window.URL.revokeObjectURL(url);
-          
+
           setSuccess('画像ファイルのダウンロードが開始されました');
         } else {
           throw new Error('画像の生成に失敗しました');
@@ -143,7 +147,9 @@ export const DataExportManager: React.FC<DataExportManagerProps> = ({
       }, 'image/png');
     } catch (err) {
       console.error('Image export failed:', err);
-      setError(`画像エクスポートに失敗しました: ${err instanceof Error ? err.message : '不明なエラー'}`);
+      setError(
+        `画像エクスポートに失敗しました: ${err instanceof Error ? err.message : '不明なエラー'}`
+      );
     } finally {
       setLoading(false);
     }
@@ -157,14 +163,14 @@ export const DataExportManager: React.FC<DataExportManagerProps> = ({
   return (
     <>
       <Button
-        variant="outlined"
+        variant='outlined'
         startIcon={loading ? <CircularProgress size={20} /> : <DownloadIcon />}
         onClick={handleClick}
         disabled={disabled || loading}
       >
         エクスポート
       </Button>
-      
+
       <Menu
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
@@ -180,29 +186,23 @@ export const DataExportManager: React.FC<DataExportManagerProps> = ({
       >
         <MenuItem onClick={() => handleExport('pdf')}>
           <ListItemIcon>
-            <PdfIcon fontSize="small" />
+            <PdfIcon fontSize='small' />
           </ListItemIcon>
-          <ListItemText>
-            PDFレポート
-          </ListItemText>
+          <ListItemText>PDFレポート</ListItemText>
         </MenuItem>
-        
+
         <MenuItem onClick={() => handleExport('csv')}>
           <ListItemIcon>
-            <CsvIcon fontSize="small" />
+            <CsvIcon fontSize='small' />
           </ListItemIcon>
-          <ListItemText>
-            CSVデータ
-          </ListItemText>
+          <ListItemText>CSVデータ</ListItemText>
         </MenuItem>
-        
+
         <MenuItem onClick={handleImageExport}>
           <ListItemIcon>
-            <ImageIcon fontSize="small" />
+            <ImageIcon fontSize='small' />
           </ListItemIcon>
-          <ListItemText>
-            チャート画像
-          </ListItemText>
+          <ListItemText>チャート画像</ListItemText>
         </MenuItem>
       </Menu>
 
@@ -211,7 +211,7 @@ export const DataExportManager: React.FC<DataExportManagerProps> = ({
         autoHideDuration={6000}
         onClose={handleSnackbarClose}
       >
-        <Alert onClose={handleSnackbarClose} severity="error">
+        <Alert onClose={handleSnackbarClose} severity='error'>
           {error}
         </Alert>
       </Snackbar>
@@ -221,7 +221,7 @@ export const DataExportManager: React.FC<DataExportManagerProps> = ({
         autoHideDuration={4000}
         onClose={handleSnackbarClose}
       >
-        <Alert onClose={handleSnackbarClose} severity="success">
+        <Alert onClose={handleSnackbarClose} severity='success'>
           {success}
         </Alert>
       </Snackbar>

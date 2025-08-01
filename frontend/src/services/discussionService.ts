@@ -1,4 +1,4 @@
-import { api } from '../utils/api';
+import { apiClient } from '../utils/api';
 
 export interface DiscussionThread {
   _id: string;
@@ -26,7 +26,7 @@ export interface DiscussionComment {
   authorId: {
     _id: string;
     username: string;
-    profile?: { 
+    profile?: {
       displayName?: string;
       avatar?: string;
     };
@@ -117,20 +117,29 @@ class DiscussionService {
   /**
    * コメントを作成
    */
-  async createComment(threadId: string, data: CreateCommentRequest): Promise<DiscussionComment> {
-    const response = await api.post(`/discussions/threads/${threadId}/comments`, data);
+  async createComment(
+    threadId: string,
+    data: CreateCommentRequest
+  ): Promise<DiscussionComment> {
+    const response = await api.post(
+      `/discussions/threads/${threadId}/comments`,
+      data
+    );
     return response.data.data;
   }
 
   /**
    * コメント一覧を取得
    */
-  async getComments(threadId: string, params?: {
-    page?: number;
-    limit?: number;
-    sortBy?: string;
-    sortOrder?: 'asc' | 'desc';
-  }): Promise<{
+  async getComments(
+    threadId: string,
+    params?: {
+      page?: number;
+      limit?: number;
+      sortBy?: string;
+      sortOrder?: 'asc' | 'desc';
+    }
+  ): Promise<{
     comments: DiscussionComment[];
     pagination: {
       page: number;
@@ -139,14 +148,20 @@ class DiscussionService {
       pages: number;
     };
   }> {
-    const response = await api.get(`/discussions/threads/${threadId}/comments`, { params });
+    const response = await api.get(
+      `/discussions/threads/${threadId}/comments`,
+      { params }
+    );
     return response.data.data;
   }
 
   /**
    * コメントを更新
    */
-  async updateComment(id: string, data: { content: string }): Promise<DiscussionComment> {
+  async updateComment(
+    id: string,
+    data: { content: string }
+  ): Promise<DiscussionComment> {
     const response = await api.put(`/discussions/comments/${id}`, data);
     return response.data.data;
   }
@@ -161,21 +176,31 @@ class DiscussionService {
   /**
    * リアクションを追加/削除
    */
-  async toggleReaction(commentId: string, type: string, action: 'add' | 'remove' = 'add'): Promise<DiscussionComment> {
-    const response = await api.post(`/discussions/comments/${commentId}/reactions`, {
-      type,
-      action
-    });
+  async toggleReaction(
+    commentId: string,
+    type: string,
+    action: 'add' | 'remove' = 'add'
+  ): Promise<DiscussionComment> {
+    const response = await api.post(
+      `/discussions/comments/${commentId}/reactions`,
+      {
+        type,
+        action,
+      }
+    );
     return response.data.data;
   }
 
   /**
    * 返信を取得
    */
-  async getReplies(commentId: string, params?: {
-    page?: number;
-    limit?: number;
-  }): Promise<{
+  async getReplies(
+    commentId: string,
+    params?: {
+      page?: number;
+      limit?: number;
+    }
+  ): Promise<{
     replies: DiscussionComment[];
     pagination: {
       page: number;
@@ -184,14 +209,19 @@ class DiscussionService {
       pages: number;
     };
   }> {
-    const response = await api.get(`/discussions/comments/${commentId}/replies`, { params });
+    const response = await api.get(
+      `/discussions/comments/${commentId}/replies`,
+      { params }
+    );
     return response.data.data;
   }
 
   /**
    * メンションを抽出
    */
-  extractMentions(content: string): Array<{ username: string; position: number }> {
+  extractMentions(
+    content: string
+  ): Array<{ username: string; position: number }> {
     const mentionRegex = /@(\w+)/g;
     const mentions = [];
     let match;
@@ -199,7 +229,7 @@ class DiscussionService {
     while ((match = mentionRegex.exec(content)) !== null) {
       mentions.push({
         username: match[1],
-        position: match.index
+        position: match.index,
       });
     }
 
@@ -222,7 +252,7 @@ class DiscussionService {
       dislike: '👎',
       helpful: '💡',
       agree: '✅',
-      disagree: '❌'
+      disagree: '❌',
     };
     return reactionMap[type] || type;
   }
@@ -230,17 +260,25 @@ class DiscussionService {
   /**
    * リアクション数を集計
    */
-  aggregateReactions(reactions: DiscussionComment['reactions']): Record<string, number> {
-    return reactions.reduce((acc, reaction) => {
-      acc[reaction.type] = (acc[reaction.type] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+  aggregateReactions(
+    reactions: DiscussionComment['reactions']
+  ): Record<string, number> {
+    return reactions.reduce(
+      (acc, reaction) => {
+        acc[reaction.type] = (acc[reaction.type] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
   }
 
   /**
    * ユーザーのリアクションを取得
    */
-  getUserReaction(reactions: DiscussionComment['reactions'], userId: string): string | null {
+  getUserReaction(
+    reactions: DiscussionComment['reactions'],
+    userId: string
+  ): string | null {
     const userReaction = reactions.find(r => r.userId === userId);
     return userReaction ? userReaction.type : null;
   }
@@ -249,18 +287,23 @@ class DiscussionService {
    * コメントの階層構造を構築
    */
   buildCommentTree(comments: DiscussionComment[]): DiscussionComment[] {
-    const commentMap = new Map<string, DiscussionComment & { replies?: DiscussionComment[] }>();
-    const rootComments: (DiscussionComment & { replies?: DiscussionComment[] })[] = [];
+    const commentMap = new Map<
+      string,
+      DiscussionComment & { replies?: DiscussionComment[] }
+    >();
+    const rootComments: (DiscussionComment & {
+      replies?: DiscussionComment[];
+    })[] = [];
 
     // まずすべてのコメントをマップに追加
     comments.forEach(comment => {
-      commentMap.set(comment._id, { ...comment, replies: [] });
+      commentMap.set(comment.id, { ...comment, replies: [] });
     });
 
     // 親子関係を構築
     comments.forEach(comment => {
-      const commentWithReplies = commentMap.get(comment._id)!;
-      
+      const commentWithReplies = commentMap.get(comment.id)!;
+
       if (comment.parentId) {
         const parent = commentMap.get(comment.parentId);
         if (parent) {

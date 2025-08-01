@@ -16,16 +16,20 @@ root.render(
 // Service Worker registration for offline support
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then((registration) => {
+    navigator.serviceWorker
+      .register('/sw.js')
+      .then(registration => {
         console.log('SW registered: ', registration);
-        
+
         // Listen for updates
         registration.addEventListener('updatefound', () => {
           const newWorker = registration.installing;
           if (newWorker) {
             newWorker.addEventListener('statechange', () => {
-              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              if (
+                newWorker.state === 'installed' &&
+                navigator.serviceWorker.controller
+              ) {
                 // New content is available, notify user
                 console.log('New content is available; please refresh.');
               }
@@ -33,31 +37,37 @@ if ('serviceWorker' in navigator) {
           }
         });
       })
-      .catch((registrationError) => {
+      .catch(registrationError => {
         console.log('SW registration failed: ', registrationError);
       });
 
     // Listen for messages from service worker
-    navigator.serviceWorker.addEventListener('message', (event) => {
+    navigator.serviceWorker.addEventListener('message', event => {
       if (event.data) {
         switch (event.data.type) {
           case 'SYNC_EVALUATIONS':
             // Trigger evaluation sync in the app
-            window.dispatchEvent(new CustomEvent('sw-sync-evaluations', {
-              detail: event.data
-            }));
+            window.dispatchEvent(
+              new CustomEvent('sw-sync-evaluations', {
+                detail: event.data,
+              })
+            );
             break;
           case 'SYNC_OFFLINE_NOTIFICATIONS':
             // Trigger offline notification sync
-            window.dispatchEvent(new CustomEvent('sw-sync-notifications', {
-              detail: event.data
-            }));
+            window.dispatchEvent(
+              new CustomEvent('sw-sync-notifications', {
+                detail: event.data,
+              })
+            );
             break;
           case 'NETWORK_STATUS':
             // Update network status
-            window.dispatchEvent(new CustomEvent('sw-network-status', {
-              detail: event.data
-            }));
+            window.dispatchEvent(
+              new CustomEvent('sw-network-status', {
+                detail: event.data,
+              })
+            );
             break;
           default:
             console.log('Unknown service worker message:', event.data);

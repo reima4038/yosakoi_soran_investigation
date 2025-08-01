@@ -20,7 +20,7 @@ import {
   ListItemText,
   Divider,
   Grid,
-  LinearProgress
+  LinearProgress,
 } from '@mui/material';
 import {
   Share as ShareIcon,
@@ -36,11 +36,15 @@ import {
   Person,
   Schedule,
   CheckCircle,
-  Error
+  Error,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import { shareService, Share, ShareAnalytics } from '../../services/shareService';
+import {
+  shareService,
+  Share,
+  ShareAnalytics,
+} from '../../services/shareService';
 import ShareCreationForm from './ShareCreationForm';
 
 interface ShareManagementProps {
@@ -52,7 +56,7 @@ interface ShareManagementProps {
 const ShareManagement: React.FC<ShareManagementProps> = ({
   resourceType,
   resourceId,
-  resourceTitle
+  resourceTitle,
 }) => {
   const [shares, setShares] = useState<Share[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,7 +79,9 @@ const ShareManagement: React.FC<ShareManagementProps> = ({
     try {
       const result = await shareService.getShares({ resourceType });
       // 現在のリソースに関連する共有のみフィルタ
-      const filteredShares = result.shares.filter(share => share.resourceId === resourceId);
+      const filteredShares = result.shares.filter(
+        share => share.resourceId === resourceId
+      );
       setShares(filteredShares);
     } catch (err: any) {
       setError(err.response?.data?.message || '共有設定の取得に失敗しました');
@@ -106,14 +112,18 @@ const ShareManagement: React.FC<ShareManagementProps> = ({
   const handleToggleShare = async (shareId: string) => {
     try {
       const result = await shareService.toggleShare(shareId);
-      setShares(prev => prev.map(share => 
-        share._id === shareId 
-          ? { ...share, isActive: result.isActive }
-          : share
-      ));
+      setShares(prev =>
+        prev.map(share =>
+          share._id === shareId
+            ? { ...share, isActive: result.isActive }
+            : share
+        )
+      );
       setAnchorEl(null);
     } catch (err: any) {
-      setError(err.response?.data?.message || '共有設定の切り替えに失敗しました');
+      setError(
+        err.response?.data?.message || '共有設定の切り替えに失敗しました'
+      );
     }
   };
 
@@ -138,12 +148,17 @@ const ShareManagement: React.FC<ShareManagementProps> = ({
       const analyticsData = await shareService.getShareAnalytics(share._id);
       setAnalytics(analyticsData);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'アクセス統計の取得に失敗しました');
+      setError(
+        err.response?.data?.message || 'アクセス統計の取得に失敗しました'
+      );
     }
     setAnchorEl(null);
   };
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, shareId: string) => {
+  const handleMenuOpen = (
+    event: React.MouseEvent<HTMLElement>,
+    shareId: string
+  ) => {
     setAnchorEl(event.currentTarget);
     setMenuShareId(shareId);
   };
@@ -156,13 +171,13 @@ const ShareManagement: React.FC<ShareManagementProps> = ({
   const getVisibilityIcon = (visibility: string) => {
     switch (visibility) {
       case 'public':
-        return <Public fontSize="small" />;
+        return <Public fontSize='small' />;
       case 'password_protected':
-        return <Lock fontSize="small" />;
+        return <Lock fontSize='small' />;
       case 'specific_users':
-        return <Person fontSize="small" />;
+        return <Person fontSize='small' />;
       default:
-        return <VisibilityOff fontSize="small" />;
+        return <VisibilityOff fontSize='small' />;
     }
   };
 
@@ -182,7 +197,7 @@ const ShareManagement: React.FC<ShareManagementProps> = ({
     return (
       <Box sx={{ p: 2 }}>
         <LinearProgress />
-        <Typography variant="body2" sx={{ mt: 1 }}>
+        <Typography variant='body2' sx={{ mt: 1 }}>
           共有設定を読み込み中...
         </Typography>
       </Box>
@@ -191,12 +206,17 @@ const ShareManagement: React.FC<ShareManagementProps> = ({
 
   return (
     <Box sx={{ p: 2 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h6">
-          共有設定
-        </Typography>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          mb: 3,
+        }}
+      >
+        <Typography variant='h6'>共有設定</Typography>
         <Button
-          variant="contained"
+          variant='contained'
           startIcon={<ShareIcon />}
           onClick={() => setShowCreateForm(true)}
         >
@@ -205,13 +225,13 @@ const ShareManagement: React.FC<ShareManagementProps> = ({
       </Box>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity='error' sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
 
       {copySuccess && (
-        <Alert severity="success" sx={{ mb: 2 }}>
+        <Alert severity='success' sx={{ mb: 2 }}>
           {copySuccess}
         </Alert>
       )}
@@ -220,14 +240,14 @@ const ShareManagement: React.FC<ShareManagementProps> = ({
         <Card>
           <CardContent sx={{ textAlign: 'center', py: 4 }}>
             <ShareIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-            <Typography variant="h6" color="text.secondary" gutterBottom>
+            <Typography variant='h6' color='text.secondary' gutterBottom>
               共有設定がありません
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            <Typography variant='body2' color='text.secondary' sx={{ mb: 3 }}>
               このリソースはまだ共有されていません
             </Typography>
             <Button
-              variant="outlined"
+              variant='outlined'
               startIcon={<ShareIcon />}
               onClick={() => setShowCreateForm(true)}
             >
@@ -237,65 +257,98 @@ const ShareManagement: React.FC<ShareManagementProps> = ({
         </Card>
       ) : (
         <Grid container spacing={2}>
-          {shares.map((share) => (
+          {shares.map(share => (
             <Grid item xs={12} md={6} key={share._id}>
               <Card>
                 <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      mb: 2,
+                    }}
+                  >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       {getVisibilityIcon(share.visibility)}
-                      <Typography variant="subtitle1">
+                      <Typography variant='subtitle1'>
                         {shareService.getVisibilityText(share.visibility)}
                       </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Chip
-                        size="small"
+                        size='small'
                         label={getStatusText(share)}
                         color={getStatusColor(share)}
-                        icon={share.isActive && !shareService.isExpired(share) ? <CheckCircle /> : <Error />}
+                        icon={
+                          share.isActive && !shareService.isExpired(share) ? (
+                            <CheckCircle />
+                          ) : (
+                            <Error />
+                          )
+                        }
                       />
                       <IconButton
-                        size="small"
-                        onClick={(e) => handleMenuOpen(e, share._id)}
+                        size='small'
+                        onClick={e => handleMenuOpen(e, share._id)}
                       >
                         <MoreVert />
                       </IconButton>
                     </Box>
                   </Box>
 
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    作成日: {format(new Date(share.createdAt), 'yyyy年MM月dd日 HH:mm', { locale: ja })}
+                  <Typography
+                    variant='body2'
+                    color='text.secondary'
+                    gutterBottom
+                  >
+                    作成日:{' '}
+                    {format(new Date(share.createdAt), 'yyyy年MM月dd日 HH:mm', {
+                      locale: ja,
+                    })}
                   </Typography>
 
                   {share.expiresAt && (
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      有効期限: {format(new Date(share.expiresAt), 'yyyy年MM月dd日 HH:mm', { locale: ja })}
+                    <Typography
+                      variant='body2'
+                      color='text.secondary'
+                      gutterBottom
+                    >
+                      有効期限:{' '}
+                      {format(
+                        new Date(share.expiresAt),
+                        'yyyy年MM月dd日 HH:mm',
+                        { locale: ja }
+                      )}
                     </Typography>
                   )}
 
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 2 }}>
-                    {share.permissions.map((permission) => (
+                  <Box
+                    sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 2 }}
+                  >
+                    {share.permissions.map(permission => (
                       <Chip
                         key={permission}
-                        size="small"
+                        size='small'
                         label={shareService.getPermissionText(permission)}
-                        variant="outlined"
+                        variant='outlined'
                       />
                     ))}
                   </Box>
 
                   <Box sx={{ display: 'flex', gap: 1 }}>
                     <Button
-                      size="small"
+                      size='small'
                       startIcon={<ContentCopy />}
                       onClick={() => handleCopyUrl(share)}
-                      disabled={!share.isActive || shareService.isExpired(share)}
+                      disabled={
+                        !share.isActive || shareService.isExpired(share)
+                      }
                     >
                       URLをコピー
                     </Button>
                     <Button
-                      size="small"
+                      size='small'
                       startIcon={<Analytics />}
                       onClick={() => handleShowAnalytics(share)}
                     >
@@ -315,46 +368,55 @@ const ShareManagement: React.FC<ShareManagementProps> = ({
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
       >
-        <MenuItem onClick={() => {
-          const share = shares.find(s => s._id === menuShareId);
-          if (share) handleCopyUrl(share);
-        }}>
+        <MenuItem
+          onClick={() => {
+            const share = shares.find(s => s._id === menuShareId);
+            if (share) handleCopyUrl(share);
+          }}
+        >
           <ListItemIcon>
-            <ContentCopy fontSize="small" />
+            <ContentCopy fontSize='small' />
           </ListItemIcon>
           <ListItemText>URLをコピー</ListItemText>
         </MenuItem>
-        <MenuItem onClick={() => {
-          const share = shares.find(s => s._id === menuShareId);
-          if (share) handleShowAnalytics(share);
-        }}>
+        <MenuItem
+          onClick={() => {
+            const share = shares.find(s => s._id === menuShareId);
+            if (share) handleShowAnalytics(share);
+          }}
+        >
           <ListItemIcon>
-            <Analytics fontSize="small" />
+            <Analytics fontSize='small' />
           </ListItemIcon>
           <ListItemText>アクセス統計</ListItemText>
         </MenuItem>
         <Divider />
-        <MenuItem onClick={() => {
-          if (menuShareId) handleToggleShare(menuShareId);
-        }}>
+        <MenuItem
+          onClick={() => {
+            if (menuShareId) handleToggleShare(menuShareId);
+          }}
+        >
           <ListItemIcon>
-            {shares.find(s => s._id === menuShareId)?.isActive ? 
-              <VisibilityOff fontSize="small" /> : 
-              <Visibility fontSize="small" />
-            }
+            {shares.find(s => s._id === menuShareId)?.isActive ? (
+              <VisibilityOff fontSize='small' />
+            ) : (
+              <Visibility fontSize='small' />
+            )}
           </ListItemIcon>
           <ListItemText>
-            {shares.find(s => s._id === menuShareId)?.isActive ? '無効にする' : '有効にする'}
+            {shares.find(s => s._id === menuShareId)?.isActive
+              ? '無効にする'
+              : '有効にする'}
           </ListItemText>
         </MenuItem>
-        <MenuItem 
+        <MenuItem
           onClick={() => {
             if (menuShareId) handleDeleteShare(menuShareId);
           }}
           sx={{ color: 'error.main' }}
         >
           <ListItemIcon>
-            <Delete fontSize="small" color="error" />
+            <Delete fontSize='small' color='error' />
           </ListItemIcon>
           <ListItemText>削除</ListItemText>
         </MenuItem>
@@ -374,14 +436,15 @@ const ShareManagement: React.FC<ShareManagementProps> = ({
       <Dialog
         open={showAnalytics}
         onClose={() => setShowAnalytics(false)}
-        maxWidth="md"
+        maxWidth='md'
         fullWidth
       >
         <DialogTitle>
           アクセス統計
           {selectedShare && (
-            <Typography variant="body2" color="text.secondary">
-              {shareService.getVisibilityText(selectedShare.visibility)} - {resourceTitle}
+            <Typography variant='body2' color='text.secondary'>
+              {shareService.getVisibilityText(selectedShare.visibility)} -{' '}
+              {resourceTitle}
             </Typography>
           )}
         </DialogTitle>
@@ -389,43 +452,50 @@ const ShareManagement: React.FC<ShareManagementProps> = ({
           {analytics && (
             <Grid container spacing={3}>
               <Grid item xs={12} md={6}>
-                <Card variant="outlined">
+                <Card variant='outlined'>
                   <CardContent>
-                    <Typography variant="h6" gutterBottom>
+                    <Typography variant='h6' gutterBottom>
                       総アクセス数
                     </Typography>
-                    <Typography variant="h3" color="primary">
+                    <Typography variant='h3' color='primary'>
                       {analytics.summary.totalAccess}
                     </Typography>
                   </CardContent>
                 </Card>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Card variant="outlined">
+                <Card variant='outlined'>
                   <CardContent>
-                    <Typography variant="h6" gutterBottom>
+                    <Typography variant='h6' gutterBottom>
                       ユニークユーザー
                     </Typography>
-                    <Typography variant="h3" color="secondary">
+                    <Typography variant='h3' color='secondary'>
                       {analytics.summary.uniqueUsers}
                     </Typography>
                   </CardContent>
                 </Card>
               </Grid>
               <Grid item xs={12}>
-                <Typography variant="h6" gutterBottom>
+                <Typography variant='h6' gutterBottom>
                   最近のアクセス
                 </Typography>
                 {analytics.recentAccess.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant='body2' color='text.secondary'>
                     アクセス履歴がありません
                   </Typography>
                 ) : (
                   <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
                     {analytics.recentAccess.map((access, index) => (
-                      <Box key={index} sx={{ py: 1, borderBottom: '1px solid #eee' }}>
-                        <Typography variant="body2">
-                          {format(new Date(access.accessedAt), 'yyyy/MM/dd HH:mm', { locale: ja })}
+                      <Box
+                        key={index}
+                        sx={{ py: 1, borderBottom: '1px solid #eee' }}
+                      >
+                        <Typography variant='body2'>
+                          {format(
+                            new Date(access.accessedAt),
+                            'yyyy/MM/dd HH:mm',
+                            { locale: ja }
+                          )}
                           {access.userId && ' - 認証済みユーザー'}
                         </Typography>
                       </Box>
@@ -437,9 +507,7 @@ const ShareManagement: React.FC<ShareManagementProps> = ({
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowAnalytics(false)}>
-            閉じる
-          </Button>
+          <Button onClick={() => setShowAnalytics(false)}>閉じる</Button>
         </DialogActions>
       </Dialog>
     </Box>

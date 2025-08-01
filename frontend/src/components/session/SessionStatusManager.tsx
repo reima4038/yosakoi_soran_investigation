@@ -286,7 +286,7 @@ const SessionStatusManager: React.FC<SessionStatusManagerProps> = ({
                         ? 'info'
                         : 'secondary'
                 }
-                size='large'
+                size='medium'
               />
             </Grid>
 

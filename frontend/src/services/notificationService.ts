@@ -1,4 +1,4 @@
-import { api } from '../utils/api';
+import { apiClient } from '../utils/api';
 
 export interface Notification {
   _id: string;
@@ -11,7 +11,14 @@ export interface Notification {
       avatar?: string;
     };
   };
-  type: 'mention' | 'reply' | 'reaction' | 'share_comment' | 'evaluation_feedback' | 'session_update' | 'deadline_reminder';
+  type:
+    | 'mention'
+    | 'reply'
+    | 'reaction'
+    | 'share_comment'
+    | 'evaluation_feedback'
+    | 'session_update'
+    | 'deadline_reminder';
   title: string;
   message: string;
   status: 'unread' | 'read' | 'archived';
@@ -129,7 +136,9 @@ class NotificationService {
   /**
    * 通知設定を更新
    */
-  async updateSettings(settings: Partial<NotificationSettings>): Promise<NotificationSettings> {
+  async updateSettings(
+    settings: Partial<NotificationSettings>
+  ): Promise<NotificationSettings> {
     const response = await api.put('/notifications/settings', settings);
     return response.data.data;
   }
@@ -153,7 +162,7 @@ class NotificationService {
       share_comment: '共有コメント',
       evaluation_feedback: '評価フィードバック',
       session_update: 'セッション更新',
-      deadline_reminder: '期限リマインダー'
+      deadline_reminder: '期限リマインダー',
     };
     return typeMap[type] || type;
   }
@@ -169,7 +178,7 @@ class NotificationService {
       share_comment: '💭',
       evaluation_feedback: '📝',
       session_update: '🔄',
-      deadline_reminder: '⏰'
+      deadline_reminder: '⏰',
     };
     return iconMap[type] || '📢';
   }
@@ -185,7 +194,7 @@ class NotificationService {
       share_comment: 'medium',
       evaluation_feedback: 'high',
       session_update: 'medium',
-      deadline_reminder: 'high'
+      deadline_reminder: 'high',
     };
     return priorityMap[type] || 'medium';
   }
@@ -217,12 +226,14 @@ class NotificationService {
   /**
    * 通知をグループ化
    */
-  groupNotifications(notifications: Notification[]): Record<string, Notification[]> {
+  groupNotifications(
+    notifications: Notification[]
+  ): Record<string, Notification[]> {
     const groups: Record<string, Notification[]> = {
       today: [],
       yesterday: [],
       thisWeek: [],
-      older: []
+      older: [],
     };
 
     const now = new Date();
@@ -232,7 +243,7 @@ class NotificationService {
 
     notifications.forEach(notification => {
       const notificationDate = new Date(notification.createdAt);
-      
+
       if (notificationDate >= today) {
         groups.today.push(notification);
       } else if (notificationDate >= yesterday) {
@@ -259,7 +270,7 @@ class NotificationService {
         share_comment: '#ffaa44',
         evaluation_feedback: '#aa44ff',
         session_update: '#44aaff',
-        deadline_reminder: '#ff4444'
+        deadline_reminder: '#ff4444',
       };
       return colorMap[type] || '#666666';
     }
@@ -288,7 +299,10 @@ class NotificationService {
 
       if (filters.dateRange) {
         const notificationDate = new Date(notification.createdAt);
-        if (notificationDate < filters.dateRange.start || notificationDate > filters.dateRange.end) {
+        if (
+          notificationDate < filters.dateRange.start ||
+          notificationDate > filters.dateRange.end
+        ) {
           return false;
         }
       }
@@ -300,14 +314,22 @@ class NotificationService {
   /**
    * 通知の検索
    */
-  searchNotifications(notifications: Notification[], query: string): Notification[] {
+  searchNotifications(
+    notifications: Notification[],
+    query: string
+  ): Notification[] {
     const lowercaseQuery = query.toLowerCase();
-    
-    return notifications.filter(notification => 
-      notification.title.toLowerCase().includes(lowercaseQuery) ||
-      notification.message.toLowerCase().includes(lowercaseQuery) ||
-      notification.senderId?.username.toLowerCase().includes(lowercaseQuery) ||
-      notification.senderId?.profile?.displayName?.toLowerCase().includes(lowercaseQuery)
+
+    return notifications.filter(
+      notification =>
+        notification.title.toLowerCase().includes(lowercaseQuery) ||
+        notification.message.toLowerCase().includes(lowercaseQuery) ||
+        notification.senderId?.username
+          .toLowerCase()
+          .includes(lowercaseQuery) ||
+        notification.senderId?.profile?.displayName
+          ?.toLowerCase()
+          .includes(lowercaseQuery)
     );
   }
 
@@ -362,7 +384,7 @@ class NotificationService {
       const browserNotification = new Notification(notification.title, {
         body: notification.message,
         icon: '/favicon.ico',
-        tag: notification._id
+        tag: notification.id,
       });
 
       browserNotification.onclick = () => {

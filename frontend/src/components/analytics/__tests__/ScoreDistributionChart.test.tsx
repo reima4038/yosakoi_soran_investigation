@@ -6,10 +6,12 @@ import { EvaluationScore, Criterion, CriterionType } from '../../../types';
 // Mock Chart.js
 jest.mock('react-chartjs-2', () => ({
   Bar: ({ data, options }: any) => (
-    <div data-testid="distribution-chart">
-      <div data-testid="chart-title">{options.plugins.title.text}</div>
-      <div data-testid="chart-labels">{JSON.stringify(data.labels)}</div>
-      <div data-testid="chart-data">{JSON.stringify(data.datasets[0].data)}</div>
+    <div data-testid='distribution-chart'>
+      <div data-testid='chart-title'>{options.plugins.title.text}</div>
+      <div data-testid='chart-labels'>{JSON.stringify(data.labels)}</div>
+      <div data-testid='chart-data'>
+        {JSON.stringify(data.datasets[0].data)}
+      </div>
     </div>
   ),
 }));
@@ -71,8 +73,8 @@ describe('ScoreDistributionChart', () => {
       <ScoreDistributionChart
         scores={mockScores}
         criteria={mockCriteria}
-        selectedCriterionId="1"
-        title="テスト分布分析"
+        selectedCriterionId='1'
+        title='テスト分布分析'
       />
     );
 
@@ -96,11 +98,13 @@ describe('ScoreDistributionChart', () => {
       <ScoreDistributionChart
         scores={[]}
         criteria={mockCriteria}
-        selectedCriterionId="1"
+        selectedCriterionId='1'
       />
     );
 
-    expect(screen.getByText('選択された評価項目のデータがありません')).toBeInTheDocument();
+    expect(
+      screen.getByText('選択された評価項目のデータがありません')
+    ).toBeInTheDocument();
   });
 
   it('handles missing criterion gracefully', () => {
@@ -108,7 +112,7 @@ describe('ScoreDistributionChart', () => {
       <ScoreDistributionChart
         scores={mockScores}
         criteria={[]}
-        selectedCriterionId="nonexistent"
+        selectedCriterionId='nonexistent'
       />
     );
 

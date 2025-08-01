@@ -16,7 +16,7 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
 } from '@mui/material';
 import {
   Lock,
@@ -25,7 +25,7 @@ import {
   Share as ShareIcon,
   Person,
   Schedule,
-  ContentCopy
+  ContentCopy,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
@@ -55,19 +55,28 @@ const SharedContentViewer: React.FC = () => {
     setPasswordError(null);
 
     try {
-      const passwordToUse = inputPassword || searchParams.get('password') || undefined;
-      const sharedContent = await shareService.accessSharedContent(token, passwordToUse);
+      const passwordToUse =
+        inputPassword || searchParams.get('password') || undefined;
+      const sharedContent = await shareService.accessSharedContent(
+        token,
+        passwordToUse
+      );
       setContent(sharedContent);
       setShowPasswordDialog(false);
     } catch (err: any) {
       const errorData = err.response?.data;
       if (errorData?.requiresPassword) {
         setShowPasswordDialog(true);
-      } else if (err.response?.status === 401 && errorData?.message?.includes('パスワード')) {
+      } else if (
+        err.response?.status === 401 &&
+        errorData?.message?.includes('パスワード')
+      ) {
         setPasswordError('パスワードが正しくありません');
         setShowPasswordDialog(true);
       } else {
-        setError(errorData?.message || '共有コンテンツの読み込みに失敗しました');
+        setError(
+          errorData?.message || '共有コンテンツの読み込みに失敗しました'
+        );
       }
     } finally {
       setLoading(false);
@@ -100,24 +109,28 @@ const SharedContentViewer: React.FC = () => {
       case 'session_results':
         return (
           <Box>
-            <Typography variant="h5" gutterBottom>
+            <Typography variant='h5' gutterBottom>
               評価セッション結果
             </Typography>
             {resource.session && (
               <Card sx={{ mb: 3 }}>
                 <CardContent>
-                  <Typography variant="h6" gutterBottom>
+                  <Typography variant='h6' gutterBottom>
                     {resource.session.name}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                  <Typography
+                    variant='body2'
+                    color='text.secondary'
+                    gutterBottom
+                  >
                     {resource.session.description}
                   </Typography>
                   {resource.session.videoId && (
                     <Box sx={{ mt: 2 }}>
-                      <Typography variant="subtitle2" gutterBottom>
+                      <Typography variant='subtitle2' gutterBottom>
                         評価対象動画
                       </Typography>
-                      <Typography variant="body2">
+                      <Typography variant='body2'>
                         {resource.session.videoId.title}
                       </Typography>
                     </Box>
@@ -126,34 +139,38 @@ const SharedContentViewer: React.FC = () => {
               </Card>
             )}
             {/* TODO: 評価結果の表示 */}
-            <Alert severity="info">
-              評価結果の詳細表示は今後実装予定です
-            </Alert>
+            <Alert severity='info'>評価結果の詳細表示は今後実装予定です</Alert>
           </Box>
         );
 
       case 'evaluation':
         return (
           <Box>
-            <Typography variant="h5" gutterBottom>
+            <Typography variant='h5' gutterBottom>
               個別評価結果
             </Typography>
             {resource.evaluation && (
               <Card>
                 <CardContent>
-                  <Typography variant="h6" gutterBottom>
-                    評価者: {resource.evaluation.userId?.profile?.displayName || resource.evaluation.userId?.username}
+                  <Typography variant='h6' gutterBottom>
+                    評価者:{' '}
+                    {resource.evaluation.userId?.profile?.displayName ||
+                      resource.evaluation.userId?.username}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    提出日: {resource.evaluation.submittedAt && 
-                      format(new Date(resource.evaluation.submittedAt), 'yyyy年MM月dd日 HH:mm', { locale: ja })
-                    }
+                  <Typography variant='body2' color='text.secondary'>
+                    提出日:{' '}
+                    {resource.evaluation.submittedAt &&
+                      format(
+                        new Date(resource.evaluation.submittedAt),
+                        'yyyy年MM月dd日 HH:mm',
+                        { locale: ja }
+                      )}
                   </Typography>
                   {/* TODO: 評価詳細の表示 */}
                 </CardContent>
               </Card>
             )}
-            <Alert severity="info" sx={{ mt: 2 }}>
+            <Alert severity='info' sx={{ mt: 2 }}>
               評価詳細の表示は今後実装予定です
             </Alert>
           </Box>
@@ -161,7 +178,7 @@ const SharedContentViewer: React.FC = () => {
 
       default:
         return (
-          <Alert severity="warning">
+          <Alert severity='warning'>
             サポートされていないコンテンツタイプです
           </Alert>
         );
@@ -170,7 +187,14 @@ const SharedContentViewer: React.FC = () => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '50vh',
+        }}
+      >
         <CircularProgress />
       </Box>
     );
@@ -179,10 +203,10 @@ const SharedContentViewer: React.FC = () => {
   if (error) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity='error' sx={{ mb: 2 }}>
           {error}
         </Alert>
-        <Button variant="outlined" onClick={() => window.location.reload()}>
+        <Button variant='outlined' onClick={() => window.location.reload()}>
           再試行
         </Button>
       </Box>
@@ -192,9 +216,7 @@ const SharedContentViewer: React.FC = () => {
   if (!content) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Alert severity="warning">
-          共有コンテンツが見つかりません
-        </Alert>
+        <Alert severity='warning'>共有コンテンツが見つかりません</Alert>
       </Box>
     );
   }
@@ -206,34 +228,50 @@ const SharedContentViewer: React.FC = () => {
       {/* ヘッダー情報 */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              mb: 2,
+            }}
+          >
             <Box>
-              <Typography variant="h6" gutterBottom>
+              <Typography variant='h6' gutterBottom>
                 共有コンテンツ
               </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <Box
+                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}
+              >
                 <Avatar sx={{ width: 24, height: 24 }}>
-                  <Person fontSize="small" />
+                  <Person fontSize='small' />
                 </Avatar>
-                <Typography variant="body2">
-                  共有者: {share.creator.profile?.displayName || share.creator.username}
+                <Typography variant='body2'>
+                  共有者:{' '}
+                  {share.creator.profile?.displayName || share.creator.username}
                 </Typography>
               </Box>
-              <Typography variant="body2" color="text.secondary">
-                共有日: {format(new Date(share.createdAt), 'yyyy年MM月dd日 HH:mm', { locale: ja })}
+              <Typography variant='body2' color='text.secondary'>
+                共有日:{' '}
+                {format(new Date(share.createdAt), 'yyyy年MM月dd日 HH:mm', {
+                  locale: ja,
+                })}
               </Typography>
               {share.expiresAt && (
-                <Typography variant="body2" color="text.secondary">
-                  有効期限: {format(new Date(share.expiresAt), 'yyyy年MM月dd日 HH:mm', { locale: ja })}
+                <Typography variant='body2' color='text.secondary'>
+                  有効期限:{' '}
+                  {format(new Date(share.expiresAt), 'yyyy年MM月dd日 HH:mm', {
+                    locale: ja,
+                  })}
                 </Typography>
               )}
             </Box>
             <Box sx={{ display: 'flex', gap: 1 }}>
-              <IconButton onClick={handleCopyUrl} title="URLをコピー">
+              <IconButton onClick={handleCopyUrl} title='URLをコピー'>
                 <ContentCopy />
               </IconButton>
               {share.settings.allowDownload && (
-                <IconButton title="ダウンロード">
+                <IconButton title='ダウンロード'>
                   <Download />
                 </IconButton>
               )}
@@ -241,12 +279,12 @@ const SharedContentViewer: React.FC = () => {
           </Box>
 
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-            {share.permissions.map((permission) => (
+            {share.permissions.map(permission => (
               <Chip
                 key={permission}
-                size="small"
+                size='small'
                 label={shareService.getPermissionText(permission)}
-                variant="outlined"
+                variant='outlined'
               />
             ))}
           </Box>
@@ -255,16 +293,14 @@ const SharedContentViewer: React.FC = () => {
 
       {/* メインコンテンツ */}
       <Card>
-        <CardContent>
-          {renderResourceContent()}
-        </CardContent>
+        <CardContent>{renderResourceContent()}</CardContent>
       </Card>
 
       {/* パスワード入力ダイアログ */}
       <Dialog
         open={showPasswordDialog}
         onClose={() => setShowPasswordDialog(false)}
-        maxWidth="sm"
+        maxWidth='sm'
         fullWidth
       >
         <DialogTitle>
@@ -274,21 +310,21 @@ const SharedContentViewer: React.FC = () => {
           </Box>
         </DialogTitle>
         <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
             この共有コンテンツはパスワードで保護されています。
           </Typography>
           {passwordError && (
-            <Alert severity="error" sx={{ mb: 2 }}>
+            <Alert severity='error' sx={{ mb: 2 }}>
               {passwordError}
             </Alert>
           )}
           <TextField
             fullWidth
-            type="password"
-            label="パスワード"
+            type='password'
+            label='パスワード'
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyPress={(e) => {
+            onChange={e => setPassword(e.target.value)}
+            onKeyPress={e => {
               if (e.key === 'Enter') {
                 handlePasswordSubmit();
               }
@@ -302,7 +338,7 @@ const SharedContentViewer: React.FC = () => {
           </Button>
           <Button
             onClick={handlePasswordSubmit}
-            variant="contained"
+            variant='contained'
             disabled={!password.trim()}
           >
             アクセス
