@@ -19,6 +19,8 @@ import { Navigation, ProtectedRoute, OfflineStatus } from './components/common';
 import { SessionList, SessionDetailPage } from './components/session';
 import { TemplateList, TemplateDetailPage, TemplateCreatePage } from './components/template';
 import { EvaluationPage } from './components/evaluation';
+import { ResultsPage } from './components/results';
+import { SharingPage } from './components/sharing';
 import './App.css';
 
 const theme = createTheme({
@@ -278,6 +280,38 @@ const AppContent: React.FC = () => {
             element={
               <ProtectedRoute>
                 <EvaluationPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path='/sessions/:sessionId/results'
+            element={
+              <ProtectedRoute requiredRoles={[UserRole.ADMIN, UserRole.EVALUATOR]}>
+                <ResultsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path='/analytics'
+            element={
+              <ProtectedRoute requiredRoles={[UserRole.ADMIN, UserRole.EVALUATOR]}>
+                <ResultsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path='/sharing'
+            element={
+              <ProtectedRoute>
+                <SharingPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path='/sessions/:sessionId/sharing'
+            element={
+              <ProtectedRoute>
+                <SharingPage />
               </ProtectedRoute>
             }
           />
