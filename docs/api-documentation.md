@@ -6,7 +6,7 @@ YOSAKOIパフォーマンス評価システムのREST API仕様書です。
 
 ## ベースURL
 
-```
+```text
 本番環境: https://api.yosakoi-eval.com
 開発環境: http://localhost:3001
 ```
@@ -14,6 +14,7 @@ YOSAKOIパフォーマンス評価システムのREST API仕様書です。
 ## 認証
 
 ### JWT認証
+
 すべてのAPIエンドポイント（認証関連を除く）では、JWTトークンによる認証が必要です。
 
 ```http
@@ -21,6 +22,7 @@ Authorization: Bearer <jwt_token>
 ```
 
 ### トークンの取得
+
 ```http
 POST /api/auth/login
 Content-Type: application/json
@@ -34,6 +36,7 @@ Content-Type: application/json
 ## エラーレスポンス
 
 ### 標準エラー形式
+
 ```json
 {
   "status": "error",
@@ -47,6 +50,7 @@ Content-Type: application/json
 ```
 
 ### HTTPステータスコード
+
 - `200` - 成功
 - `201` - 作成成功
 - `400` - リクエストエラー
@@ -59,6 +63,7 @@ Content-Type: application/json
 ## 認証API
 
 ### ユーザー登録
+
 ```http
 POST /api/auth/register
 Content-Type: application/json
@@ -71,6 +76,7 @@ Content-Type: application/json
 ```
 
 **レスポンス:**
+
 ```json
 {
   "status": "success",
@@ -88,6 +94,7 @@ Content-Type: application/json
 ```
 
 ### ログイン
+
 ```http
 POST /api/auth/login
 Content-Type: application/json
@@ -99,12 +106,14 @@ Content-Type: application/json
 ```
 
 ### ログアウト
+
 ```http
 POST /api/auth/logout
 Authorization: Bearer <jwt_token>
 ```
 
 ### トークン更新
+
 ```http
 POST /api/auth/refresh
 Authorization: Bearer <refresh_token>
@@ -113,12 +122,14 @@ Authorization: Bearer <refresh_token>
 ## ユーザー管理API
 
 ### 現在のユーザー情報取得
+
 ```http
 GET /api/users/me
 Authorization: Bearer <jwt_token>
 ```
 
 ### ユーザー情報更新
+
 ```http
 PUT /api/users/me
 Authorization: Bearer <jwt_token>
@@ -134,6 +145,7 @@ Content-Type: application/json
 ```
 
 ### パスワード変更
+
 ```http
 PUT /api/users/me/password
 Authorization: Bearer <jwt_token>
@@ -148,12 +160,14 @@ Content-Type: application/json
 ## 動画管理API
 
 ### 動画一覧取得
+
 ```http
 GET /api/videos?page=1&limit=10&search=keyword&category=dance
 Authorization: Bearer <jwt_token>
 ```
 
 **クエリパラメータ:**
+
 - `page`: ページ番号（デフォルト: 1）
 - `limit`: 1ページあたりの件数（デフォルト: 10、最大: 100）
 - `search`: 検索キーワード
@@ -162,6 +176,7 @@ Authorization: Bearer <jwt_token>
 - `sortOrder`: ソート順（asc, desc）
 
 **レスポンス:**
+
 ```json
 {
   "status": "success",
@@ -404,6 +419,302 @@ GET /api/evaluations/comments/:evaluationId
 Authorization: Bearer <jwt_token>
 ```
 
+## 通知API
+
+### 通知一覧取得
+
+```http
+GET /api/notifications?page=1&limit=10&status=unread
+Authorization: Bearer <jwt_token>
+```
+
+**クエリパラメータ:**
+
+- `page`: ページ番号（デフォルト: 1）
+- `limit`: 1ページあたりの件数（デフォルト: 10、最大: 50）
+- `status`: 通知状態（all, read, unread）
+- `type`: 通知タイプ（session_invite, evaluation_reminder, result_published）
+
+**レスポンス:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "notifications": [
+      {
+        "id": "notification_id",
+        "type": "session_invite",
+        "title": "評価セッションへの招待",
+        "message": "新しい評価セッションに招待されました",
+        "data": {
+          "sessionId": "session_id",
+          "sessionName": "セッション名"
+        },
+        "isRead": false,
+        "createdAt": "2023-12-01T00:00:00.000Z"
+      }
+    ],
+    "pagination": {
+      "currentPage": 1,
+      "totalPages": 3,
+      "totalItems": 25,
+      "hasNext": true,
+      "hasPrev": false
+    }
+  }
+}
+```
+
+### 通知詳細取得
+
+```http
+GET /api/notifications/:id
+Authorization: Bearer <jwt_token>
+```
+
+### 通知削除
+
+```http
+DELETE /api/notifications/:id
+Authorization: Bearer <jwt_token>
+```
+
+### 未読通知数取得
+
+```http
+GET /api/notifications/unread/count
+Authorization: Bearer <jwt_token>
+```
+
+**レスポンス:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "unreadCount": 5
+  }
+}
+```
+
+### 通知設定取得
+
+```http
+GET /api/notifications/settings
+Authorization: Bearer <jwt_token>
+```
+
+### 通知設定更新
+
+```http
+PUT /api/notifications/settings
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+
+{
+  "emailNotifications": true,
+  "pushNotifications": false,
+  "notificationTypes": {
+    "session_invite": true,
+    "evaluation_reminder": true,
+    "result_published": false
+  }
+}
+```
+
+## タイムスタンプAPI
+
+### タイムスタンプリンク作成
+
+```http
+POST /api/timestamps
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+
+{
+  "videoId": "video_id",
+  "timestamp": 120,
+  "title": "注目ポイント",
+  "description": "この部分の動きが素晴らしい",
+  "isPublic": true,
+  "expiresAt": "2024-12-01T00:00:00.000Z"
+}
+```
+
+**レスポンス:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "id": "timestamp_id",
+    "token": "unique_token",
+    "videoId": "video_id",
+    "timestamp": 120,
+    "title": "注目ポイント",
+    "description": "この部分の動きが素晴らしい",
+    "isPublic": true,
+    "viewCount": 0,
+    "shareUrl": "https://your-domain.com/share/unique_token",
+    "createdAt": "2023-12-01T00:00:00.000Z"
+  }
+}
+```
+
+### タイムスタンプリンク一覧取得
+
+```http
+GET /api/timestamps?videoId=video_id&page=1&limit=10
+Authorization: Bearer <jwt_token>
+```
+
+### タイムスタンプリンク詳細取得
+
+```http
+GET /api/timestamps/:token
+```
+
+**注意**: このエンドポイントは認証不要で、公開リンクとしてアクセス可能
+
+### タイムスタンプリンク更新
+
+```http
+PUT /api/timestamps/:id
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+
+{
+  "title": "更新されたタイトル",
+  "description": "更新された説明",
+  "isPublic": false
+}
+```
+
+### タイムスタンプリンク削除
+
+```http
+DELETE /api/timestamps/:id
+Authorization: Bearer <jwt_token>
+```
+
+### 視聴回数増加
+
+```http
+POST /api/timestamps/:token/view
+```
+
+### 埋め込み用データ取得
+
+```http
+GET /api/timestamps/:token/embed
+```
+
+**レスポンス:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "title": "注目ポイント",
+    "description": "この部分の動きが素晴らしい",
+    "timestamp": 120,
+    "videoData": {
+      "youtubeId": "youtube_video_id",
+      "title": "動画タイトル",
+      "thumbnailUrl": "https://img.youtube.com/vi/video_id/maxresdefault.jpg"
+    },
+    "embedCode": "<iframe src='...' width='560' height='315'></iframe>"
+  }
+}
+```
+
+## ディスカッションAPI
+
+### ディスカッションスレッド作成
+
+```http
+POST /api/discussions/threads
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+
+{
+  "title": "この演舞について",
+  "content": "技術面での議論をしましょう",
+  "type": "evaluation",
+  "shareId": "share_id",
+  "evaluationId": "evaluation_id",
+  "sessionId": "session_id"
+}
+```
+
+**レスポンス:**
+
+```json
+{
+  "status": "success",
+  "data": {
+    "id": "thread_id",
+    "title": "この演舞について",
+    "content": "技術面での議論をしましょう",
+    "type": "evaluation",
+    "author": {
+      "id": "user_id",
+      "username": "username",
+      "displayName": "表示名"
+    },
+    "commentCount": 0,
+    "createdAt": "2023-12-01T00:00:00.000Z"
+  }
+}
+```
+
+### ディスカッションスレッド一覧取得
+
+```http
+GET /api/discussions/threads?shareId=share_id&type=evaluation&page=1&limit=10
+Authorization: Bearer <jwt_token>
+```
+
+### ディスカッションスレッド詳細取得
+
+```http
+GET /api/discussions/threads/:id
+Authorization: Bearer <jwt_token>
+```
+
+### コメント作成
+
+```http
+POST /api/discussions/threads/:threadId/comments
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+
+{
+  "content": "同感です。特に中盤の構成が素晴らしい。",
+  "parentId": "parent_comment_id"
+}
+```
+
+### コメント一覧取得
+
+```http
+GET /api/discussions/threads/:threadId/comments?page=1&limit=20
+Authorization: Bearer <jwt_token>
+```
+
+### コメント更新
+
+```http
+PUT /api/discussions/comments/:id
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+
+{
+  "content": "更新されたコメント内容"
+}
+```
+
 ## 分析API
 
 ### セッション分析
@@ -519,13 +830,15 @@ socket.on('session:status', (data) => {
 ## レート制限
 
 ### 制限値
+
 - **ログイン**: 15分間に5回
 - **登録**: 1時間に3回
 - **一般API**: 15分間に100回
 - **アップロード**: 1時間に10回
 
 ### レスポンスヘッダー
-```
+
+```http
 X-RateLimit-Limit: 100
 X-RateLimit-Remaining: 95
 X-RateLimit-Reset: 1640995200
@@ -534,11 +847,13 @@ X-RateLimit-Reset: 1640995200
 ## ページネーション
 
 ### リクエスト
+
 ```http
 GET /api/videos?page=2&limit=20
 ```
 
 ### レスポンス
+
 ```json
 {
   "data": [...],
@@ -557,16 +872,19 @@ GET /api/videos?page=2&limit=20
 ## フィルタリング・ソート
 
 ### フィルタリング
+
 ```http
 GET /api/videos?category=dance&year=2023&teamName=チーム名
 ```
 
 ### ソート
+
 ```http
 GET /api/videos?sortBy=createdAt&sortOrder=desc
 ```
 
 ### 検索
+
 ```http
 GET /api/videos?search=よさこい&searchFields=title,metadata.teamName
 ```
@@ -575,7 +893,7 @@ GET /api/videos?search=よさこい&searchFields=title,metadata.teamName
 
 APIのバージョンはURLパスで指定します：
 
-```
+```text
 /api/v1/videos  # バージョン1
 /api/v2/videos  # バージョン2（将来）
 ```
@@ -585,6 +903,7 @@ APIのバージョンはURLパスで指定します：
 ## SDK・ライブラリ
 
 ### JavaScript/TypeScript
+
 ```bash
 npm install @yosakoi-eval/api-client
 ```
@@ -603,6 +922,7 @@ const videos = await client.videos.list();
 ## 開発者向け情報
 
 ### 開発環境セットアップ
+
 ```bash
 git clone https://github.com/your-org/yosakoi-evaluation
 cd yosakoi-evaluation
@@ -611,17 +931,20 @@ npm run dev
 ```
 
 ### テスト
+
 ```bash
 npm run test:backend
 ```
 
 ### API仕様書の更新
+
 API仕様書はOpenAPI 3.0形式でも提供されています：
+
 - [OpenAPI仕様書](./openapi.yaml)
 - [Swagger UI](http://localhost:3001/api-docs)
 
 ## サポート
 
-- **ドキュメント**: https://docs.yosakoi-eval.com
-- **GitHub Issues**: https://github.com/your-org/yosakoi-evaluation/issues
-- **メール**: api-support@yosakoi-eval.com
+- **ドキュメント**: <https://docs.yosakoi-eval.com>
+- **GitHub Issues**: <https://github.com/your-org/yosakoi-evaluation/issues>
+- **メール**: <api-support@yosakoi-eval.com>

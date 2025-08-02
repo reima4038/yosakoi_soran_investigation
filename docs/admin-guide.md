@@ -18,18 +18,21 @@
 ### 権限レベル
 
 #### スーパー管理者
+
 - システム全体の設定変更
 - 他の管理者の権限管理
 - サーバー管理・メンテナンス
 - セキュリティ設定の変更
 
 #### 管理者
+
 - ユーザー管理
 - コンテンツ管理
 - 評価セッション管理
 - レポート閲覧
 
 #### モデレーター
+
 - コンテンツの承認・削除
 - ユーザーサポート
 - 基本的な管理機能
@@ -45,6 +48,7 @@
 ### システム設定
 
 #### 基本設定
+
 ```bash
 # 管理画面 > システム設定 > 基本設定
 - サイト名: YOSAKOIパフォーマンス評価システム
@@ -55,6 +59,7 @@
 ```
 
 #### 機能設定
+
 ```bash
 # 新規登録の許可
 ALLOW_REGISTRATION=true
@@ -73,6 +78,7 @@ YOUTUBE_API_QUOTA_LIMIT=10000
 ### サーバー管理
 
 #### サービス状態確認
+
 ```bash
 # Docker コンテナの状態確認
 docker-compose -f docker-compose.prod.yml ps
@@ -86,6 +92,7 @@ docker stats
 ```
 
 #### サービス再起動
+
 ```bash
 # 全サービス再起動
 docker-compose -f docker-compose.prod.yml restart
@@ -96,6 +103,7 @@ docker-compose -f docker-compose.prod.yml restart frontend
 ```
 
 #### 設定変更の反映
+
 ```bash
 # 環境変数変更後の再起動
 docker-compose -f docker-compose.prod.yml down
@@ -110,6 +118,7 @@ docker-compose -f docker-compose.prod.yml exec backend npm run reload-config
 ### ユーザー一覧・検索
 
 #### 管理画面での操作
+
 1. **ユーザー一覧**: 管理画面 > ユーザー管理 > 一覧
 2. **検索・フィルタ**:
    - メールアドレス、ユーザー名で検索
@@ -117,6 +126,7 @@ docker-compose -f docker-compose.prod.yml exec backend npm run reload-config
    - アカウント状態（アクティブ、停止、未認証）でフィルタ
 
 #### CLI での操作
+
 ```bash
 # ユーザー一覧取得
 docker-compose exec backend npm run admin:users:list
@@ -131,6 +141,7 @@ docker-compose exec backend npm run admin:users:search --query "keyword"
 ### ユーザー作成・編集
 
 #### 管理者による手動作成
+
 ```bash
 # 管理画面での作成
 管理画面 > ユーザー管理 > 新規作成
@@ -144,6 +155,7 @@ docker-compose exec backend npm run admin:users:create \
 ```
 
 #### ユーザー情報の編集
+
 ```bash
 # 基本情報の変更
 docker-compose exec backend npm run admin:users:update user@example.com \
@@ -157,6 +169,7 @@ docker-compose exec backend npm run admin:users:reset-password user@example.com
 ### アカウント管理
 
 #### アカウント停止・復活
+
 ```bash
 # アカウント停止
 docker-compose exec backend npm run admin:users:suspend user@example.com \
@@ -167,6 +180,7 @@ docker-compose exec backend npm run admin:users:activate user@example.com
 ```
 
 #### アカウント削除
+
 ```bash
 # 論理削除（データ保持）
 docker-compose exec backend npm run admin:users:soft-delete user@example.com
@@ -179,6 +193,7 @@ docker-compose exec backend npm run admin:users:hard-delete user@example.com \
 ### 権限管理
 
 #### ロール変更
+
 ```bash
 # ユーザーを管理者に昇格
 docker-compose exec backend npm run admin:users:promote user@example.com admin
@@ -188,6 +203,7 @@ docker-compose exec backend npm run admin:users:demote admin@example.com user
 ```
 
 #### 権限の確認
+
 ```bash
 # ユーザーの権限確認
 docker-compose exec backend npm run admin:users:permissions user@example.com
@@ -329,6 +345,7 @@ docker-compose exec backend npm run admin:security:send-alert \
 ### システム監視
 
 #### Grafana ダッシュボード
+
 - **URL**: `http://your-domain.com:3000`
 - **ログイン**: admin / (GRAFANA_ADMIN_PASSWORD)
 - **主要メトリクス**:
@@ -339,6 +356,7 @@ docker-compose exec backend npm run admin:security:send-alert \
   - アプリケーション応答時間
 
 #### Prometheus メトリクス
+
 - **URL**: `http://your-domain.com:9090`
 - **カスタムメトリクス**:
   - ユーザー登録数
@@ -349,6 +367,7 @@ docker-compose exec backend npm run admin:security:send-alert \
 ### ログ管理
 
 #### ログファイルの場所
+
 ```bash
 # アプリケーションログ
 ./logs/app.log
@@ -365,6 +384,7 @@ docker-compose exec backend npm run admin:security:send-alert \
 ```
 
 #### ログの確認・分析
+
 ```bash
 # エラーログの確認
 tail -f logs/error.log
