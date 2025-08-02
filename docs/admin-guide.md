@@ -127,89 +127,161 @@ docker-compose -f docker-compose.prod.yml exec backend npm run reload-config
 
 #### CLI での操作
 
+**注意**: 以下のCLIコマンドは現在実装されていません。管理画面またはAPIを使用してください。
+
 ```bash
-# ユーザー一覧取得
-docker-compose exec backend npm run admin:users:list
-
-# 特定ユーザーの詳細
-docker-compose exec backend npm run admin:users:show user@example.com
-
-# ユーザー検索
-docker-compose exec backend npm run admin:users:search --query "keyword"
+# 将来実装予定のコマンド例
+# docker-compose exec backend npm run admin:users:list
+# docker-compose exec backend npm run admin:users:show user@example.com
+# docker-compose exec backend npm run admin:users:search --query "keyword"
 ```
+
+**現在利用可能な方法**:
+
+- 管理画面: `https://your-domain.com/admin`
+- API経由: `GET /api/users` (管理者権限必要)
 
 ### ユーザー作成・編集
 
 #### 管理者による手動作成
 
-```bash
-# 管理画面での作成
-管理画面 > ユーザー管理 > 新規作成
+**管理画面での作成**:
 
-# CLI での作成
-docker-compose exec backend npm run admin:users:create \
-  --email user@example.com \
-  --username testuser \
-  --role user \
-  --password temporary_password
+1. 管理画面 > ユーザー管理 > 新規作成
+2. 必要な情報を入力
+3. 「作成」ボタンをクリック
+
+**API経由での作成**:
+
+```bash
+# POST /api/auth/register (管理者権限で実行)
+curl -X POST http://localhost:3001/api/auth/register \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <admin_token>" \
+  -d '{
+    "username": "testuser",
+    "email": "user@example.com",
+    "password": "temporary_password"
+  }'
 ```
 
 #### ユーザー情報の編集
 
-```bash
-# 基本情報の変更
-docker-compose exec backend npm run admin:users:update user@example.com \
-  --username new_username \
-  --role moderator
+**管理画面での編集**:
 
-# パスワードリセット
-docker-compose exec backend npm run admin:users:reset-password user@example.com
+1. 管理画面 > ユーザー管理 > 一覧
+2. 編集したいユーザーを選択
+3. 情報を修正して保存
+
+**API経由での編集**:
+
+```bash
+# PUT /api/users/me (対象ユーザーのトークンで実行)
+curl -X PUT http://localhost:3001/api/users/me \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <user_token>" \
+  -d '{
+    "username": "new_username"
+  }'
 ```
 
 ### アカウント管理
 
 #### アカウント停止・復活
 
-```bash
-# アカウント停止
-docker-compose exec backend npm run admin:users:suspend user@example.com \
-  --reason "利用規約違反"
+**注意**: 専用のCLIコマンドは現在実装されていません。管理画面またはデータベース直接操作で対応してください。
 
-# アカウント復活
-docker-compose exec backend npm run admin:users:activate user@example.com
+**管理画面での操作**:
+
+1. 管理画面 > ユーザー管理 > 一覧
+2. 対象ユーザーを選択
+3. 「アカウント停止」または「アカウント復活」ボタンをクリック
+
+**データベース直接操作** (緊急時のみ):
+
+```bash
+# MongoDB でユーザーを無効化
+docker-compose exec mongodb mongo yosakoi_evaluation --eval "
+  db.users.updateOne(
+    {email: 'user@example.com'}, 
+    {\$set: {isActive: false, suspendedAt: new Date()}}
+  )
+"
+
+# MongoDB でユーザーを復活
+docker-compose exec mongodb mongo yosakoi_evaluation --eval "
+  db.users.updateOne(
+    {email: 'user@example.com'}, 
+    {\$set: {isActive: true}, \$unset: {suspendedAt: 1}}
+  )
+"
 ```
 
 #### アカウント削除
 
-```bash
-# 論理削除（データ保持）
-docker-compose exec backend npm run admin:users:soft-delete user@example.com
+**注意**: アカウント削除は慎重に行ってください。バックアップを取ってから実行することを推奨します。
 
-# 物理削除（完全削除）
-docker-compose exec backend npm run admin:users:hard-delete user@example.com \
-  --confirm
+**データベース直接操作**:
+
+```bash
+# 論理削除（推奨）
+docker-compose exec mongodb mongo yosakoi_evaluation --eval "
+  db.users.updateOne(
+    {email: 'user@example.com'}, 
+    {\$set: {isDeleted: true, deletedAt: new Date()}}
+  )
+"
+
+# 物理削除（注意: 復旧不可）
+docker-compose exec mongodb mongo yosakoi_evaluation --eval "
+  db.users.deleteOne({email: 'user@example.com'})
+"
 ```
 
 ### 権限管理
 
 #### ロール変更
 
+**データベース直接操作**:
+
 ```bash
 # ユーザーを管理者に昇格
-docker-compose exec backend npm run admin:users:promote user@example.com admin
+docker-compose exec mongodb mongo yosakoi_evaluation --eval "
+  db.users.updateOne(
+    {email: 'user@example.com'}, 
+    {\$set: {role: 'admin'}}
+  )
+"
 
 # 管理者をユーザーに降格
-docker-compose exec backend npm run admin:users:demote admin@example.com user
+docker-compose exec mongodb mongo yosakoi_evaluation --eval "
+  db.users.updateOne(
+    {email: 'admin@example.com'}, 
+    {\$set: {role: 'user'}}
+  )
+"
 ```
 
 #### 権限の確認
 
+**データベースクエリ**:
+
 ```bash
 # ユーザーの権限確認
-docker-compose exec backend npm run admin:users:permissions user@example.com
+docker-compose exec mongodb mongo yosakoi_evaluation --eval "
+  db.users.findOne(
+    {email: 'user@example.com'}, 
+    {email: 1, username: 1, role: 1, isActive: 1}
+  )
+"
 
 # ロール別ユーザー数確認
-docker-compose exec backend npm run admin:users:stats --by-role
+docker-compose exec mongodb mongo yosakoi_evaluation --eval "
+  db.users.aggregate([
+    {\$group: {_id: '\$role', count: {\$sum: 1}}},
+    {\$sort: {_id: 1}}
+  ])
+"
 ```
 
 ## コンテンツ管理
@@ -217,55 +289,127 @@ docker-compose exec backend npm run admin:users:stats --by-role
 ### 動画管理
 
 #### 動画一覧・検索
-```bash
-# 管理画面での確認
-管理画面 > コンテンツ管理 > 動画一覧
 
-# CLI での操作
-docker-compose exec backend npm run admin:videos:list --limit 50
-docker-compose exec backend npm run admin:videos:search --query "チーム名"
+**管理画面での確認**:
+
+- 管理画面 > コンテンツ管理 > 動画一覧
+
+**API経由での操作**:
+
+```bash
+# 動画一覧取得
+curl -X GET "http://localhost:3001/api/videos?page=1&limit=50" \
+  -H "Authorization: Bearer <admin_token>"
+
+# 動画検索
+curl -X GET "http://localhost:3001/api/videos?search=チーム名" \
+  -H "Authorization: Bearer <admin_token>"
+```
+
+**データベース直接クエリ**:
+
+```bash
+# 動画一覧確認
+docker-compose exec mongodb mongo yosakoi_evaluation --eval "
+  db.videos.find({}, {title: 1, youtubeId: 1, createdAt: 1}).limit(10)
+"
 ```
 
 #### 動画の承認・削除
+
+**API経由での操作**:
+
 ```bash
-# 動画の承認
-docker-compose exec backend npm run admin:videos:approve video_id
+# 動画削除
+curl -X DELETE "http://localhost:3001/api/videos/video_id" \
+  -H "Authorization: Bearer <admin_token>"
+```
 
-# 動画の削除
-docker-compose exec backend npm run admin:videos:delete video_id \
-  --reason "不適切なコンテンツ"
+**データベース直接操作**:
 
-# 一括削除
-docker-compose exec backend npm run admin:videos:bulk-delete \
-  --ids video_id1,video_id2,video_id3
+```bash
+# 動画の論理削除
+docker-compose exec mongodb mongo yosakoi_evaluation --eval "
+  db.videos.updateOne(
+    {_id: ObjectId('video_id')}, 
+    {\$set: {isDeleted: true, deletedAt: new Date()}}
+  )
+"
+
+# 動画の物理削除（注意: 復旧不可）
+docker-compose exec mongodb mongo yosakoi_evaluation --eval "
+  db.videos.deleteOne({_id: ObjectId('video_id')})
+"
 ```
 
 ### テンプレート管理
 
 #### システムテンプレートの管理
-```bash
-# システム標準テンプレートの作成
-docker-compose exec backend npm run admin:templates:create-system \
-  --name "標準評価テンプレート" \
-  --file templates/standard.json
 
-# テンプレートの公開・非公開
-docker-compose exec backend npm run admin:templates:publish template_id
-docker-compose exec backend npm run admin:templates:unpublish template_id
+**API経由での操作**:
+
+```bash
+# テンプレート一覧取得
+curl -X GET "http://localhost:3001/api/templates" \
+  -H "Authorization: Bearer <admin_token>"
+
+# テンプレート作成
+curl -X POST "http://localhost:3001/api/templates" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <admin_token>" \
+  -d '{
+    "name": "標準評価テンプレート",
+    "description": "システム標準テンプレート",
+    "categories": [...]
+  }'
+```
+
+**データベース直接操作**:
+
+```bash
+# テンプレートの公開・非公開切り替え
+docker-compose exec mongodb mongo yosakoi_evaluation --eval "
+  db.templates.updateOne(
+    {_id: ObjectId('template_id')}, 
+    {\$set: {isPublic: true}}
+  )
+"
 ```
 
 ### 評価セッション管理
 
 #### セッション監視
+
+**API経由での操作**:
+
 ```bash
 # アクティブセッション一覧
-docker-compose exec backend npm run admin:sessions:active
+curl -X GET "http://localhost:3001/api/sessions?status=active" \
+  -H "Authorization: Bearer <admin_token>"
 
 # セッション詳細確認
-docker-compose exec backend npm run admin:sessions:show session_id
+curl -X GET "http://localhost:3001/api/sessions/session_id" \
+  -H "Authorization: Bearer <admin_token>"
+```
+
+**データベース直接クエリ**:
+
+```bash
+# アクティブセッション確認
+docker-compose exec mongodb mongo yosakoi_evaluation --eval "
+  db.sessions.find(
+    {status: 'active'}, 
+    {name: 1, createdBy: 1, startDate: 1, endDate: 1}
+  )
+"
 
 # 問題のあるセッションの強制終了
-docker-compose exec backend npm run admin:sessions:force-close session_id
+docker-compose exec mongodb mongo yosakoi_evaluation --eval "
+  db.sessions.updateOne(
+    {_id: ObjectId('session_id')}, 
+    {\$set: {status: 'closed', closedAt: new Date()}}
+  )
+"
 ```
 
 ## セキュリティ管理
@@ -273,6 +417,9 @@ docker-compose exec backend npm run admin:sessions:force-close session_id
 ### セキュリティ監査
 
 #### 定期監査の実行
+
+**実装済みコマンド**:
+
 ```bash
 # 包括的セキュリティ監査
 npm run security:audit
@@ -285,59 +432,107 @@ npm run security:test
 ```
 
 #### 監査レポートの確認
+
+**注意**: 監査レポートファイルの場所は実装により異なります。
+
 ```bash
-# 最新の監査レポート確認
-cat security-audit-report.json | jq '.vulnerabilities'
+# npm audit の結果確認
+npm audit --json | jq '.vulnerabilities'
 
 # 重要度別の脆弱性確認
-cat security-audit-report.json | jq '.vulnerabilities[] | select(.severity == "critical")'
+npm audit --json | jq '.vulnerabilities[] | select(.severity == "critical")'
+
+# バックエンドの脆弱性チェック
+cd backend && npm audit
+
+# フロントエンドの脆弱性チェック
+cd frontend && npm audit
 ```
 
 ### アクセス制御
 
 #### IP制限の設定
+
+**注意**: 専用のCLIコマンドは実装されていません。以下の方法で対応してください。
+
+**Nginx設定での制御** (推奨):
+
 ```bash
-# 特定IPの許可
-docker-compose exec backend npm run admin:security:allow-ip 192.168.1.100
+# nginx設定ファイルを編集
+docker-compose exec nginx vi /etc/nginx/conf.d/default.conf
 
-# 特定IPのブロック
-docker-compose exec backend npm run admin:security:block-ip 192.168.1.200
+# 特定IPの許可例
+# allow 192.168.1.100;
+# deny all;
 
-# IP制限一覧の確認
-docker-compose exec backend npm run admin:security:list-ip-rules
+# 設定反映
+docker-compose exec nginx nginx -s reload
+```
+
+**ファイアウォール設定**:
+
+```bash
+# iptablesでIP制限
+sudo iptables -A INPUT -s 192.168.1.100 -j ACCEPT
+sudo iptables -A INPUT -s 192.168.1.200 -j DROP
+
+# 設定の確認
+sudo iptables -L
 ```
 
 #### レート制限の調整
-```bash
-# レート制限設定の確認
-docker-compose exec backend npm run admin:security:rate-limits
 
-# 特定ユーザーのレート制限解除
-docker-compose exec backend npm run admin:security:reset-rate-limit user@example.com
+**Express Rate Limit設定の確認**:
+
+```bash
+# バックエンドのログでレート制限状況を確認
+docker-compose logs backend | grep "rate limit"
+
+# Redis でレート制限データを確認
+docker-compose exec redis redis-cli keys "*rate-limit*"
 ```
 
 ### セキュリティインシデント対応
 
 #### 不正アクセスの検知
-```bash
-# 不正ログイン試行の確認
-docker-compose exec backend npm run admin:security:failed-logins --last 24h
 
-# 異常なアクセスパターンの検知
-docker-compose exec backend npm run admin:security:anomaly-detection
+**ログ分析による検知**:
+
+```bash
+# 失敗したログイン試行の確認
+docker-compose logs backend | grep "login failed" | tail -20
+
+# 異常なアクセスパターンの確認
+docker-compose logs backend | grep "401\|403" | tail -50
+
+# アクセスログの分析
+tail -f logs/access.log | grep -E "(401|403|429)"
 ```
 
 #### 緊急時の対応
+
+**システム緊急停止**:
+
 ```bash
-# システム緊急停止
+# 全サービス停止
 docker-compose -f docker-compose.prod.yml down
 
-# 特定ユーザーの緊急停止
-docker-compose exec backend npm run admin:users:emergency-suspend user@example.com
+# 特定サービスのみ停止
+docker-compose -f docker-compose.prod.yml stop backend
+```
 
-# セキュリティアラートの送信
-docker-compose exec backend npm run admin:security:send-alert \
-  --message "セキュリティインシデント発生"
+**緊急対応手順**:
+
+```bash
+# 1. システム状況の確認
+docker-compose ps
+docker stats --no-stream
+
+# 2. ログの保全
+cp -r logs/ incident_logs_$(date +%Y%m%d_%H%M%S)/
+
+# 3. 必要に応じてデータベースの緊急バックアップ
+docker-compose exec mongodb mongodump --out /backup/emergency_$(date +%Y%m%d_%H%M%S)
 ```
 
 ## 監視・ログ管理
@@ -461,38 +656,74 @@ du -sh /opt/backups/*
 ### 手動バックアップ
 
 #### 即座のバックアップ実行
+
+**実装済みスクリプト**:
+
 ```bash
-# 完全バックアップ
-./scripts/backup.sh manual
+# 基本バックアップスクリプト実行
+npm run backup
+# または
+./scripts/backup.sh
+```
 
-# データベースのみ
-./scripts/backup.sh --component mongodb
+**手動データベースバックアップ**:
 
-# 特定日付のバックアップ
-./scripts/backup.sh --date 2023-12-01
+```bash
+# MongoDB バックアップ
+docker-compose exec mongodb mongodump --out /backup/mongodb_$(date +%Y%m%d_%H%M%S)
+
+# Redis バックアップ
+docker-compose exec redis redis-cli save
+docker cp $(docker-compose ps -q redis):/data/dump.rdb ./backup/redis_$(date +%Y%m%d_%H%M%S).rdb
 ```
 
 ### 復旧手順
 
 #### データベース復旧
+
+**注意**: 専用の復旧スクリプトは実装されていません。手動で復旧を行ってください。
+
+**MongoDB復旧**:
+
 ```bash
-# MongoDB復旧
-./scripts/restore.sh mongodb backup_20231201_020000.tar.gz
+# バックアップファイルからの復旧
+docker-compose exec mongodb mongorestore --drop /backup/mongodb_backup_directory
 
-# Redis復旧
-./scripts/restore.sh redis backup_20231201_020000.rdb
+# 特定のコレクションのみ復旧
+docker-compose exec mongodb mongorestore --drop --collection videos /backup/mongodb_backup_directory/yosakoi_evaluation/videos.bson
+```
 
-# 復旧後の整合性チェック
-./scripts/verify-restore.sh
+**Redis復旧**:
+
+```bash
+# Redisサービス停止
+docker-compose stop redis
+
+# バックアップファイルをコピー
+docker cp ./backup/redis_backup.rdb $(docker-compose ps -q redis):/data/dump.rdb
+
+# Redisサービス再開
+docker-compose start redis
 ```
 
 #### 災害復旧
-```bash
-# 完全システム復旧
-./scripts/disaster-recovery.sh --backup-date 2023-12-01
 
-# 段階的復旧
-./scripts/restore.sh --step-by-step --backup latest
+**手動復旧手順**:
+
+```bash
+# 1. システム停止
+docker-compose -f docker-compose.prod.yml down
+
+# 2. データベース復旧（上記手順参照）
+
+# 3. 設定ファイル復旧
+cp backup/config/* ./
+
+# 4. システム再起動
+docker-compose -f docker-compose.prod.yml up -d
+
+# 5. 動作確認
+curl -f http://localhost/health
 ```
 
 ## パフォーマンス管理
@@ -500,50 +731,94 @@ du -sh /opt/backups/*
 ### パフォーマンス監視
 
 #### リアルタイム監視
+
+**システムリソース監視**:
+
 ```bash
-# システムリソース監視
+# システムリソース監視（要インストール）
 htop
 iotop
 nethogs
 
+# 基本的なシステム監視
+top
+free -h
+df -h
+
 # Docker コンテナ監視
 docker stats
 
-# データベース監視
+# ネットワーク監視
+netstat -tulpn
+ss -tulpn
+```
+
+**データベース監視**:
+
+```bash
+# MongoDB 監視
 docker-compose exec mongodb mongostat
+docker-compose exec mongodb mongo --eval "db.stats()"
+
+# Redis 監視
 docker-compose exec redis redis-cli info stats
+docker-compose exec redis redis-cli info memory
 ```
 
 #### パフォーマンステスト
+
+**注意**: 専用のパフォーマンステストコマンドは実装されていません。
+
+**基本的なテスト**:
+
 ```bash
-# 負荷テストの実行
-npm run test:load
+# 既存のテスト実行
+npm run test:backend
+npm run test:frontend
 
-# API レスポンステスト
-npm run test:performance
+# 簡単なAPI応答テスト
+curl -w "@curl-format.txt" -o /dev/null -s "http://localhost:3001/api/health"
 
-# データベースパフォーマンステスト
-docker-compose exec backend npm run test:db-performance
+# Apache Bench を使用した負荷テスト（要インストール）
+ab -n 100 -c 10 http://localhost:3001/api/health
 ```
 
 ### 最適化
 
 #### データベース最適化
+
 ```bash
-# MongoDB インデックス最適化
-docker-compose exec mongodb mongo yosakoi_evaluation --eval "db.runCommand({reIndex: 'videos'})"
+# MongoDB インデックス確認
+docker-compose exec mongodb mongo yosakoi_evaluation --eval "
+  db.videos.getIndexes()
+"
+
+# MongoDB 統計情報更新
+docker-compose exec mongodb mongo yosakoi_evaluation --eval "
+  db.runCommand({planCacheClear: 'videos'})
+"
 
 # Redis メモリ最適化
 docker-compose exec redis redis-cli config set maxmemory-policy allkeys-lru
+docker-compose exec redis redis-cli config get maxmemory
 ```
 
 #### アプリケーション最適化
-```bash
-# Node.js プロセス最適化
-docker-compose exec backend npm run optimize:memory
 
-# 静的ファイル最適化
-docker-compose exec frontend npm run optimize:assets
+**注意**: 専用の最適化コマンドは実装されていません。
+
+**手動最適化**:
+
+```bash
+# Node.js プロセスの再起動
+docker-compose restart backend
+
+# 静的ファイルの再ビルド
+npm run build:frontend
+
+# Docker イメージの最適化
+docker system prune -f
+docker image prune -f
 ```
 
 ## トラブルシューティング
@@ -607,82 +882,118 @@ docker-compose exec backend npm run admin:logs:error-analysis
 ### 定期メンテナンス
 
 #### 日次メンテナンス
+
 ```bash
 #!/bin/bash
 # daily-maintenance.sh
 
-# ログローテーション
-logrotate /etc/logrotate.d/yosakoi-evaluation
+# ログファイルサイズ確認
+ls -lh logs/
 
 # 一時ファイルクリーンアップ
-find /tmp -name "yosakoi-*" -mtime +1 -delete
+find /tmp -name "yosakoi-*" -mtime +1 -delete 2>/dev/null || true
 
-# データベース統計更新
-docker-compose exec mongodb mongo yosakoi_evaluation --eval "db.runCommand({updateStats: 1})"
+# データベース統計確認
+docker-compose exec mongodb mongo yosakoi_evaluation --eval "
+  print('Collections stats:');
+  db.stats();
+"
 
 # システムリソース確認
+echo "=== Disk Usage ==="
 df -h
+echo "=== Memory Usage ==="
 free -h
+echo "=== Docker Stats ==="
+docker stats --no-stream
 ```
 
 #### 週次メンテナンス
+
 ```bash
 #!/bin/bash
 # weekly-maintenance.sh
 
-# セキュリティ監査
+# セキュリティ監査（実装済み）
 npm run security:audit
+npm run security:scan
 
-# パフォーマンステスト
-npm run test:performance
-
-# バックアップ検証
-./scripts/verify-backup.sh weekly
+# テスト実行
+npm run test:backend
+npm run test:frontend
 
 # 不要なDockerイメージ削除
 docker image prune -f
+docker container prune -f
+
+# ログファイルのアーカイブ
+tar -czf logs_archive_$(date +%Y%m%d).tar.gz logs/
 ```
 
 #### 月次メンテナンス
+
 ```bash
 #!/bin/bash
 # monthly-maintenance.sh
 
-# 依存関係更新
+# 依存関係の脆弱性チェックと更新
+npm audit
 npm audit fix
-cd backend && npm update
-cd ../frontend && npm update
 
-# データベース最適化
-docker-compose exec mongodb mongo yosakoi_evaluation --eval "db.runCommand({compact: 'videos'})"
+# バックエンド依存関係更新
+cd backend
+npm audit
+npm audit fix
+cd ..
 
-# SSL証明書確認
-openssl x509 -in nginx/ssl/cert.pem -text -noout | grep "Not After"
+# フロントエンド依存関係更新
+cd frontend
+npm audit
+npm audit fix
+cd ..
+
+# データベース統計情報更新
+docker-compose exec mongodb mongo yosakoi_evaluation --eval "
+  db.runCommand({planCacheClear: 'videos'});
+  db.runCommand({planCacheClear: 'users'});
+  db.runCommand({planCacheClear: 'sessions'});
+"
+
+# SSL証明書確認（証明書が存在する場合）
+if [ -f "nginx/ssl/cert.pem" ]; then
+  echo "SSL Certificate expiry:"
+  openssl x509 -in nginx/ssl/cert.pem -text -noout | grep "Not After"
+fi
 ```
 
 ### アップデート手順
 
 #### アプリケーションアップデート
+
 ```bash
 # 1. バックアップ作成
-./scripts/backup.sh pre-update
+npm run backup
 
 # 2. 新バージョンのダウンロード
 git fetch origin
-git checkout v2.0.0
+git checkout main  # または適切なブランチ/タグ
 
 # 3. 依存関係更新
 npm run install:all
 
-# 4. データベースマイグレーション
-docker-compose exec backend npm run migrate
+# 4. アプリケーションビルド
+npm run build
 
 # 5. アプリケーション再起動
-docker-compose -f docker-compose.prod.yml restart
+docker-compose -f docker-compose.prod.yml down
+docker-compose -f docker-compose.prod.yml up -d
 
 # 6. 動作確認
-curl -f http://localhost/health
-npm run test:smoke
+sleep 30  # サービス起動待ち
+curl -f http://localhost:3001/api/health || echo "Health check failed"
+
+# 7. テスト実行
+npm run test:backend
 ```
 
 #### システムアップデート
@@ -709,19 +1020,46 @@ docker-compose -f docker-compose.prod.yml stop backend
 ```
 
 #### 緊急復旧
-```bash
-# 最新バックアップからの復旧
-./scripts/emergency-restore.sh
 
-# 最小限のサービス起動
-docker-compose -f docker-compose.minimal.yml up -d
+**注意**: 専用の緊急復旧スクリプトは実装されていません。
+
+```bash
+# 手動緊急復旧手順
+
+# 1. 現在の状況確認
+docker-compose ps
+docker stats --no-stream
+
+# 2. ログの保全
+mkdir -p incident_$(date +%Y%m%d_%H%M%S)
+cp -r logs/ incident_$(date +%Y%m%d_%H%M%S)/
+
+# 3. 最新バックアップからの復旧（手動）
+# MongoDB復旧
+docker-compose exec mongodb mongorestore --drop /backup/latest_mongodb_backup
+
+# 4. 最小限のサービス起動
+docker-compose up -d mongodb redis
+sleep 10
+docker-compose up -d backend
+sleep 10
+docker-compose up -d frontend nginx
 ```
 
 #### インシデント報告
-```bash
-# インシデントレポート作成
-./scripts/incident-report.sh --type emergency --description "説明"
 
-# ステークホルダーへの通知
-./scripts/notify-stakeholders.sh --incident incident_id
+**手動インシデント報告**:
+
+```bash
+# インシデント情報の記録
+cat > incident_report_$(date +%Y%m%d_%H%M%S).txt << EOF
+インシデント発生時刻: $(date)
+システム状況: $(docker-compose ps)
+エラーログ: $(tail -20 logs/error.log)
+対応内容: [手動で記入]
+EOF
+
+# 関係者への通知（メール送信例）
+echo "システムインシデントが発生しました。詳細は添付ファイルを確認してください。" | \
+  mail -s "緊急: システムインシデント発生" -a incident_report_*.txt admin@your-domain.com
 ```
