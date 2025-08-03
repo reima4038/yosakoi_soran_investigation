@@ -1,6 +1,7 @@
 import { google } from 'googleapis';
 import { config } from '../config';
 import { YouTubeURLNormalizer, NormalizedURL, URLValidationError } from '../utils/urlNormalizer';
+import { ErrorMessageManager, SupportedLanguage } from '../utils/errorMessages';
 
 export interface YouTubeVideoInfo {
   id: string;
@@ -64,6 +65,27 @@ class YouTubeService {
    */
   normalizeMultipleURLs(urls: string[]): NormalizedURL[] {
     return YouTubeURLNormalizer.normalizeMultiple(urls);
+  }
+
+  /**
+   * 言語対応のエラーメッセージを取得
+   */
+  getLocalizedErrorMessage(error: URLValidationError, language: SupportedLanguage = 'ja') {
+    return ErrorMessageManager.getMessage(error.type, language);
+  }
+
+  /**
+   * フォーマット済みエラーメッセージを取得
+   */
+  getFormattedErrorMessage(error: URLValidationError, language: SupportedLanguage = 'ja', includeExample: boolean = true): string {
+    return ErrorMessageManager.getFormattedMessage(error.type, language, includeExample);
+  }
+
+  /**
+   * ユーザー向けヘルプメッセージを生成
+   */
+  generateUserHelpMessage(error: URLValidationError, language: SupportedLanguage = 'ja') {
+    return ErrorMessageManager.generateHelpMessage(error.type, language);
   }
 
   /**

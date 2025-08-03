@@ -150,13 +150,18 @@ export class YouTubeURLNormalizer {
     // 正規化されたURLを生成
     const canonicalUrl = `https://www.youtube.com/watch?v=${extractionResult.videoId}`;
     
-    return {
+    const result: NormalizedURL = {
       original: url,
       canonical: canonicalUrl,
       videoId: extractionResult.videoId,
-      isValid: true,
-      metadata: extractionResult.metadata
+      isValid: true
     };
+
+    if (extractionResult.metadata !== undefined) {
+      result.metadata = extractionResult.metadata;
+    }
+
+    return result;
   }
 
   /**
@@ -172,7 +177,7 @@ export class YouTubeURLNormalizer {
   /**
    * ビデオIDを抽出する
    */
-  private static extractVideoId(url: string): { videoId: string | null; metadata?: any } {
+  private static extractVideoId(url: string): { videoId: string | null; metadata?: { timestamp?: number; playlist?: string; index?: number } } {
     for (const pattern of YOUTUBE_URL_PATTERNS) {
       const match = url.match(pattern.pattern);
       if (match) {
@@ -180,7 +185,11 @@ export class YouTubeURLNormalizer {
         if (videoId) {
           // メタデータの抽出
           const metadata = this.extractMetadata(url);
-          return { videoId, metadata };
+          const result: { videoId: string | null; metadata?: { timestamp?: number; playlist?: string; index?: number } } = { videoId };
+          if (metadata !== undefined) {
+            result.metadata = metadata;
+          }
+          return result;
         }
       }
     }
@@ -190,8 +199,8 @@ export class YouTubeURLNormalizer {
   /**
    * URLからメタデータを抽出する（タイムスタンプ、プレイリスト情報など）
    */
-  private static extractMetadata(url: string): any {
-    const metadata: unknown = {};
+  private static extractMetadata(url: string): { timestamp?: number; playlist?: string; index?: number } | undefined {
+    const metadata: { timestamp?: number; playlist?: string; index?: number } = {};
     
     try {
       const urlObj = new URL(url);

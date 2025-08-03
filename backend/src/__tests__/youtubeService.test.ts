@@ -1,5 +1,6 @@
 import { youtubeService } from '../services/youtubeService';
-import { URLValidationErrorType } from '../utils/urlNormalizer';
+import { URLValidationErrorType, YouTubeURLNormalizer } from '../utils/urlNormalizer';
+import { ErrorMessageManager } from '../utils/errorMessages';
 
 describe('YouTubeService', () => {
   describe('extractVideoId', () => {
@@ -183,6 +184,70 @@ describe('YouTubeService', () => {
       expect(results[1].isValid).toBe(true);
       expect(results[1].videoId).toBe('jNQXAC9IVRw');
       expect(results[2].isValid).toBe(false);
+    });
+  });
+
+  describe('error message functionality', () => {
+    test('getLocalizedErrorMessage should return localized error messages', () => {
+      // URLValidationErrorを作成
+      const error = {
+        name: 'URLValidationError',
+        message: 'Test error',
+        type: URLValidationErrorType.NOT_YOUTUBE
+      } as any;
+
+      const jaMessage = youtubeService.getLocalizedErrorMessage(error, 'ja');
+      const enMessage = youtubeService.getLocalizedErrorMessage(error, 'en');
+
+      expect(jaMessage.message).toBe('YouTube以外のURLは登録できません');
+      expect(enMessage.message).toBe('Only YouTube URLs are supported');
+    });
+
+    test('getFormattedErrorMessage should return formatted error messages', () => {
+      const error = {
+        name: 'URLValidationError',
+        message: 'Test error',
+        type: URLValidationErrorType.MISSING_VIDEO_ID
+      } as any;
+
+      const formatted = youtubeService.getFormattedErrorMessage(error, 'ja', true);
+      
+      expect(formatted).toContain('ビデオIDが見つかりません');
+      expect(formatted).toContain('完全なYouTube URLを入力してください');
+      expect(formatted).toContain('例: https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+    });
+
+    test('generateUserHelpMessage should return structured help message', () => {
+      const error = {
+        name: 'URLValidationError',
+        message: 'Test error',
+        type: URLValidationErrorType.PRIVATE_VIDEO
+      } as any;
+
+      const help = youtubeService.generateUserHelpMessage(error, 'ja');
+      
+      expect(help.title).toBe('URL検証エラー');
+      expect(help.message).toBe('この動画は非公開のため登録できません');
+      expect(help.suggestion).toBe('公開されている動画のURLを入力してください');
+      expect(help.userAction).toBe('動画の公開設定を確認するか、別の動画を選択してください');
+    });
+
+    test('should handle error messages for all error types', () => {
+      const errorTypes = Object.values(URLValidationErrorType);
+      
+      errorTypes.forEach(errorType => {
+        const error = {
+          name: 'URLValidationError',
+          message: 'Test error',
+          type: errorType
+        } as any;
+
+        const jaMessage = youtubeService.getLocalizedErrorMessage(error, 'ja');
+        const enMessage = youtubeService.getLocalizedErrorMessage(error, 'en');
+        
+        expect(jaMessage.message).toBeTruthy();
+        expect(enMessage.message).toBeTruthy();
+      });
     });
   });
 });
