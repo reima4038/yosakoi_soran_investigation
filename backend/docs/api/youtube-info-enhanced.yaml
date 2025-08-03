@@ -1,0 +1,594 @@
+openapi: 3.0.3
+info:
+  title: YouTube URL Validation API - Enhanced
+  description: |
+    改善されたYouTube URL検証とビデオ情報取得API
+    
+    ## 主な改善点
+    - 多言語対応（日本語・英語）
+    - URL正規化機能
+    - 詳細なエラーメッセージ
+    - 統合されたバリデーション
+    
+  version: 2.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+
+servers:
+  - url: http://localhost:3000/api
+    description: Development server
+
+paths:
+  /videos/youtube-info:
+    get:
+      summary: YouTube動画情報取得（改善版）
+      description: |
+        YouTube URLから動画情報を取得し、登録可能性をチェックします。
+        
+        ## 機能
+        - 様々なYouTube URL形式に対応
+        - URL正規化
+        - 重複チェック
+        - 多言語エラーメッセージ
+        
+      parameters:
+        - name: url
+          in: query
+          required: true
+          description: YouTube URL（様々な形式に対応）
+          schema:
+            type: string
+            example: "https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLtest&index=1&t=30s"
+        - name: lang
+          in: query
+          required: false
+          description: レスポンス言語
+          schema:
+            type: string
+            enum: [ja, en]
+            default: ja
+        - name: Accept-Language
+          in: header
+          required: false
+          description: ブラウザ言語設定（自動検出）
+          schema:
+            type: string
+            example: "ja-JP,ja;q=0.9,en;q=0.8"
+        - name: X-Language
+          in: header
+          required: false
+          description: カスタム言語ヘッダー
+          schema:
+            type: string
+            enum: [ja, en]
+
+      responses:
+        '200':
+          description: 動画情報取得成功
+          headers:
+            Content-Language:
+              description: レスポンス言語
+              schema:
+                type: string
+                enum: [ja, en]
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        description: YouTube動画ID
+                        example: "dQw4w9WgXcQ"
+                      title:
+                        type: string
+                        description: 動画タイトル
+                        example: "Rick Astley - Never Gonna Give You Up"
+                      channelTitle:
+                        type: string
+                        description: チャンネル名
+                        example: "RickAstleyVEVO"
+                      publishedAt:
+                        type: string
+                        format: date-time
+                        description: 公開日時
+                        example: "2009-10-25T06:57:33Z"
+                      description:
+                        type: string
+                        description: 動画説明
+                      thumbnails:
+                        type: object
+                        description: サムネイル画像
+                        properties:
+                          default:
+                            type: object
+                            properties:
+                              url:
+                                type: string
+                                format: uri
+                          medium:
+                            type: object
+                            properties:
+                              url:
+                                type: string
+                                format: uri
+                          high:
+                            type: object
+                            properties:
+                              url:
+                                type: string
+                                format: uri
+                      duration:
+                        type: string
+                        description: 動画長（ISO 8601形式）
+                        example: "PT3M33S"
+                      viewCount:
+                        type: string
+                        description: 再生回数
+                        example: "1000000000"
+                      likeCount:
+                        type: string
+                        description: いいね数
+                        example: "10000000"
+                      tags:
+                        type: array
+                        items:
+                          type: string
+                        description: タグ
+                      normalizedUrl:
+                        type: string
+                        format: uri
+                        description: 正規化されたURL
+                        example: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                      originalUrl:
+                        type: string
+                        format: uri
+                        description: 元のURL
+                        example: "https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLtest&index=1&t=30s"
+                      metadata:
+                        type: object
+                        description: URL メタデータ
+                        properties:
+                          timestamp:
+                            type: integer
+                            description: タイムスタンプ（秒）
+                            example: 30
+                          playlist:
+                            type: string
+                            description: プレイリストID
+                            example: "PLtest"
+                          index:
+                            type: integer
+                            description: プレイリスト内インデックス
+                            example: 1
+                      isEmbeddable:
+                        type: boolean
+                        description: 埋め込み可能かどうか
+                        example: true
+                      canRegister:
+                        type: boolean
+                        description: 登録可能かどうか
+                        example: true
+                  language:
+                    type: string
+                    enum: [ja, en]
+                    description: レスポンス言語
+                    example: "ja"
+
+        '400':
+          description: URL検証エラー
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                        enum: 
+                          - INVALID_FORMAT
+                          - NOT_YOUTUBE
+                          - MISSING_VIDEO_ID
+                          - PRIVATE_VIDEO
+                          - VIDEO_NOT_FOUND
+                        description: エラータイプ
+                        example: "NOT_YOUTUBE"
+                      message:
+                        type: string
+                        description: エラーメッセージ
+                        example: "YouTube以外のURLは登録できません"
+                      suggestion:
+                        type: string
+                        description: 修正提案
+                        example: "YouTube（youtube.com または youtu.be）のURLを入力してください"
+                      userAction:
+                        type: string
+                        description: ユーザーが取るべき行動
+                        example: "YouTubeの動画ページからURLをコピーしてください"
+                      example:
+                        type: string
+                        format: uri
+                        description: 正しいURLの例
+                        example: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                      language:
+                        type: string
+                        enum: [ja, en]
+                        description: エラーメッセージの言語
+                        example: "ja"
+
+        '409':
+          description: 動画重複エラー
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                        example: "DUPLICATE_VIDEO"
+                      message:
+                        type: string
+                        example: "この動画は既に登録されています"
+                      suggestion:
+                        type: string
+                        example: "別の動画を選択してください"
+                      userAction:
+                        type: string
+                        example: "登録済みの動画一覧を確認してください"
+                      language:
+                        type: string
+                        enum: [ja, en]
+                        example: "ja"
+                  existingVideo:
+                    type: object
+                    description: 既存の動画情報
+                    properties:
+                      id:
+                        type: string
+                        description: 動画ID
+                      title:
+                        type: string
+                        description: 動画タイトル
+                      createdAt:
+                        type: string
+                        format: date-time
+                        description: 登録日時
+
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                        example: "NETWORK_ERROR"
+                      message:
+                        type: string
+                        example: "ネットワークエラーが発生しました"
+                      suggestion:
+                        type: string
+                        example: "インターネット接続を確認してください"
+                      userAction:
+                        type: string
+                        example: "しばらく待ってから再度お試しください"
+                      language:
+                        type: string
+                        enum: [ja, en]
+                        example: "ja"
+
+  /videos:
+    post:
+      summary: 動画登録（改善版）
+      description: |
+        YouTube動画を登録します。
+        
+        ## 改善点
+        - URL正規化による柔軟な入力受付
+        - 多言語エラーメッセージ
+        - 詳細なバリデーション
+        
+      security:
+        - bearerAuth: []
+      
+      parameters:
+        - name: Accept-Language
+          in: header
+          required: false
+          description: ブラウザ言語設定
+          schema:
+            type: string
+            example: "ja-JP,ja;q=0.9,en;q=0.8"
+        - name: X-Language
+          in: header
+          required: false
+          description: カスタム言語ヘッダー
+          schema:
+            type: string
+            enum: [ja, en]
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - youtubeUrl
+              properties:
+                youtubeUrl:
+                  type: string
+                  format: uri
+                  description: YouTube URL（様々な形式に対応）
+                  example: "https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLtest&index=1&t=30s"
+                metadata:
+                  type: object
+                  description: 動画メタデータ
+                  properties:
+                    teamName:
+                      type: string
+                      maxLength: 100
+                      description: チーム名
+                      example: "よさこいチーム桜"
+                    performanceName:
+                      type: string
+                      maxLength: 100
+                      description: 演舞名
+                      example: "桜舞い踊り"
+                    eventName:
+                      type: string
+                      maxLength: 100
+                      description: 大会名
+                      example: "第50回よさこい祭り"
+                    year:
+                      type: integer
+                      minimum: 1900
+                      maximum: 2025
+                      description: 年度
+                      example: 2023
+                    location:
+                      type: string
+                      maxLength: 100
+                      description: 場所
+                      example: "高知県高知市"
+                tags:
+                  type: array
+                  items:
+                    type: string
+                    maxLength: 30
+                  description: タグ
+                  example: ["よさこい", "祭り", "踊り"]
+
+      responses:
+        '201':
+          description: 動画登録成功
+          headers:
+            Content-Language:
+              description: レスポンス言語
+              schema:
+                type: string
+                enum: [ja, en]
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    description: 成功メッセージ
+                    example: "動画が正常に登録されました"
+                  data:
+                    type: object
+                    description: 登録された動画情報
+                    properties:
+                      _id:
+                        type: string
+                        description: 動画ID
+                      youtubeId:
+                        type: string
+                        description: YouTube動画ID
+                      title:
+                        type: string
+                        description: 動画タイトル
+                      normalizedUrl:
+                        type: string
+                        format: uri
+                        description: 正規化されたURL
+                      originalUrl:
+                        type: string
+                        format: uri
+                        description: 元のURL
+                      metadata:
+                        type: object
+                        description: メタデータ
+                      tags:
+                        type: array
+                        items:
+                          type: string
+                        description: タグ
+                      createdAt:
+                        type: string
+                        format: date-time
+                        description: 作成日時
+                  language:
+                    type: string
+                    enum: [ja, en]
+                    description: レスポンス言語
+                    example: "ja"
+
+        '400':
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+
+        '401':
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+
+        '409':
+          description: 動画重複エラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DuplicateError'
+
+        '500':
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ValidationError:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            type:
+              type: string
+              enum:
+                - INVALID_FORMAT
+                - NOT_YOUTUBE
+                - MISSING_VIDEO_ID
+                - PRIVATE_VIDEO
+                - VIDEO_NOT_FOUND
+                - VALIDATION_ERROR
+            message:
+              type: string
+            suggestion:
+              type: string
+            userAction:
+              type: string
+            example:
+              type: string
+              format: uri
+            language:
+              type: string
+              enum: [ja, en]
+            errors:
+              type: array
+              items:
+                type: string
+              description: バリデーションエラー詳細（VALIDATION_ERRORの場合）
+
+    AuthError:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            type:
+              type: string
+              example: "UNAUTHORIZED"
+            message:
+              type: string
+              example: "認証が必要です"
+            language:
+              type: string
+              enum: [ja, en]
+
+    DuplicateError:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            type:
+              type: string
+              example: "DUPLICATE_VIDEO"
+            message:
+              type: string
+              example: "この動画は既に登録されています"
+            suggestion:
+              type: string
+              example: "別の動画を選択してください"
+            userAction:
+              type: string
+              example: "登録済みの動画一覧を確認してください"
+            language:
+              type: string
+              enum: [ja, en]
+
+    ServerError:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            type:
+              type: string
+              example: "NETWORK_ERROR"
+            message:
+              type: string
+              example: "ネットワークエラーが発生しました"
+            suggestion:
+              type: string
+              example: "インターネット接続を確認してください"
+            userAction:
+              type: string
+              example: "しばらく待ってから再度お試しください"
+            language:
+              type: string
+              enum: [ja, en]
+
+tags:
+  - name: videos
+    description: 動画関連API
+  - name: validation
+    description: URL検証機能
+  - name: i18n
+    description: 多言語対応機能

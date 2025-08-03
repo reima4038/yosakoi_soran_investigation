@@ -3,8 +3,18 @@ import { body, param, query, validationResult } from 'express-validator';
 import { Video } from '../models/Video';
 import { youtubeService, YouTubeError } from '../services/youtubeService';
 import { auth } from '../middleware';
+import { 
+  languageDetectionMiddleware, 
+  getRequestLanguage, 
+  setResponseLanguage, 
+  createLocalizedErrorResponse 
+} from '../middleware/languageDetection';
+import { URLValidationErrorType } from '../utils/urlNormalizer';
 
 const router = Router();
+
+// 言語検出ミドルウェアを全ルートに適用
+router.use(languageDetectionMiddleware);
 
 // バリデーションエラーハンドラー
 const handleValidationErrors = (req: Request, res: Response, next: any): void => {
@@ -21,8 +31,8 @@ const handleValidationErrors = (req: Request, res: Response, next: any): void =>
 };
 
 /**
- * YouTube動画情報を取得（登録前の確認用）
- * GET /api/videos/youtube-info?url=<youtube_url>
+ * YouTube動画情報を取得（登録前の確認用）- 改善版
+ * GET /api/videos/youtube-info?url=<youtube_url>&lang=<language>
  */
 router.get('/youtube-info', [
   query('url')
@@ -30,28 +40,41 @@ router.get('/youtube-info', [
     .withMessage('YouTube URLは必須です')
     .isString()
     .withMessage('YouTube URLは文字列である必要があります'),
+  query('lang')
+    .optional()
+    .isIn(['ja', 'en'])
+    .withMessage('言語は ja または en である必要があります'),
   handleValidationErrors
 ], async (req: Request, res: Response): Promise<any> => {
   try {
     const { url } = req.query as { url: string };
+    const language = getRequestLanguage(req);
     
-    // YouTube URLからビデオIDを抽出
-    const videoId = youtubeService.extractVideoId(url);
-    if (!videoId) {
-      return res.status(400).json({
-        status: 'error',
-        code: 'INVALID_YOUTUBE_URL',
-        message: '有効なYouTube URLを入力してください'
-      });
+    // レスポンスに言語情報を設定
+    setResponseLanguage(res, language);
+    
+    // URL正規化を実行
+    let normalizedUrl;
+    try {
+      normalizedUrl = youtubeService.normalizeURL(url);
+    } catch (error: any) {
+      // URL正規化エラーの場合、多言語対応エラーレスポンスを返す
+      const errorResponse = createLocalizedErrorResponse(error, language, true);
+      return res.status(400).json(errorResponse);
     }
+
+    const videoId = normalizedUrl.videoId;
 
     // 既に登録済みかチェック
     const existingVideo = await Video.findOne({ youtubeId: videoId });
     if (existingVideo) {
+      const duplicateError = {
+        type: URLValidationErrorType.DUPLICATE_VIDEO,
+        message: 'Video already exists'
+      };
+      const errorResponse = createLocalizedErrorResponse(duplicateError, language);
       return res.status(409).json({
-        status: 'error',
-        code: 'VIDEO_ALREADY_EXISTS',
-        message: 'この動画は既に登録されています',
+        ...errorResponse,
         existingVideo: {
           id: existingVideo._id,
           title: existingVideo.title,
@@ -61,53 +84,67 @@ router.get('/youtube-info', [
     }
 
     // YouTube APIから動画情報を取得
-    const videoInfo = await youtubeService.getVideoInfo(videoId);
+    let videoInfo;
+    try {
+      videoInfo = await youtubeService.getVideoInfo(videoId);
+    } catch (error: any) {
+      // YouTube APIエラーを適切なエラータイプにマッピング
+      let errorType = URLValidationErrorType.NETWORK_ERROR;
+      
+      if (error.code === 'VIDEO_NOT_FOUND' || error.code === 'INVALID_VIDEO_ID') {
+        errorType = URLValidationErrorType.VIDEO_NOT_FOUND;
+      }
+      
+      const mappedError = { type: errorType, message: error.message };
+      const errorResponse = createLocalizedErrorResponse(mappedError, language);
+      return res.status(400).json(errorResponse);
+    }
 
     // 動画が公開されているかチェック
     const isPublic = await youtubeService.isVideoPublic(videoId);
     if (!isPublic) {
-      return res.status(400).json({
-        status: 'error',
-        code: 'VIDEO_NOT_PUBLIC',
-        message: '非公開動画は登録できません'
-      });
+      const privateError = {
+        type: URLValidationErrorType.PRIVATE_VIDEO,
+        message: 'Video is private'
+      };
+      const errorResponse = createLocalizedErrorResponse(privateError, language);
+      return res.status(400).json(errorResponse);
     }
 
     // 埋め込み可能かチェック
     const isEmbeddable = await youtubeService.isEmbeddable(videoId);
 
+    // 成功レスポンス
     res.json({
-      status: 'success',
+      success: true,
       data: {
         ...videoInfo,
+        normalizedUrl: normalizedUrl.canonical,
+        originalUrl: normalizedUrl.original,
+        metadata: normalizedUrl.metadata,
         isEmbeddable,
         canRegister: true
-      }
+      },
+      language: language
     });
 
   } catch (error: any) {
     console.error('YouTube info fetch error:', error);
     
-    if (error.code) {
-      // YouTubeServiceからのエラー
-      const youtubeError = error as YouTubeError;
-      return res.status(400).json({
-        status: 'error',
-        code: youtubeError.code,
-        message: youtubeError.message
-      });
-    }
-
-    res.status(500).json({
-      status: 'error',
-      code: 'INTERNAL_ERROR',
-      message: 'サーバーエラーが発生しました'
-    });
+    // 予期しないエラーの場合
+    const language = getRequestLanguage(req);
+    const networkError = {
+      type: URLValidationErrorType.NETWORK_ERROR,
+      message: error.message || 'Unexpected error occurred'
+    };
+    const errorResponse = createLocalizedErrorResponse(networkError, language);
+    
+    res.status(500).json(errorResponse);
   }
 });
 
 /**
- * 動画を登録
+ * 動画を登録 - 改善版
  * POST /api/videos
  */
 router.post('/', [
@@ -160,38 +197,60 @@ router.post('/', [
   try {
     const { youtubeUrl, metadata = {}, tags = [] } = req.body;
     const userId = (req as any).user.userId;
+    const language = getRequestLanguage(req);
+    
+    // レスポンスに言語情報を設定
+    setResponseLanguage(res, language);
 
-    // YouTube URLからビデオIDを抽出
-    const videoId = youtubeService.extractVideoId(youtubeUrl);
-    if (!videoId) {
-      return res.status(400).json({
-        status: 'error',
-        code: 'INVALID_YOUTUBE_URL',
-        message: '有効なYouTube URLを入力してください'
-      });
+    // URL正規化を実行
+    let normalizedUrl;
+    try {
+      normalizedUrl = youtubeService.normalizeURL(youtubeUrl);
+    } catch (error: any) {
+      // URL正規化エラーの場合、多言語対応エラーレスポンスを返す
+      const errorResponse = createLocalizedErrorResponse(error, language, true);
+      return res.status(400).json(errorResponse);
     }
+
+    const videoId = normalizedUrl.videoId;
 
     // 既に登録済みかチェック
     const existingVideo = await Video.findOne({ youtubeId: videoId });
     if (existingVideo) {
-      return res.status(409).json({
-        status: 'error',
-        code: 'VIDEO_ALREADY_EXISTS',
-        message: 'この動画は既に登録されています'
-      });
+      const duplicateError = {
+        type: URLValidationErrorType.DUPLICATE_VIDEO,
+        message: 'Video already exists'
+      };
+      const errorResponse = createLocalizedErrorResponse(duplicateError, language);
+      return res.status(409).json(errorResponse);
     }
 
     // YouTube APIから動画情報を取得
-    const videoInfo = await youtubeService.getVideoInfo(videoId);
+    let videoInfo;
+    try {
+      videoInfo = await youtubeService.getVideoInfo(videoId);
+    } catch (error: any) {
+      // YouTube APIエラーを適切なエラータイプにマッピング
+      let errorType = URLValidationErrorType.NETWORK_ERROR;
+      
+      if (error.code === 'VIDEO_NOT_FOUND' || error.code === 'INVALID_VIDEO_ID') {
+        errorType = URLValidationErrorType.VIDEO_NOT_FOUND;
+      }
+      
+      const mappedError = { type: errorType, message: error.message };
+      const errorResponse = createLocalizedErrorResponse(mappedError, language);
+      return res.status(400).json(errorResponse);
+    }
 
     // 動画が公開されているかチェック
     const isPublic = await youtubeService.isVideoPublic(videoId);
     if (!isPublic) {
-      return res.status(400).json({
-        status: 'error',
-        code: 'VIDEO_NOT_PUBLIC',
-        message: '非公開動画は登録できません'
-      });
+      const privateError = {
+        type: URLValidationErrorType.PRIVATE_VIDEO,
+        message: 'Video is private'
+      };
+      const errorResponse = createLocalizedErrorResponse(privateError, language);
+      return res.status(400).json(errorResponse);
     }
 
     // 動画を保存
@@ -215,39 +274,61 @@ router.post('/', [
 
     await video.save();
 
+    // 成功メッセージを多言語対応
+    const successMessage = language === 'en' 
+      ? 'Video registered successfully' 
+      : '動画が正常に登録されました';
+
     res.status(201).json({
-      status: 'success',
-      message: '動画が正常に登録されました',
-      data: video
+      success: true,
+      message: successMessage,
+      data: {
+        ...video.toObject(),
+        normalizedUrl: normalizedUrl.canonical,
+        originalUrl: normalizedUrl.original
+      },
+      language: language
     });
 
   } catch (error: any) {
     console.error('Video registration error:', error);
     
+    const language = getRequestLanguage(req);
+    
     if (error.code) {
       // YouTubeServiceからのエラー
-      const youtubeError = error as YouTubeError;
-      return res.status(400).json({
-        status: 'error',
-        code: youtubeError.code,
-        message: youtubeError.message
-      });
+      let errorType = URLValidationErrorType.NETWORK_ERROR;
+      
+      if (error.code === 'VIDEO_NOT_FOUND' || error.code === 'INVALID_VIDEO_ID') {
+        errorType = URLValidationErrorType.VIDEO_NOT_FOUND;
+      }
+      
+      const mappedError = { type: errorType, message: error.message };
+      const errorResponse = createLocalizedErrorResponse(mappedError, language);
+      return res.status(400).json(errorResponse);
     }
 
     if (error.name === 'ValidationError') {
+      const validationMessage = language === 'en' ? 'Validation error' : 'バリデーションエラー';
       return res.status(400).json({
-        status: 'error',
-        code: 'VALIDATION_ERROR',
-        message: 'バリデーションエラー',
-        errors: Object.values(error.errors).map((err: any) => err.message)
+        success: false,
+        error: {
+          type: 'VALIDATION_ERROR',
+          message: validationMessage,
+          errors: Object.values(error.errors).map((err: any) => err.message),
+          language: language
+        }
       });
     }
 
-    res.status(500).json({
-      status: 'error',
-      code: 'INTERNAL_ERROR',
-      message: 'サーバーエラーが発生しました'
-    });
+    // 予期しないエラーの場合
+    const networkError = {
+      type: URLValidationErrorType.NETWORK_ERROR,
+      message: error.message || 'Unexpected error occurred'
+    };
+    const errorResponse = createLocalizedErrorResponse(networkError, language);
+    
+    res.status(500).json(errorResponse);
   }
 });
 
