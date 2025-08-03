@@ -51,7 +51,7 @@
 
 ```bash
 # 管理画面 > システム設定 > 基本設定
-- サイト名: YOSAKOIパフォーマンス評価システム
+- サイト名: よさこいパフォーマンス評価システム
 - サイトURL: https://your-domain.com
 - 管理者メール: admin@your-domain.com
 - タイムゾーン: Asia/Tokyo
@@ -866,6 +866,7 @@ docker system prune -f
 ### ログ分析
 
 #### エラーログの分析
+
 ```bash
 # 頻出エラーの確認
 grep "ERROR" logs/app.log | sort | uniq -c | sort -nr
@@ -873,8 +874,163 @@ grep "ERROR" logs/app.log | sort | uniq -c | sort -nr
 # 特定エラーの詳細確認
 grep -A 10 -B 10 "specific_error" logs/error.log
 
-# エラー傾向の分析
-docker-compose exec backend npm run admin:logs:error-analysis
+# 時間別エラー分析
+grep "ERROR" logs/app.log | awk '{print $1, $2}' | sort | uniq -c
+
+# エラーレベル別の統計
+grep -E "(ERROR|WARN|INFO)" logs/app.log | awk '{print $3}' | sort | uniq -c
+
+# 特定期間のエラー分析
+grep "2024-01-01" logs/app.log | grep "ERROR" | wc -l
+```
+
+#### 一般的なエラーパターンと対処法
+
+**1. データベース接続エラー**
+
+```bash
+# エラーパターン
+grep "MongoNetworkError\|ECONNREFUSED.*27017" logs/error.log
+
+# 対処方法
+# MongoDB コンテナの状態確認
+docker-compose ps mongodb
+docker-compose logs mongodb
+
+# MongoDB の再起動
+docker-compose restart mongodb
+
+# 接続設定の確認
+docker-compose exec backend node -e "
+  const mongoose = require('mongoose');
+  mongoose.connect(process.env.MONGODB_URI)
+    .then(() => console.log('Connection successful'))
+    .catch(err => console.error('Connection failed:', err));
+"
+```
+
+**2. Redis 接続エラー**
+
+```bash
+# エラーパターン
+grep "Redis.*ECONNREFUSED\|Redis.*timeout" logs/error.log
+
+# 対処方法
+# Redis コンテナの状態確認
+docker-compose ps redis
+docker-compose logs redis
+
+# Redis の接続テスト
+docker-compose exec redis redis-cli ping
+
+# Redis メモリ使用量確認
+docker-compose exec redis redis-cli info memory
+```
+
+**3. JWT トークンエラー**
+
+```bash
+# エラーパターン
+grep "JsonWebTokenError\|TokenExpiredError\|invalid token" logs/error.log
+
+# 対処方法
+# JWT シークレットの確認
+docker-compose exec backend node -e "
+  console.log('JWT_SECRET length:', process.env.JWT_SECRET?.length);
+  console.log('JWT_REFRESH_SECRET length:', process.env.JWT_REFRESH_SECRET?.length);
+"
+
+# 期限切れトークンのクリーンアップ
+docker-compose exec redis redis-cli FLUSHDB
+```
+
+**4. YouTube API エラー**
+
+```bash
+# エラーパターン
+grep "YouTube.*quota\|YouTube.*forbidden\|YouTube.*not found" logs/error.log
+
+# 対処方法
+# API キーの確認
+docker-compose exec backend node -e "
+  console.log('YouTube API Key:', process.env.YOUTUBE_API_KEY ? 'Set' : 'Not set');
+"
+
+# API クォータの確認
+curl -s "https://www.googleapis.com/youtube/v3/videos?part=snippet&id=dQw4w9WgXcQ&key=${YOUTUBE_API_KEY}" | jq .
+
+# レート制限の確認
+grep "quotaExceeded\|rateLimitExceeded" logs/error.log | tail -10
+```
+
+**5. メモリ不足エラー**
+
+```bash
+# エラーパターン
+grep "out of memory\|ENOMEM\|heap out of memory" logs/error.log
+
+# 対処方法
+# メモリ使用量の確認
+docker stats --no-stream
+
+# Node.js ヒープサイズの確認
+docker-compose exec backend node -e "
+  console.log('Heap used:', Math.round(process.memoryUsage().heapUsed / 1024 / 1024), 'MB');
+  console.log('Heap total:', Math.round(process.memoryUsage().heapTotal / 1024 / 1024), 'MB');
+"
+
+# メモリ制限の調整（docker-compose.yml）
+# services:
+#   backend:
+#     deploy:
+#       resources:
+#         limits:
+#           memory: 1G
+```
+
+#### パフォーマンス問題の診断
+
+**1. 応答時間の分析**
+
+```bash
+# アクセスログから応答時間を抽出
+awk '{print $NF}' logs/access.log | sort -n | tail -20
+
+# 平均応答時間の計算
+awk '{sum+=$NF; count++} END {print "Average response time:", sum/count, "ms"}' logs/access.log
+
+# 遅いリクエストの特定
+awk '$NF > 1000 {print $0}' logs/access.log | head -10
+```
+
+**2. データベースクエリの最適化**
+
+```bash
+# MongoDB スロークエリの確認
+docker-compose exec mongodb mongo yosakoi_evaluation --eval "
+  db.setProfilingLevel(2, { slowms: 100 });
+  db.system.profile.find().limit(5).sort({ ts: -1 }).pretty();
+"
+
+# インデックス使用状況の確認
+docker-compose exec mongodb mongo yosakoi_evaluation --eval "
+  db.videos.find({title: /test/}).explain('executionStats');
+"
+```
+
+**3. リソース使用量の監視**
+
+```bash
+# CPU 使用率の確認
+docker stats --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}" --no-stream
+
+# ディスク使用量の確認
+df -h
+du -sh logs/
+du -sh /var/lib/docker/
+
+# ネットワーク使用量の確認
+docker-compose exec backend netstat -i
 ```
 
 ## メンテナンス手順

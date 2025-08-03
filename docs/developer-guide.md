@@ -2,7 +2,7 @@
 
 ## 概要
 
-YOSAKOIパフォーマンス評価システムの開発者向けドキュメントです。プロジェクトの構造、開発環境のセットアップ、コーディング規約、開発プロセスについて説明します。
+よさこいパフォーマンス評価システムの開発者向けドキュメントです。プロジェクトの構造、開発環境のセットアップ、コーディング規約、開発プロセスについて説明します。
 
 ## 技術スタック
 
@@ -10,7 +10,7 @@ YOSAKOIパフォーマンス評価システムの開発者向けドキュメン�
 
 - **React 19.1.0**: UIライブラリ
 - **TypeScript 4.9.5**: 型安全な開発
-- **Material-UI (MUI) 5.15.3**: UIコンポーネントライブラリ
+- **MUI 5.15.3**: UIコンポーネントライブラリ
 - **Redux Toolkit 2.0.1**: 状態管理
 - **React Router 6.20.1**: ルーティング
 - **React Hook Form 7.48.2**: フォーム管理
@@ -1407,13 +1407,13 @@ export default connectDB;
 - [Jest Documentation](https://jestjs.io/docs/getting-started)
 - [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/)
 - [Cypress Documentation](https://docs.cypress.io/)
-- [Supertest Documentation](https://github.com/visionmedia/supertest)
+- [Supertest Documentation](https://github.com/ladjs/supertest)
 
 ### 学習リソース
 
 - [React TypeScript Cheatsheet](https://react-typescript-cheatsheet.netlify.app/)
 - [Node.js Best Practices](https://github.com/goldbergyoni/nodebestpractices)
-- [MongoDB Best Practices](https://docs.mongodb.com/manual/administration/production-notes/)
+- [MongoDB Production Notes](https://www.mongodb.com/docs/manual/administration/production-notes/)
 
 ### ツール・ライブラリ
 
