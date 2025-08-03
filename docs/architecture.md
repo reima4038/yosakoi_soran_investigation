@@ -13,32 +13,41 @@ graph TB
     subgraph "Client Layer"
         WEB[Web Browser]
         MOBILE[Mobile Browser]
+        PWA[PWA App]
     end
 
     subgraph "CDN/Load Balancer"
-        LB[Load Balancer]
-        CDN[CDN]
+        LB[Load Balancer<br/>Nginx/HAProxy]
+        CDN[CDN<br/>CloudFlare/AWS CloudFront]
     end
 
     subgraph "Application Layer"
-        NGINX[Nginx Reverse Proxy]
-        FRONTEND[React Frontend]
-        BACKEND[Node.js Backend]
-        SOCKET[Socket.io Server]
+        NGINX[Nginx Reverse Proxy<br/>Port 80/443]
+        FRONTEND[React Frontend<br/>Port 3000]
+        BACKEND[Node.js Backend<br/>Port 3001]
+        SOCKET[Socket.io Server<br/>WebSocket]
     end
 
     subgraph "Data Layer"
-        MONGODB[(MongoDB)]
-        REDIS[(Redis Cache)]
+        MONGODB[(MongoDB<br/>Port 27017)]
+        REDIS[(Redis Cache<br/>Port 6379)]
     end
 
     subgraph "External Services"
-        YOUTUBE[YouTube API]
-        SMTP[SMTP Server]
+        YOUTUBE[YouTube API<br/>Data API v3]
+        SMTP[SMTP Server<br/>Email Service]
+        STORAGE[File Storage<br/>AWS S3/Local]
+    end
+
+    subgraph "Monitoring"
+        GRAFANA[Grafana<br/>Port 3000]
+        PROMETHEUS[Prometheus<br/>Port 9090]
+        LOGS[Log Aggregation<br/>ELK Stack]
     end
 
     WEB --> LB
     MOBILE --> LB
+    PWA --> LB
     LB --> CDN
     CDN --> NGINX
     NGINX --> FRONTEND
@@ -48,7 +57,25 @@ graph TB
     BACKEND --> REDIS
     BACKEND --> YOUTUBE
     BACKEND --> SMTP
+    BACKEND --> STORAGE
+    BACKEND --> PROMETHEUS
+    PROMETHEUS --> GRAFANA
+    BACKEND --> LOGS
+
+    classDef client fill:#e1f5fe
+    classDef app fill:#f3e5f5
+    classDef data fill:#e8f5e8
+    classDef external fill:#fff3e0
+    classDef monitoring fill:#fce4ec
+
+    class WEB,MOBILE,PWA client
+    class NGINX,FRONTEND,BACKEND,SOCKET app
+    class MONGODB,REDIS data
+    class YOUTUBE,SMTP,STORAGE external
+    class GRAFANA,PROMETHEUS,LOGS monitoring
 ```
+
+*図1: システム全体のアーキテクチャ概要*
 
 ### アーキテクチャの特徴
 
@@ -200,6 +227,76 @@ graph TD
 - **Models**: データモデル定義（Mongoose）
 - **Repositories**: データアクセス抽象化
 - **Cache**: キャッシュ管理（Redis）
+
+### データフロー図
+
+```mermaid
+flowchart TD
+    subgraph "User Actions"
+        LOGIN[ユーザーログイン]
+        UPLOAD[動画登録]
+        CREATE_SESSION[セッション作成]
+        EVALUATE[評価実行]
+        VIEW_RESULTS[結果閲覧]
+    end
+
+    subgraph "Authentication Flow"
+        AUTH_API[認証API]
+        JWT_GEN[JWT生成]
+        JWT_VERIFY[JWT検証]
+    end
+
+    subgraph "Video Management Flow"
+        YOUTUBE_API[YouTube API]
+        VIDEO_METADATA[メタデータ抽出]
+        VIDEO_STORE[動画情報保存]
+    end
+
+    subgraph "Evaluation Flow"
+        SESSION_CREATE[セッション作成]
+        INVITE_SEND[招待送信]
+        EVAL_SUBMIT[評価提出]
+        REALTIME_UPDATE[リアルタイム更新]
+    end
+
+    subgraph "Data Processing"
+        SCORE_CALC[スコア計算]
+        ANALYTICS[分析処理]
+        REPORT_GEN[レポート生成]
+    end
+
+    LOGIN --> AUTH_API
+    AUTH_API --> JWT_GEN
+    JWT_GEN --> JWT_VERIFY
+
+    UPLOAD --> YOUTUBE_API
+    YOUTUBE_API --> VIDEO_METADATA
+    VIDEO_METADATA --> VIDEO_STORE
+
+    CREATE_SESSION --> SESSION_CREATE
+    SESSION_CREATE --> INVITE_SEND
+
+    EVALUATE --> EVAL_SUBMIT
+    EVAL_SUBMIT --> REALTIME_UPDATE
+    EVAL_SUBMIT --> SCORE_CALC
+
+    VIEW_RESULTS --> ANALYTICS
+    ANALYTICS --> REPORT_GEN
+
+    classDef userAction fill:#e3f2fd
+    classDef authFlow fill:#f1f8e9
+    classDef videoFlow fill:#fff8e1
+    classDef evalFlow fill:#fce4ec
+    classDef dataFlow fill:#f3e5f5
+
+    class LOGIN,UPLOAD,CREATE_SESSION,EVALUATE,VIEW_RESULTS userAction
+    class AUTH_API,JWT_GEN,JWT_VERIFY authFlow
+    class YOUTUBE_API,VIDEO_METADATA,VIDEO_STORE videoFlow
+    class SESSION_CREATE,INVITE_SEND,EVAL_SUBMIT,REALTIME_UPDATE evalFlow
+    class SCORE_CALC,ANALYTICS,REPORT_GEN dataFlow
+```
+
+*図2: 主要なデータフロー*
 
 ## データベース設計
 

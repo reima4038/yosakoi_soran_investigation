@@ -537,6 +537,79 @@ docker-compose exec mongodb mongodump --out /backup/emergency_$(date +%Y%m%d_%H%
 
 ## 監視・ログ管理
 
+### 監視アーキテクチャ
+
+```mermaid
+graph TB
+    subgraph "Application Layer"
+        FRONTEND[React Frontend]
+        BACKEND[Node.js Backend]
+        NGINX[Nginx]
+        MONGODB[MongoDB]
+        REDIS[Redis]
+    end
+
+    subgraph "Monitoring Stack"
+        PROMETHEUS[Prometheus<br/>メトリクス収集]
+        GRAFANA[Grafana<br/>可視化ダッシュボード]
+        ALERTMANAGER[AlertManager<br/>アラート管理]
+    end
+
+    subgraph "Logging Stack"
+        FILEBEAT[Filebeat<br/>ログ収集]
+        ELASTICSEARCH[Elasticsearch<br/>ログ検索]
+        KIBANA[Kibana<br/>ログ分析]
+    end
+
+    subgraph "External Monitoring"
+        UPTIME[Uptime Robot<br/>外部監視]
+        PINGDOM[Pingdom<br/>パフォーマンス監視]
+    end
+
+    subgraph "Notification Channels"
+        SLACK[Slack通知]
+        EMAIL[メール通知]
+        SMS[SMS通知]
+    end
+
+    FRONTEND --> PROMETHEUS
+    BACKEND --> PROMETHEUS
+    NGINX --> PROMETHEUS
+    MONGODB --> PROMETHEUS
+    REDIS --> PROMETHEUS
+
+    PROMETHEUS --> GRAFANA
+    PROMETHEUS --> ALERTMANAGER
+
+    FRONTEND --> FILEBEAT
+    BACKEND --> FILEBEAT
+    NGINX --> FILEBEAT
+
+    FILEBEAT --> ELASTICSEARCH
+    ELASTICSEARCH --> KIBANA
+
+    ALERTMANAGER --> SLACK
+    ALERTMANAGER --> EMAIL
+    ALERTMANAGER --> SMS
+
+    UPTIME --> SLACK
+    PINGDOM --> EMAIL
+
+    classDef app fill:#e3f2fd
+    classDef monitoring fill:#e8f5e8
+    classDef logging fill:#fff3e0
+    classDef external fill:#f3e5f5
+    classDef notification fill:#fce4ec
+
+    class FRONTEND,BACKEND,NGINX,MONGODB,REDIS app
+    class PROMETHEUS,GRAFANA,ALERTMANAGER monitoring
+    class FILEBEAT,ELASTICSEARCH,KIBANA logging
+    class UPTIME,PINGDOM external
+    class SLACK,EMAIL,SMS notification
+```
+
+*図1: 監視・ログ管理アーキテクチャ*
+
 ### システム監視
 
 #### Grafana ダッシュボード
@@ -549,6 +622,10 @@ docker-compose exec mongodb mongodump --out /backup/emergency_$(date +%Y%m%d_%H%
   - ディスク使用率
   - ネットワークトラフィック
   - アプリケーション応答時間
+
+![Grafanaダッシュボード](./images/monitoring/grafana-dashboard.png)
+
+*図3: Grafana監視ダッシュボードの例*
 
 #### Prometheus メトリクス
 
@@ -822,6 +899,72 @@ docker image prune -f
 ```
 
 ## トラブルシューティング
+
+### トラブルシューティングフロー
+
+```mermaid
+flowchart TD
+    ISSUE[問題発生] --> IDENTIFY{問題の種類}
+    
+    IDENTIFY -->|サービス停止| SERVICE_DOWN[サービス停止]
+    SERVICE_DOWN --> CHECK_CONTAINERS[コンテナ状態確認]
+    CHECK_CONTAINERS --> CONTAINER_STATUS{コンテナ状態}
+    CONTAINER_STATUS -->|停止| RESTART_CONTAINERS[コンテナ再起動]
+    CONTAINER_STATUS -->|実行中| CHECK_LOGS[ログ確認]
+    
+    IDENTIFY -->|パフォーマンス低下| PERFORMANCE[パフォーマンス問題]
+    PERFORMANCE --> CHECK_RESOURCES[リソース使用量確認]
+    CHECK_RESOURCES --> RESOURCE_STATUS{リソース状態}
+    RESOURCE_STATUS -->|高負荷| SCALE_UP[スケールアップ]
+    RESOURCE_STATUS -->|正常| CHECK_DB[データベース確認]
+    
+    IDENTIFY -->|データベース問題| DB_ISSUE[データベース問題]
+    DB_ISSUE --> CHECK_DB_CONNECTION[DB接続確認]
+    CHECK_DB_CONNECTION --> DB_STATUS{接続状態}
+    DB_STATUS -->|接続不可| RESTART_DB[DB再起動]
+    DB_STATUS -->|接続可能| CHECK_QUERIES[クエリ分析]
+    
+    IDENTIFY -->|認証問題| AUTH_ISSUE[認証問題]
+    AUTH_ISSUE --> CHECK_JWT[JWT設定確認]
+    CHECK_JWT --> JWT_STATUS{JWT状態}
+    JWT_STATUS -->|設定エラー| FIX_JWT[JWT設定修正]
+    JWT_STATUS -->|正常| CHECK_USER_DATA[ユーザーデータ確認]
+    
+    RESTART_CONTAINERS --> VERIFY_FIX[修正確認]
+    SCALE_UP --> VERIFY_FIX
+    RESTART_DB --> VERIFY_FIX
+    FIX_JWT --> VERIFY_FIX
+    CHECK_LOGS --> ANALYZE_LOGS[ログ分析]
+    CHECK_DB --> OPTIMIZE_DB[DB最適化]
+    CHECK_QUERIES --> OPTIMIZE_QUERIES[クエリ最適化]
+    CHECK_USER_DATA --> FIX_USER_DATA[ユーザーデータ修正]
+    
+    ANALYZE_LOGS --> VERIFY_FIX
+    OPTIMIZE_DB --> VERIFY_FIX
+    OPTIMIZE_QUERIES --> VERIFY_FIX
+    FIX_USER_DATA --> VERIFY_FIX
+    
+    VERIFY_FIX --> FIXED{問題解決?}
+    FIXED -->|Yes| DOCUMENT[対応記録]
+    FIXED -->|No| ESCALATE[エスカレーション]
+    
+    DOCUMENT --> MONITOR[継続監視]
+    ESCALATE --> EXPERT_SUPPORT[専門サポート]
+    
+    classDef problem fill:#ffebee
+    classDef check fill:#e8f5e8
+    classDef action fill:#e3f2fd
+    classDef decision fill:#fff3e0
+    classDef resolution fill:#f3e5f5
+
+    class ISSUE,SERVICE_DOWN,PERFORMANCE,DB_ISSUE,AUTH_ISSUE problem
+    class CHECK_CONTAINERS,CHECK_LOGS,CHECK_RESOURCES,CHECK_DB_CONNECTION,CHECK_JWT,CHECK_USER_DATA,CHECK_DB,CHECK_QUERIES check
+    class RESTART_CONTAINERS,SCALE_UP,RESTART_DB,FIX_JWT,ANALYZE_LOGS,OPTIMIZE_DB,OPTIMIZE_QUERIES,FIX_USER_DATA action
+    class IDENTIFY,CONTAINER_STATUS,RESOURCE_STATUS,DB_STATUS,JWT_STATUS,FIXED decision
+    class VERIFY_FIX,DOCUMENT,MONITOR,ESCALATE,EXPERT_SUPPORT resolution
+```
+
+*図2: トラブルシューティングフローチャート*
 
 ### 一般的な問題
 

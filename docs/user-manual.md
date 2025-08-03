@@ -17,6 +17,62 @@
 
 よさこいパフォーマンス評価システムは、YouTube上のよさこいソーラン演舞動画を複数の評価者で評価し、その結果を分析・共有するためのWebアプリケーションです。
 
+### システム利用フロー
+
+```mermaid
+flowchart TD
+    START([システム利用開始]) --> REGISTER{アカウント<br/>登録済み?}
+    
+    REGISTER -->|No| CREATE_ACCOUNT[アカウント作成]
+    CREATE_ACCOUNT --> EMAIL_VERIFY[メール認証]
+    EMAIL_VERIFY --> LOGIN[ログイン]
+    
+    REGISTER -->|Yes| LOGIN
+    
+    LOGIN --> DASHBOARD[ダッシュボード]
+    
+    DASHBOARD --> CHOICE{利用目的}
+    
+    CHOICE -->|動画管理| VIDEO_MGMT[動画管理]
+    VIDEO_MGMT --> ADD_VIDEO[YouTube動画登録]
+    ADD_VIDEO --> SET_METADATA[メタデータ設定]
+    SET_METADATA --> DASHBOARD
+    
+    CHOICE -->|評価実施| EVAL_MGMT[評価管理]
+    EVAL_MGMT --> CREATE_TEMPLATE[評価テンプレート作成]
+    CREATE_TEMPLATE --> CREATE_SESSION[評価セッション作成]
+    CREATE_SESSION --> INVITE_EVALUATORS[評価者招待]
+    INVITE_EVALUATORS --> DASHBOARD
+    
+    CHOICE -->|評価参加| PARTICIPATE[評価参加]
+    PARTICIPATE --> SELECT_SESSION[セッション選択]
+    SELECT_SESSION --> WATCH_VIDEO[動画視聴]
+    WATCH_VIDEO --> INPUT_SCORES[評価入力]
+    INPUT_SCORES --> ADD_COMMENTS[コメント追加]
+    ADD_COMMENTS --> SUBMIT_EVAL[評価提出]
+    SUBMIT_EVAL --> DASHBOARD
+    
+    CHOICE -->|結果確認| VIEW_RESULTS[結果確認]
+    VIEW_RESULTS --> ANALYSIS[分析・可視化]
+    ANALYSIS --> SHARE_RESULTS[結果共有]
+    SHARE_RESULTS --> DASHBOARD
+    
+    DASHBOARD --> LOGOUT[ログアウト]
+    LOGOUT --> END([終了])
+
+    classDef startEnd fill:#e8f5e8
+    classDef process fill:#e3f2fd
+    classDef decision fill:#fff3e0
+    classDef action fill:#f3e5f5
+
+    class START,END startEnd
+    class CREATE_ACCOUNT,EMAIL_VERIFY,LOGIN,ADD_VIDEO,SET_METADATA,CREATE_TEMPLATE,CREATE_SESSION,INVITE_EVALUATORS,WATCH_VIDEO,INPUT_SCORES,ADD_COMMENTS,SUBMIT_EVAL,ANALYSIS,SHARE_RESULTS,LOGOUT process
+    class REGISTER,CHOICE decision
+    class DASHBOARD,VIDEO_MGMT,EVAL_MGMT,PARTICIPATE,SELECT_SESSION,VIEW_RESULTS action
+```
+
+*図1: システム利用の基本フロー*
+
 ### 主な機能
 
 - YouTube動画の統合・管理
@@ -39,8 +95,12 @@
 
 1. **登録ページにアクセス**
 
-   - ブラウザで `https://your-domain.com/register` にアクセス
+   - ブラウザーで `https://your-domain.com/register` にアクセス
    - またはログインページの「アカウントをお持ちでない方はこちら」リンクをクリック
+
+   ![ログイン画面](./images/ui/login-screen.png)
+   
+   *図3: ログイン画面の例*
 
 2. **必要情報の入力**
 
@@ -75,6 +135,10 @@
 3. **ログイン成功**
    - 認証に成功すると、ダッシュボード（`/dashboard`）にリダイレクトされます
    - ナビゲーションバーにユーザー名とメニューが表示されます
+
+   ![ダッシュボード画面](./images/ui/dashboard-overview.png)
+   
+   *図4: ダッシュボード画面の例*
 
 ### パスワードリセット
 
@@ -145,6 +209,10 @@
      - チーム名
      - 登録日
      - タグ（ある場合）
+
+   ![動画管理画面](./images/ui/video-management.png)
+   
+   *図5: 動画管理画面の例*
 
 3. **検索・フィルタリング**
 
@@ -363,6 +431,56 @@
 
 ## 評価の実行
 
+### 評価プロセスフロー
+
+```mermaid
+sequenceDiagram
+    participant U as 評価者
+    participant S as システム
+    participant V as 動画プレーヤー
+    participant R as リアルタイム通信
+    participant D as データベース
+
+    U->>S: 評価セッションにアクセス
+    S->>D: セッション情報取得
+    D-->>S: セッションデータ
+    S-->>U: 評価画面表示
+
+    U->>V: 動画再生開始
+    V-->>U: 動画コンテンツ表示
+
+    loop 評価入力
+        U->>S: 評価項目にスコア入力
+        S->>D: 評価データ自動保存
+        S->>R: 進捗状況更新
+        R-->>U: 他の評価者の進捗表示
+    end
+
+    loop コメント追加
+        U->>V: 特定時点で一時停止
+        U->>S: タイムスタンプコメント追加
+        S->>D: コメントデータ保存
+        S->>R: コメント更新通知
+        R-->>U: コメントマーカー表示
+    end
+
+    U->>S: 評価内容確認
+    S-->>U: 評価サマリー表示
+
+    U->>S: 評価提出
+    S->>D: 最終評価データ保存
+    S->>R: 提出完了通知
+    R-->>U: 他の評価者に通知
+
+    alt 結果表示が有効な場合
+        S->>D: 他の評価結果取得
+        D-->>S: 集計結果
+        S-->>U: 評価結果表示
+    end
+```
+
+*図2: 評価実行のシーケンス図*
+
 ### 評価画面の操作
 
 1. **評価ページにアクセス**
@@ -376,6 +494,10 @@
    - **左側**: YouTube 動画プレーヤー
    - **右側**: 評価フォーム（モバイルでは下部に表示）
    - **上部**: セッション情報（名前、締切日時、進捗状況）
+
+   ![評価画面](./images/ui/evaluation-screen.png)
+   
+   *図6: 評価画面の例*
 
 3. **動画の再生**
 

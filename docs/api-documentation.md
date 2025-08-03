@@ -4,6 +4,108 @@
 
 よさこいパフォーマンス評価システムのREST API仕様書です。
 
+### API構造図
+
+```mermaid
+graph TB
+    subgraph "Client Applications"
+        WEB_APP[Web Application]
+        MOBILE_APP[Mobile Application]
+        THIRD_PARTY[Third-party Integration]
+    end
+
+    subgraph "API Gateway"
+        NGINX[Nginx Reverse Proxy]
+        RATE_LIMIT[Rate Limiting]
+        AUTH_MIDDLEWARE[Authentication Middleware]
+    end
+
+    subgraph "API Endpoints"
+        AUTH_API[Authentication API<br/>/api/auth/*]
+        USER_API[User Management API<br/>/api/users/*]
+        VIDEO_API[Video Management API<br/>/api/videos/*]
+        TEMPLATE_API[Template API<br/>/api/templates/*]
+        SESSION_API[Session API<br/>/api/sessions/*]
+        EVAL_API[Evaluation API<br/>/api/evaluations/*]
+        NOTIFY_API[Notification API<br/>/api/notifications/*]
+        TIMESTAMP_API[Timestamp API<br/>/api/timestamps/*]
+        DISCUSSION_API[Discussion API<br/>/api/discussions/*]
+        ANALYTICS_API[Analytics API<br/>/api/analytics/*]
+    end
+
+    subgraph "Business Logic"
+        AUTH_SERVICE[Authentication Service]
+        USER_SERVICE[User Service]
+        VIDEO_SERVICE[Video Service]
+        EVAL_SERVICE[Evaluation Service]
+        NOTIFY_SERVICE[Notification Service]
+    end
+
+    subgraph "Data Layer"
+        MONGODB[(MongoDB)]
+        REDIS[(Redis)]
+        FILE_STORAGE[(File Storage)]
+    end
+
+    subgraph "External Services"
+        YOUTUBE_API[YouTube API]
+        EMAIL_SERVICE[Email Service]
+        PUSH_SERVICE[Push Notification Service]
+    end
+
+    WEB_APP --> NGINX
+    MOBILE_APP --> NGINX
+    THIRD_PARTY --> NGINX
+
+    NGINX --> RATE_LIMIT
+    RATE_LIMIT --> AUTH_MIDDLEWARE
+
+    AUTH_MIDDLEWARE --> AUTH_API
+    AUTH_MIDDLEWARE --> USER_API
+    AUTH_MIDDLEWARE --> VIDEO_API
+    AUTH_MIDDLEWARE --> TEMPLATE_API
+    AUTH_MIDDLEWARE --> SESSION_API
+    AUTH_MIDDLEWARE --> EVAL_API
+    AUTH_MIDDLEWARE --> NOTIFY_API
+    AUTH_MIDDLEWARE --> TIMESTAMP_API
+    AUTH_MIDDLEWARE --> DISCUSSION_API
+    AUTH_MIDDLEWARE --> ANALYTICS_API
+
+    AUTH_API --> AUTH_SERVICE
+    USER_API --> USER_SERVICE
+    VIDEO_API --> VIDEO_SERVICE
+    SESSION_API --> EVAL_SERVICE
+    EVAL_API --> EVAL_SERVICE
+    NOTIFY_API --> NOTIFY_SERVICE
+
+    AUTH_SERVICE --> MONGODB
+    AUTH_SERVICE --> REDIS
+    USER_SERVICE --> MONGODB
+    VIDEO_SERVICE --> MONGODB
+    VIDEO_SERVICE --> YOUTUBE_API
+    EVAL_SERVICE --> MONGODB
+    EVAL_SERVICE --> REDIS
+    NOTIFY_SERVICE --> MONGODB
+    NOTIFY_SERVICE --> EMAIL_SERVICE
+    NOTIFY_SERVICE --> PUSH_SERVICE
+
+    classDef client fill:#e3f2fd
+    classDef gateway fill:#e8f5e8
+    classDef api fill:#fff3e0
+    classDef service fill:#f3e5f5
+    classDef data fill:#fce4ec
+    classDef external fill:#ffebee
+
+    class WEB_APP,MOBILE_APP,THIRD_PARTY client
+    class NGINX,RATE_LIMIT,AUTH_MIDDLEWARE gateway
+    class AUTH_API,USER_API,VIDEO_API,TEMPLATE_API,SESSION_API,EVAL_API,NOTIFY_API,TIMESTAMP_API,DISCUSSION_API,ANALYTICS_API api
+    class AUTH_SERVICE,USER_SERVICE,VIDEO_SERVICE,EVAL_SERVICE,NOTIFY_SERVICE service
+    class MONGODB,REDIS,FILE_STORAGE data
+    class YOUTUBE_API,EMAIL_SERVICE,PUSH_SERVICE external
+```
+
+*図1: API アーキテクチャ構造*
+
 ## ベースURL
 
 ```text
@@ -13,7 +115,49 @@
 
 ## 認証
 
-### JWT認証
+### JWT認証フロー
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as Auth API
+    participant D as Database
+    participant R as Redis
+
+    Note over C,R: ユーザー登録フロー
+    C->>A: POST /api/auth/register
+    A->>D: ユーザー情報保存
+    A->>C: 認証メール送信要求
+    C->>A: GET /api/auth/verify/:token
+    A->>D: メール認証完了
+
+    Note over C,R: ログインフロー
+    C->>A: POST /api/auth/login
+    A->>D: 認証情報確認
+    D-->>A: ユーザー情報
+    A->>R: リフレッシュトークン保存
+    A-->>C: JWT + リフレッシュトークン
+
+    Note over C,R: API呼び出しフロー
+    C->>A: API Request + JWT
+    A->>A: JWT検証
+    alt JWT有効
+        A-->>C: API Response
+    else JWT無効/期限切れ
+        A-->>C: 401 Unauthorized
+        C->>A: POST /api/auth/refresh
+        A->>R: リフレッシュトークン確認
+        R-->>A: トークン情報
+        A-->>C: 新しいJWT
+    end
+
+    Note over C,R: ログアウトフロー
+    C->>A: POST /api/auth/logout
+    A->>R: リフレッシュトークン削除
+    A-->>C: ログアウト完了
+```
+
+*図2: JWT認証フロー*
 
 すべてのAPIエンドポイント（認証関連を除く）では、JWTトークンによる認証が必要です。
 

@@ -386,6 +386,107 @@ export const errorHandler = (
 
 ## Git ワークフロー
 
+### 開発ワークフロー図
+
+```mermaid
+gitgraph
+    commit id: "Initial"
+    branch develop
+    checkout develop
+    commit id: "Setup"
+    
+    branch feature/user-auth
+    checkout feature/user-auth
+    commit id: "Auth API"
+    commit id: "Auth UI"
+    commit id: "Tests"
+    
+    checkout develop
+    merge feature/user-auth
+    commit id: "Merge auth"
+    
+    branch feature/video-mgmt
+    checkout feature/video-mgmt
+    commit id: "Video API"
+    commit id: "Video UI"
+    
+    checkout develop
+    branch hotfix/security-fix
+    checkout hotfix/security-fix
+    commit id: "Security patch"
+    
+    checkout main
+    merge hotfix/security-fix
+    commit id: "Hotfix v1.0.1"
+    
+    checkout develop
+    merge hotfix/security-fix
+    
+    checkout feature/video-mgmt
+    commit id: "Video tests"
+    
+    checkout develop
+    merge feature/video-mgmt
+    commit id: "Merge video"
+    
+    checkout main
+    merge develop
+    commit id: "Release v1.1.0"
+```
+
+*図1: Git ブランチ戦略とワークフロー*
+
+### CI/CD パイプライン図
+
+```mermaid
+flowchart LR
+    subgraph "Development"
+        DEV_COMMIT[コミット] --> DEV_PUSH[プッシュ]
+    end
+    
+    subgraph "CI Pipeline"
+        DEV_PUSH --> LINT[リント]
+        LINT --> UNIT_TEST[単体テスト]
+        UNIT_TEST --> BUILD[ビルド]
+        BUILD --> INTEGRATION_TEST[統合テスト]
+    end
+    
+    subgraph "Quality Gates"
+        INTEGRATION_TEST --> CODE_REVIEW[コードレビュー]
+        CODE_REVIEW --> SECURITY_SCAN[セキュリティスキャン]
+        SECURITY_SCAN --> MERGE_CHECK{マージ可能?}
+    end
+    
+    subgraph "CD Pipeline"
+        MERGE_CHECK -->|Yes| MERGE[マージ]
+        MERGE --> STAGING_DEPLOY[ステージング<br/>デプロイ]
+        STAGING_DEPLOY --> E2E_TEST[E2Eテスト]
+        E2E_TEST --> PROD_DEPLOY[本番デプロイ]
+    end
+    
+    subgraph "Monitoring"
+        PROD_DEPLOY --> HEALTH_CHECK[ヘルスチェック]
+        HEALTH_CHECK --> MONITORING[監視開始]
+    end
+    
+    MERGE_CHECK -->|No| FIX[修正]
+    FIX --> DEV_COMMIT
+    
+    classDef dev fill:#e3f2fd
+    classDef ci fill:#e8f5e8
+    classDef quality fill:#fff3e0
+    classDef cd fill:#f3e5f5
+    classDef monitor fill:#fce4ec
+
+    class DEV_COMMIT,DEV_PUSH,FIX dev
+    class LINT,UNIT_TEST,BUILD,INTEGRATION_TEST ci
+    class CODE_REVIEW,SECURITY_SCAN,MERGE_CHECK quality
+    class MERGE,STAGING_DEPLOY,E2E_TEST,PROD_DEPLOY cd
+    class HEALTH_CHECK,MONITORING monitor
+```
+
+*図2: CI/CDパイプライン*
+
 ### ブランチ戦略
 
 ```
