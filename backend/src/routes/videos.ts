@@ -159,7 +159,7 @@ router.post('/', [
 ], async (req: Request, res: Response): Promise<any> => {
   try {
     const { youtubeUrl, metadata = {}, tags = [] } = req.body;
-    const userId = (req as any).user.id;
+    const userId = (req as any).user.userId;
 
     // YouTube URLからビデオIDを抽出
     const videoId = youtubeService.extractVideoId(youtubeUrl);
@@ -200,7 +200,7 @@ router.post('/', [
       title: videoInfo.title,
       channelName: videoInfo.channelTitle,
       uploadDate: new Date(videoInfo.publishedAt),
-      description: videoInfo.description,
+      description: videoInfo.description.length > 2000 ? videoInfo.description.substring(0, 2000) : videoInfo.description,
       metadata: {
         teamName: metadata.teamName,
         performanceName: metadata.performanceName,
@@ -454,7 +454,7 @@ router.put('/:id', [
   try {
     const { id } = req.params;
     const { metadata = {}, tags } = req.body;
-    const userId = (req as any).user.id;
+    const userId = (req as any).user.userId;
 
     // 動画の存在確認
     const video = await Video.findById(id);
@@ -543,7 +543,7 @@ router.delete('/:id', [
 ], async (req: Request, res: Response): Promise<any> => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user.id;
+    const userId = (req as any).user.userId;
 
     // 動画の存在確認
     const video = await Video.findById(id);

@@ -102,8 +102,15 @@ class VideoService {
    * 動画を登録
    */
   async createVideo(data: CreateVideoRequest): Promise<Video> {
-    const response = await apiClient.post('/videos', data);
-    return response.data.data;
+    console.log('VideoService.createVideo called with:', data);
+    try {
+      const response = await apiClient.post('/videos', data);
+      console.log('VideoService.createVideo response:', response.data);
+      return response.data.data;
+    } catch (error) {
+      console.error('VideoService.createVideo error:', error);
+      throw error;
+    }
   }
 
   /**

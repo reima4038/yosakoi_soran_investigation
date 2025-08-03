@@ -150,6 +150,7 @@ const VideoRegistrationForm: React.FC<VideoRegistrationFormProps> = ({
   };
 
   const handleRegister = async (data: FormData) => {
+    console.log('handleRegister called with data:', data);
     setLoading(true);
     setError(null);
 
@@ -160,10 +161,13 @@ const VideoRegistrationForm: React.FC<VideoRegistrationFormProps> = ({
         tags: data.tags || [],
       };
 
+      console.log('Sending create request:', createData);
       await videoService.createVideo(createData);
+      console.log('Video created successfully');
       onSuccess();
       handleClose();
     } catch (err: any) {
+      console.error('Video registration error:', err);
       setError(err.response?.data?.message || '動画の登録に失敗しました');
     } finally {
       setLoading(false);
@@ -415,7 +419,20 @@ const VideoRegistrationForm: React.FC<VideoRegistrationFormProps> = ({
           <>
             <Button onClick={() => setStep('preview')}>戻る</Button>
             <Button
-              onClick={handleSubmit(handleRegister)}
+              onClick={(e) => {
+                console.log('Register button clicked');
+                console.log('Form errors:', errors);
+                console.log('Form values:', watch());
+                handleSubmit(
+                  (data) => {
+                    console.log('Form validation passed, calling handleRegister');
+                    handleRegister(data);
+                  },
+                  (errors) => {
+                    console.log('Form validation failed:', errors);
+                  }
+                )(e);
+              }}
               variant='contained'
               disabled={loading}
             >
