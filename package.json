@@ -25,7 +25,15 @@
     "backup": "./scripts/backup.sh",
     "security:audit": "node security/security-audit.js",
     "security:test": "cd backend && npm run test -- --testPathPattern=security",
-    "security:scan": "npm audit && cd backend && npm audit && cd ../frontend && npm audit"
+    "security:scan": "npm audit && cd backend && npm audit && cd ../frontend && npm audit",
+    "docs:lint": "markdownlint docs/**/*.md",
+    "docs:lint:fix": "markdownlint docs/**/*.md --fix",
+    "docs:links": "find docs -name '*.md' -exec markdown-link-check {} \\;",
+    "docs:spell": "cspell 'docs/**/*.md'",
+    "docs:generate-api": "node scripts/generate-api-docs.js",
+    "docs:maintenance": "./scripts/docs-maintenance.sh",
+    "docs:check": "npm run docs:lint && npm run docs:links && npm run docs:spell",
+    "docs:stats": "./scripts/docs-maintenance.sh --stats-only"
   },
   "keywords": ["yosakoi", "evaluation", "youtube", "react", "nodejs"],
   "author": "",

@@ -1,0 +1,193 @@
+name: Documentation Quality Check
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'docs/**'
+      - '.markdownlint.json'
+      - '.markdown-link-check.json'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'docs/**'
+      - '.markdownlint.json'
+      - '.markdown-link-check.json'
+
+jobs:
+  markdown-lint:
+    name: Markdown Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install markdownlint-cli
+        run: npm install -g markdownlint-cli
+
+      - name: Run markdownlint
+        run: markdownlint docs/**/*.md
+
+  link-check:
+    name: Link Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install markdown-link-check
+        run: npm install -g markdown-link-check
+
+      - name: Check links in documentation
+        run: |
+          find docs -name "*.md" -exec markdown-link-check {} \;
+
+  spell-check:
+    name: Spell Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install cspell
+        run: npm install -g cspell
+
+      - name: Create cspell config
+        run: |
+          cat > cspell.json << 'EOF'
+          {
+            "version": "0.2",
+            "language": "en,ja",
+            "words": [
+              "yosakoi", "soran", "youtube", "api", "jwt", "mongodb", "redis",
+              "nodejs", "typescript", "javascript", "mui", "websocket",
+              "dockerfile", "nginx", "grafana", "prometheus", "oauth",
+              "cors", "csrf", "xss", "https", "ssl", "tls", "cdn",
+              "ui", "ux", "spa", "pwa", "dom", "json", "xml", "yaml",
+              "backend", "frontend", "middleware", "auth", "eval",
+              "admin", "evaluator", "moderator", "timestamp", "metadata"
+            ],
+            "ignorePaths": [
+              "node_modules/**",
+              ".git/**",
+              "*.log",
+              "package-lock.json"
+            ]
+          }
+          EOF
+
+      - name: Run spell check
+        run: cspell "docs/**/*.md"
+
+  docs-structure:
+    name: Documentation Structure Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check required documentation files
+        run: |
+          required_files=(
+            "docs/user-manual.md"
+            "docs/admin-guide.md"
+            "docs/developer-guide.md"
+            "docs/api-documentation.md"
+            "docs/architecture.md"
+            "docs/CHANGELOG.md"
+            "docs/glossary.md"
+          )
+          
+          missing_files=()
+          for file in "${required_files[@]}"; do
+            if [[ ! -f "$file" ]]; then
+              missing_files+=("$file")
+            fi
+          done
+          
+          if [[ ${#missing_files[@]} -gt 0 ]]; then
+            echo "Missing required documentation files:"
+            printf '%s\n' "${missing_files[@]}"
+            exit 1
+          else
+            echo "All required documentation files are present."
+          fi
+
+      - name: Check documentation completeness
+        run: |
+          # Check if each markdown file has a title
+          for file in docs/*.md; do
+            if [[ -f "$file" ]]; then
+              if ! grep -q "^# " "$file"; then
+                echo "Warning: $file does not have a main title (# heading)"
+              fi
+            fi
+          done
+          
+          # Check if API documentation has all required sections
+          if [[ -f "docs/api-documentation.md" ]]; then
+            required_sections=("認証" "エラーレスポンス" "認証API" "ユーザー管理API")
+            for section in "${required_sections[@]}"; do
+              if ! grep -q "$section" "docs/api-documentation.md"; then
+                echo "Warning: API documentation missing section: $section"
+              fi
+            done
+          fi
+
+  generate-toc:
+    name: Generate Table of Contents
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install markdown-toc
+        run: npm install -g markdown-toc
+
+      - name: Generate TOC for documentation files
+        run: |
+          for file in docs/*.md; do
+            if [[ -f "$file" && "$file" != "docs/README.md" ]]; then
+              echo "Updating TOC for $file"
+              markdown-toc -i "$file" --maxdepth 3
+            fi
+          done
+
+      - name: Commit TOC updates
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add docs/
+          if git diff --staged --quiet; then
+            echo "No TOC changes to commit"
+          else
+            git commit -m "docs: auto-update table of contents [skip ci]"
+            git push
+          fi
