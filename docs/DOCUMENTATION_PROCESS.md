@@ -452,8 +452,8 @@ npm run docs:lint:fix
 
 ## 関連情報
 
-- [関連ドキュメント1](./related-doc1.md)
-- [関連ドキュメント2](./related-doc2.md)
+- [ユーザーマニュアル](./user-manual.md)
+- [開発者ガイド](./developer-guide.md)
 ```
 
 #### APIエンドポイントテンプレート

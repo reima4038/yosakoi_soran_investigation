@@ -273,7 +273,7 @@ npm install package-name
 
 ```markdown
 [セクション名](#セクション名)
-[他ページ](./other-page.md)
+[ユーザーマニュアル](./user-manual.md)
 ```
 
 #### 外部リンク
