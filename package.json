@@ -33,7 +33,12 @@
     "docs:generate-api": "node scripts/generate-api-docs.js",
     "docs:maintenance": "./scripts/docs-maintenance.sh",
     "docs:check": "npm run docs:lint && npm run docs:links && npm run docs:spell",
-    "docs:stats": "./scripts/docs-maintenance.sh --stats-only"
+    "docs:stats": "./scripts/docs-maintenance.sh --stats-only",
+    "docs:generate": "./scripts/generate-doc.sh",
+    "docs:quality": "./scripts/check-doc-quality.sh",
+    "docs:template:api": "./scripts/generate-doc.sh api",
+    "docs:template:troubleshooting": "./scripts/generate-doc.sh troubleshooting",
+    "docs:template:feature": "./scripts/generate-doc.sh feature"
   },
   "keywords": ["yosakoi", "evaluation", "youtube", "react", "nodejs"],
   "author": "",
