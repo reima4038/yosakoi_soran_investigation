@@ -6,3 +6,4 @@ export { default as Breadcrumbs } from './Breadcrumbs';
 export { default as ErrorBoundary } from './ErrorBoundary';
 export { default as GlobalStateManager } from './GlobalStateManager';
 export { default as OfflineNotificationSettings } from './OfflineNotificationSettings';
+export { default as EnhancedURLInput } from './EnhancedURLInput';
