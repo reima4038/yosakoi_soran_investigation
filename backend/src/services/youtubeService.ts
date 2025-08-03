@@ -1,5 +1,6 @@
 import { google } from 'googleapis';
 import { config } from '../config';
+import { YouTubeURLNormalizer, NormalizedURL, URLValidationError } from '../utils/urlNormalizer';
 
 export interface YouTubeVideoInfo {
   id: string;
@@ -37,22 +38,32 @@ class YouTubeService {
   }
 
   /**
-   * YouTube URLからビデオIDを抽出
+   * YouTube URLからビデオIDを抽出（拡張版）
+   * 様々なURL形式に対応し、URL正規化エンジンを使用
    */
   extractVideoId(url: string): string | null {
-    const patterns = [
-      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
-      /^([a-zA-Z0-9_-]{11})$/ // 直接ビデオIDが渡された場合
-    ];
-
-    for (const pattern of patterns) {
-      const match = url.match(pattern);
-      if (match && match[1]) {
-        return match[1];
-      }
+    try {
+      const normalized = YouTubeURLNormalizer.normalize(url);
+      return normalized.videoId;
+    } catch (error) {
+      // ログ出力してnullを返す（後方互換性のため）
+      console.warn('Failed to extract video ID from URL:', url, error);
+      return null;
     }
+  }
 
-    return null;
+  /**
+   * URL正規化を行い、詳細な情報を返す
+   */
+  normalizeURL(url: string): NormalizedURL {
+    return YouTubeURLNormalizer.normalize(url);
+  }
+
+  /**
+   * 複数のURLを一括で正規化する
+   */
+  normalizeMultipleURLs(urls: string[]): NormalizedURL[] {
+    return YouTubeURLNormalizer.normalizeMultiple(urls);
   }
 
   /**

@@ -1,9 +1,11 @@
 import { youtubeService } from '../services/youtubeService';
+import { URLValidationErrorType } from '../utils/urlNormalizer';
 
 describe('YouTubeService', () => {
   describe('extractVideoId', () => {
-    test('YouTube URLからビデオIDを正しく抽出する', () => {
+    test('YouTube URLからビデオIDを正しく抽出する（拡張版）', () => {
       const testCases = [
+        // 基本的なURL形式
         {
           url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
           expected: 'dQw4w9WgXcQ'
@@ -16,10 +18,37 @@ describe('YouTubeService', () => {
           url: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
           expected: 'dQw4w9WgXcQ'
         },
+        // 追加パラメータ付きURL（要件1.1）
+        {
+          url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLrAXtmRdnEQy8VJqQzNlkVjYoungUdmzP&index=1',
+          expected: 'dQw4w9WgXcQ'
+        },
+        // タイムスタンプ付きURL（要件1.2）
         {
           url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=30s',
           expected: 'dQw4w9WgXcQ'
         },
+        // 短縮URL（要件1.3）
+        {
+          url: 'https://youtu.be/dQw4w9WgXcQ?si=SHARE_ID',
+          expected: 'dQw4w9WgXcQ'
+        },
+        // 埋め込みURL（要件1.4）
+        {
+          url: 'https://www.youtube.com/embed/dQw4w9WgXcQ?start=30',
+          expected: 'dQw4w9WgXcQ'
+        },
+        // モバイル版URL
+        {
+          url: 'https://m.youtube.com/watch?v=dQw4w9WgXcQ',
+          expected: 'dQw4w9WgXcQ'
+        },
+        // プロトコルなしURL
+        {
+          url: 'youtube.com/watch?v=dQw4w9WgXcQ',
+          expected: 'dQw4w9WgXcQ'
+        },
+        // 直接ビデオID
         {
           url: 'dQw4w9WgXcQ',
           expected: 'dQw4w9WgXcQ'
@@ -115,6 +144,45 @@ describe('YouTubeService', () => {
     test('空の配列で複数動画取得を呼び出すと空配列を返す', async () => {
       const result = await youtubeService.getMultipleVideoInfo([]);
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('normalizeURL', () => {
+    test('URLを正規化して詳細情報を返す', () => {
+      const url = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLtest&index=1&t=30s';
+      const result = youtubeService.normalizeURL(url);
+      
+      expect(result.isValid).toBe(true);
+      expect(result.videoId).toBe('dQw4w9WgXcQ');
+      expect(result.canonical).toBe('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+      expect(result.original).toBe(url);
+      expect(result.metadata?.playlist).toBe('PLtest');
+      expect(result.metadata?.index).toBe(1);
+      expect(result.metadata?.timestamp).toBe(30);
+    });
+
+    test('無効なURLでエラーを投げる', () => {
+      expect(() => youtubeService.normalizeURL('https://vimeo.com/123456'))
+        .toThrow();
+    });
+  });
+
+  describe('normalizeMultipleURLs', () => {
+    test('複数のURLを一括で正規化する', () => {
+      const urls = [
+        'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        'https://youtu.be/jNQXAC9IVRw',
+        'https://example.com/not-youtube'
+      ];
+
+      const results = youtubeService.normalizeMultipleURLs(urls);
+      
+      expect(results).toHaveLength(3);
+      expect(results[0].isValid).toBe(true);
+      expect(results[0].videoId).toBe('dQw4w9WgXcQ');
+      expect(results[1].isValid).toBe(true);
+      expect(results[1].videoId).toBe('jNQXAC9IVRw');
+      expect(results[2].isValid).toBe(false);
     });
   });
 });
