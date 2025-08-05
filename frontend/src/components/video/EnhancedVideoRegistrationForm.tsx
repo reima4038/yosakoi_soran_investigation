@@ -37,7 +37,6 @@ import {
 } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
-import * as yup from 'yup';
 import EnhancedURLInput from '../common/EnhancedURLInput';
 import { NormalizedURL } from '../../utils/urlNormalizer';
 import {
@@ -45,44 +44,10 @@ import {
   YouTubeVideoInfo,
   CreateVideoRequest,
 } from '../../services/videoService';
-
-// より柔軟なバリデーションスキーマ
-const schema = yup.object().shape({
-  youtubeUrl: yup
-    .string()
-    .required('YouTube URLは必須です'),
-  metadata: yup
-    .object()
-    .shape({
-      teamName: yup
-        .string()
-        .max(100, 'チーム名は100文字以下で入力してください')
-        .optional(),
-      performanceName: yup
-        .string()
-        .max(100, '演舞名は100文字以下で入力してください')
-        .optional(),
-      eventName: yup
-        .string()
-        .max(100, '大会名は100文字以下で入力してください')
-        .optional(),
-      year: yup
-        .number()
-        .nullable()
-        .min(1900, '年度は1900年以降で入力してください')
-        .max(new Date().getFullYear() + 1, '年度は来年以前で入力してください')
-        .optional(),
-      location: yup
-        .string()
-        .max(100, '場所は100文字以下で入力してください')
-        .optional(),
-    })
-    .optional(),
-  tags: yup
-    .array()
-    .of(yup.string().max(30, 'タグは30文字以下で入力してください'))
-    .optional(),
-});
+import { 
+  createDynamicVideoRegistrationSchema,
+  relaxedVideoRegistrationSchema 
+} from '../../utils/validationSchemas';
 
 interface EnhancedVideoRegistrationFormProps {
   open: boolean;
@@ -125,7 +90,11 @@ const EnhancedVideoRegistrationForm: React.FC<EnhancedVideoRegistrationFormProps
     reset,
     formState: { errors },
   } = useForm<FormData>({
-    resolver: yupResolver(schema) as any,
+    resolver: yupResolver(
+      urlValid 
+        ? createDynamicVideoRegistrationSchema(urlValid)
+        : relaxedVideoRegistrationSchema
+    ) as any,
     defaultValues: {
       youtubeUrl: '',
       metadata: {},

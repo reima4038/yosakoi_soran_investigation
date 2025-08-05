@@ -132,7 +132,7 @@ const EnhancedURLInput: React.FC<EnhancedURLInputProps> = ({
   // 再検証
   const handleRefresh = useCallback(() => {
     inputProps.onChange(internalValue);
-  }, [inputProps.onChange, internalValue]);
+  }, [inputProps, internalValue]);
 
   // 入力状態に基づくスタイリング
   const getInputColor = () => {
@@ -384,7 +384,7 @@ const EnhancedURLInput: React.FC<EnhancedURLInputProps> = ({
                     href="#"
                     onClick={(e) => {
                       e.preventDefault();
-                      handleChange(getExampleURL());
+                      handleChange(getExampleURL() || 'https://www.youtube.com/watch?v=dQw4w9WgXcQ');
                     }}
                     sx={{ wordBreak: 'break-all' }}
                   >

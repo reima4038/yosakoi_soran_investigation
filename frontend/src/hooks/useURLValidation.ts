@@ -41,7 +41,7 @@ export function useURLValidation(options: UseURLValidationOptions = {}): UseURLV
   const [isValidating, setIsValidating] = useState(false);
   const [currentUrl, setCurrentUrl] = useState(initialUrl);
   
-  const validatorRef = useRef<DebouncedValidator>();
+  const validatorRef = useRef<DebouncedValidator | null>(null);
   
   // バリデーターの初期化
   useEffect(() => {
@@ -59,7 +59,7 @@ export function useURLValidation(options: UseURLValidationOptions = {}): UseURLV
     if (validateOnMount && initialUrl) {
       validateImmediate(initialUrl);
     }
-  }, [validateOnMount, initialUrl]);
+  }, [validateOnMount, initialUrl, validateImmediate]);
 
   const validate = useCallback((url: string) => {
     if (!validatorRef.current) return;

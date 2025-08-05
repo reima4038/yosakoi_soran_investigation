@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Box,
   Button,
@@ -22,53 +22,17 @@ import {
 } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
-import * as yup from 'yup';
 import {
   videoService,
   YouTubeVideoInfo,
   CreateVideoRequest,
 } from '../../services/videoService';
-
-const schema = yup.object().shape({
-  youtubeUrl: yup
-    .string()
-    .required('YouTube URLは必須です')
-    .matches(
-      /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)[a-zA-Z0-9_-]{11}$/,
-      '有効なYouTube URLを入力してください'
-    ),
-  metadata: yup
-    .object()
-    .shape({
-      teamName: yup
-        .string()
-        .max(100, 'チーム名は100文字以下で入力してください')
-        .optional(),
-      performanceName: yup
-        .string()
-        .max(100, '演舞名は100文字以下で入力してください')
-        .optional(),
-      eventName: yup
-        .string()
-        .max(100, '大会名は100文字以下で入力してください')
-        .optional(),
-      year: yup
-        .number()
-        .nullable()
-        .min(1900, '年度は1900年以降で入力してください')
-        .max(new Date().getFullYear() + 1, '年度は来年以前で入力してください')
-        .optional(),
-      location: yup
-        .string()
-        .max(100, '場所は100文字以下で入力してください')
-        .optional(),
-    })
-    .optional(),
-  tags: yup
-    .array()
-    .of(yup.string().max(30, 'タグは30文字以下で入力してください'))
-    .optional(),
-});
+import EnhancedURLInput from '../common/EnhancedURLInput';
+import { NormalizedURL, URLValidationError } from '../../utils/urlNormalizer';
+import { 
+  createDynamicVideoRegistrationSchema,
+  relaxedVideoRegistrationSchema 
+} from '../../utils/validationSchemas';
 
 interface VideoRegistrationFormProps {
   open: boolean;
@@ -98,6 +62,9 @@ const VideoRegistrationForm: React.FC<VideoRegistrationFormProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tagInput, setTagInput] = useState('');
+  const [normalizedUrl, setNormalizedUrl] = useState<NormalizedURL | null>(null);
+  const [urlValidationError, setUrlValidationError] = useState<URLValidationError | null>(null);
+  const [isUrlValid, setIsUrlValid] = useState(false);
 
   const {
     control,
@@ -107,7 +74,11 @@ const VideoRegistrationForm: React.FC<VideoRegistrationFormProps> = ({
     reset,
     formState: { errors },
   } = useForm<FormData>({
-    resolver: yupResolver(schema) as any,
+    resolver: yupResolver(
+      isUrlValid 
+        ? createDynamicVideoRegistrationSchema(isUrlValid, urlValidationError?.message)
+        : relaxedVideoRegistrationSchema
+    ) as any,
     defaultValues: {
       youtubeUrl: '',
       metadata: {},
@@ -118,18 +89,56 @@ const VideoRegistrationForm: React.FC<VideoRegistrationFormProps> = ({
   const watchedUrl = watch('youtubeUrl');
   const watchedTags = watch('tags') || [];
 
+  // URL検証成功時のハンドラー
+  const handleValidURL = useCallback((url: NormalizedURL) => {
+    setNormalizedUrl(url);
+    setUrlValidationError(null);
+    setIsUrlValid(true);
+  }, []);
+
+  // URL検証失敗時のハンドラー
+  const handleInvalidURL = useCallback((error: URLValidationError) => {
+    setUrlValidationError(error);
+    setNormalizedUrl(null);
+    setIsUrlValid(false);
+  }, []);
+
+  // URL検証状態変更時のハンドラー
+  const handleValidationChange = useCallback((isValid: boolean) => {
+    setIsUrlValid(isValid);
+    if (!isValid) {
+      setNormalizedUrl(null);
+      setYoutubeInfo(null);
+    }
+  }, []);
+
   const handleUrlCheck = async () => {
-    if (!watchedUrl) return;
+    if (!watchedUrl || !isUrlValid || !normalizedUrl) {
+      setError('有効なYouTube URLを入力してください');
+      return;
+    }
 
     setLoading(true);
     setError(null);
 
     try {
-      const info = await videoService.getYouTubeInfo(watchedUrl);
+      // 正規化されたURLを使用してビデオ情報を取得
+      const info = await videoService.getYouTubeInfo(normalizedUrl.canonical);
       setYoutubeInfo(info);
       setStep('preview');
     } catch (err: any) {
-      setError(err.response?.data?.message || '動画情報の取得に失敗しました');
+      // より詳細なエラーハンドリング
+      const errorMessage = err.response?.data?.message || err.message;
+      
+      if (errorMessage.includes('private') || errorMessage.includes('非公開')) {
+        setError('この動画は非公開のため登録できません。公開されている動画のURLを使用してください。');
+      } else if (errorMessage.includes('not found') || errorMessage.includes('見つかりません')) {
+        setError('指定された動画が見つかりません。URLが正しいか確認してください。');
+      } else if (errorMessage.includes('quota') || errorMessage.includes('制限')) {
+        setError('YouTube APIの利用制限に達しました。しばらく時間をおいてから再試行してください。');
+      } else {
+        setError(`動画情報の取得に失敗しました: ${errorMessage}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -155,9 +164,15 @@ const VideoRegistrationForm: React.FC<VideoRegistrationFormProps> = ({
     setError(null);
 
     try {
+      // 正規化されたURLを使用して登録
+      const urlToUse = normalizedUrl?.canonical || data.youtubeUrl;
+      
       const createData: CreateVideoRequest = {
-        youtubeUrl: data.youtubeUrl,
-        metadata: data.metadata || {},
+        youtubeUrl: urlToUse,
+        metadata: {
+          ...data.metadata,
+          year: data.metadata?.year || undefined
+        },
         tags: data.tags || [],
       };
 
@@ -168,7 +183,19 @@ const VideoRegistrationForm: React.FC<VideoRegistrationFormProps> = ({
       handleClose();
     } catch (err: any) {
       console.error('Video registration error:', err);
-      setError(err.response?.data?.message || '動画の登録に失敗しました');
+      
+      // より詳細なエラーハンドリング
+      const errorMessage = err.response?.data?.message || err.message;
+      
+      if (errorMessage.includes('duplicate') || errorMessage.includes('既に登録')) {
+        setError('この動画は既に登録されています。別の動画を選択してください。');
+      } else if (errorMessage.includes('private') || errorMessage.includes('非公開')) {
+        setError('この動画は非公開のため登録できません。');
+      } else if (errorMessage.includes('validation') || errorMessage.includes('バリデーション')) {
+        setError('入力内容に問題があります。各項目を確認してください。');
+      } else {
+        setError(`動画の登録に失敗しました: ${errorMessage}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -179,6 +206,9 @@ const VideoRegistrationForm: React.FC<VideoRegistrationFormProps> = ({
     setYoutubeInfo(null);
     setError(null);
     setTagInput('');
+    setNormalizedUrl(null);
+    setUrlValidationError(null);
+    setIsUrlValid(false);
     reset();
     onClose();
   };
@@ -196,32 +226,97 @@ const VideoRegistrationForm: React.FC<VideoRegistrationFormProps> = ({
 
       <DialogContent>
         {error && (
-          <Alert severity='error' sx={{ mb: 2 }}>
-            {error}
+          <Alert 
+            severity='error' 
+            sx={{ mb: 2 }}
+            action={
+              step === 'url' && (
+                <Button 
+                  color="inherit" 
+                  size="small" 
+                  onClick={() => setError(null)}
+                >
+                  閉じる
+                </Button>
+              )
+            }
+          >
+            <Typography variant="body2">
+              {error}
+            </Typography>
+            {step === 'url' && urlValidationError && (
+              <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                💡 ヒント: {urlValidationError.suggestion || 'YouTube URLの形式を確認してください'}
+              </Typography>
+            )}
+          </Alert>
+        )}
+
+        {/* URL検証エラーの詳細表示 */}
+        {step === 'url' && urlValidationError && !error && (
+          <Alert severity='warning' sx={{ mb: 2 }}>
+            <Typography variant="body2">
+              {urlValidationError.message}
+            </Typography>
+            {urlValidationError.suggestion && (
+              <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                💡 {urlValidationError.suggestion}
+              </Typography>
+            )}
+            {urlValidationError.example && (
+              <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                例: {urlValidationError.example}
+              </Typography>
+            )}
           </Alert>
         )}
 
         {step === 'url' && (
           <Box>
             <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
-              登録したいYouTube動画のURLを入力してください
+              登録したいYouTube動画のURLを入力してください。様々な形式のYouTube URLに対応しています。
             </Typography>
 
             <Controller
               name='youtubeUrl'
               control={control}
               render={({ field }) => (
-                <TextField
-                  {...field}
-                  fullWidth
+                <EnhancedURLInput
+                  value={field.value}
+                  onChange={field.onChange}
+                  onValidURL={handleValidURL}
+                  onInvalidURL={handleInvalidURL}
+                  onValidationChange={handleValidationChange}
                   label='YouTube URL'
-                  placeholder='https://www.youtube.com/watch?v=...'
+                  placeholder='https://www.youtube.com/watch?v=... または https://youtu.be/...'
                   error={!!errors.youtubeUrl}
                   helperText={errors.youtubeUrl?.message}
+                  required
+                  showMetadata={true}
+                  showSuggestions={true}
+                  showExamples={true}
+                  allowPaste={true}
+                  allowClear={true}
                   sx={{ mb: 2 }}
                 />
               )}
             />
+
+            {/* 追加のヒント表示 */}
+            {!isUrlValid && !loading && (
+              <Alert severity="info" sx={{ mt: 1 }}>
+                <Typography variant="body2">
+                  💡 対応しているURL形式:
+                </Typography>
+                <Box component="ul" sx={{ mt: 1, mb: 0, pl: 2 }}>
+                  <li>標準URL: https://www.youtube.com/watch?v=VIDEO_ID</li>
+                  <li>短縮URL: https://youtu.be/VIDEO_ID</li>
+                  <li>埋め込みURL: https://www.youtube.com/embed/VIDEO_ID</li>
+                  <li>モバイルURL: https://m.youtube.com/watch?v=VIDEO_ID</li>
+                  <li>追加パラメータ付きURL（プレイリスト、タイムスタンプなど）</li>
+                </Box>
+              </Alert>
+            )}
           </Box>
         )}
 
@@ -250,9 +345,30 @@ const VideoRegistrationForm: React.FC<VideoRegistrationFormProps> = ({
                     'ja-JP'
                   )}
                 </Typography>
-                <Typography variant='body2' color='text.secondary'>
+                <Typography variant='body2' color='text.secondary' gutterBottom>
                   再生回数: {parseInt(youtubeInfo.viewCount).toLocaleString()}回
                 </Typography>
+                
+                {/* 正規化されたURL情報の表示 */}
+                {normalizedUrl && (
+                  <Box sx={{ mt: 2, p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+                    <Typography variant='caption' color='text.secondary' display='block'>
+                      動画ID: {normalizedUrl.videoId}
+                    </Typography>
+                    {normalizedUrl.metadata?.timestamp && (
+                      <Typography variant='caption' color='text.secondary' display='block'>
+                        開始時間: {Math.floor(normalizedUrl.metadata.timestamp / 60)}:{(normalizedUrl.metadata.timestamp % 60).toString().padStart(2, '0')}
+                      </Typography>
+                    )}
+                    {normalizedUrl.metadata?.playlist && (
+                      <Typography variant='caption' color='text.secondary' display='block'>
+                        プレイリスト: {normalizedUrl.metadata.playlist}
+                        {normalizedUrl.metadata.index && ` (${normalizedUrl.metadata.index}番目)`}
+                      </Typography>
+                    )}
+                  </Box>
+                )}
+
                 {youtubeInfo.isEmbeddable === false && (
                   <Alert severity='warning' sx={{ mt: 2 }}>
                     この動画は埋め込み再生ができません
@@ -260,6 +376,21 @@ const VideoRegistrationForm: React.FC<VideoRegistrationFormProps> = ({
                 )}
               </CardContent>
             </Card>
+
+            {/* URL正規化の成功メッセージ */}
+            {normalizedUrl && normalizedUrl.original !== normalizedUrl.canonical && (
+              <Alert severity='success' sx={{ mb: 2 }}>
+                <Typography variant='body2'>
+                  ✓ URLが正規化されました
+                </Typography>
+                <Typography variant='caption' display='block' sx={{ mt: 0.5, wordBreak: 'break-all' }}>
+                  元のURL: {normalizedUrl.original}
+                </Typography>
+                <Typography variant='caption' display='block' sx={{ wordBreak: 'break-all' }}>
+                  正規化後: {normalizedUrl.canonical}
+                </Typography>
+              </Alert>
+            )}
           </Box>
         )}
 
@@ -400,7 +531,7 @@ const VideoRegistrationForm: React.FC<VideoRegistrationFormProps> = ({
           <Button
             onClick={handleUrlCheck}
             variant='contained'
-            disabled={!watchedUrl || loading}
+            disabled={!watchedUrl || !isUrlValid || loading}
           >
             {loading ? <CircularProgress size={20} /> : '動画を確認'}
           </Button>
