@@ -39,6 +39,7 @@ class AuthService {
         // JWTトークン生成
         const token = this.generateToken({
             userId: user._id.toString(),
+            username: user.username,
             email: user.email,
             role: user.role
         });
@@ -62,6 +63,7 @@ class AuthService {
         // JWTトークン生成
         const token = this.generateToken({
             userId: user._id.toString(),
+            username: user.username,
             email: user.email,
             role: user.role
         });
@@ -129,6 +131,9 @@ class AuthService {
         catch (error) {
             if (error instanceof jsonwebtoken_1.default.TokenExpiredError) {
                 throw new Error('パスワードリセットトークンの有効期限が切れています');
+            }
+            else if (error instanceof Error && error.message === '無効なトークンタイプです') {
+                throw error;
             }
             else {
                 throw new Error('無効なパスワードリセットトークンです');

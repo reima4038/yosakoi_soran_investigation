@@ -18,7 +18,7 @@ declare global {
 /**
  * 言語検出ミドルウェア
  */
-export function languageDetectionMiddleware(req: Request, res: Response, next: NextFunction): void {
+export function languageDetectionMiddleware(req: Request, _res: Response, next: NextFunction): void {
   // Accept-Languageヘッダーから言語を検出
   const acceptLanguage = req.headers['accept-language'];
   const detectedLanguage = ErrorMessageManager.detectLanguageFromBrowser(acceptLanguage);
@@ -65,7 +65,7 @@ export function setResponseLanguage(res: Response, language: SupportedLanguage):
  * 多言語対応のエラーレスポンスを生成するヘルパー関数
  */
 export function createLocalizedErrorResponse(
-  error: any,
+  error: unknown,
   language: SupportedLanguage,
   includeDetails: boolean = false
 ) {
@@ -82,15 +82,15 @@ export function createLocalizedErrorResponse(
   } = {
     success: false,
     error: {
-      type: error.type || 'UNKNOWN_ERROR',
-      message: error.message || 'An error occurred',
+      type: (error as any).type || 'UNKNOWN_ERROR',
+      message: (error as any).message || 'An error occurred',
       language: language
     }
   };
 
   // URLValidationErrorの場合、詳細なエラー情報を追加
-  if (error.type && ErrorMessageManager.isLanguageSupported(language)) {
-    const messageData = ErrorMessageManager.getMessage(error.type, language);
+  if ((error as any).type && ErrorMessageManager.isLanguageSupported(language)) {
+    const messageData = ErrorMessageManager.getMessage((error as any).type, language);
     
     baseResponse.error.message = messageData.message;
     

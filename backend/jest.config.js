@@ -18,4 +18,9 @@ module.exports = {
   coverageReporters: ['text', 'lcov', 'html'],
   testTimeout: 60000,
   setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup.ts'],
+  testEnvironmentOptions: {
+    node: {
+      options: ['--experimental-vm-modules']
+    }
+  }
 };

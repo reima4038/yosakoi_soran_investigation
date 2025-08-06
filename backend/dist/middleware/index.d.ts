@@ -33,4 +33,5 @@ export declare const requireEvaluator: (req: Request, res: Response, next: NextF
  */
 export declare const requireSelfOrAdmin: (userIdParam?: string) => (req: Request, res: Response, next: NextFunction) => void;
 export declare const validationMiddleware: () => void;
+export declare const auth: (req: Request, res: Response, next: NextFunction) => Promise<void>;
 //# sourceMappingURL=index.d.ts.map

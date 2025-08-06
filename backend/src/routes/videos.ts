@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { body, param, query, validationResult } from 'express-validator';
 import { Video } from '../models/Video';
-import { youtubeService, YouTubeError } from '../services/youtubeService';
+import { youtubeService } from '../services/youtubeService';
 import { auth } from '../middleware';
 import { 
   languageDetectionMiddleware, 
@@ -672,7 +672,7 @@ router.delete('/:id', [
  */
 router.get('/stats/summary', [
   auth
-], async (_req: Request, res: Response): Promise<any> => {
+], async (_req: Request, res: Response): Promise<void> => {
   try {
     const totalVideos = await Video.countDocuments();
     

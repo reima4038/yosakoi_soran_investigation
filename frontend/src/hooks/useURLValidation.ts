@@ -54,13 +54,6 @@ export function useURLValidation(options: UseURLValidationOptions = {}): UseURLV
     };
   }, [debounceDelay]);
 
-  // 初期URL検証
-  useEffect(() => {
-    if (validateOnMount && initialUrl) {
-      validateImmediate(initialUrl);
-    }
-  }, [validateOnMount, initialUrl, validateImmediate]);
-
   const validate = useCallback((url: string) => {
     if (!validatorRef.current) return;
 
@@ -84,6 +77,13 @@ export function useURLValidation(options: UseURLValidationOptions = {}): UseURLV
       setIsValidating(false);
     });
   }, []);
+
+  // 初期URL検証
+  useEffect(() => {
+    if (validateOnMount && initialUrl) {
+      validateImmediate(initialUrl);
+    }
+  }, [validateOnMount, initialUrl, validateImmediate]);
 
   const clear = useCallback(() => {
     if (validatorRef.current) {

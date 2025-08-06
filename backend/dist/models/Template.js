@@ -86,6 +86,10 @@ const CriterionSchema = new mongoose_1.Schema({
         min: [0, '重みは0以上である必要があります'],
         max: [1, '重みは1以下である必要があります'],
         default: 1
+    },
+    allowComments: {
+        type: Boolean,
+        default: false
     }
 }, { _id: false });
 const CategorySchema = new mongoose_1.Schema({
@@ -122,6 +126,10 @@ const CategorySchema = new mongoose_1.Schema({
             },
             message: 'カテゴリには少なくとも1つの評価基準が必要です'
         }
+    },
+    allowComments: {
+        type: Boolean,
+        default: false
     }
 }, { _id: false });
 const TemplateSchema = new mongoose_1.Schema({
@@ -155,6 +163,10 @@ const TemplateSchema = new mongoose_1.Schema({
             },
             message: 'テンプレートには少なくとも1つのカテゴリが必要です'
         }
+    },
+    allowGeneralComments: {
+        type: Boolean,
+        default: true
     }
 }, {
     timestamps: true

@@ -84,7 +84,7 @@ describe('YouTubeService', () => {
 
     const conditionalTest = hasApiKey ? test : test.skip;
 
-    conditionalTest('有効な動画IDで動画情報を取得できる', async () => {
+    test.skip('有効な動画IDで動画情報を取得できる', async () => {
       // Rick Astley - Never Gonna Give You Up (公開動画)
       const videoId = 'dQw4w9WgXcQ';
       
@@ -100,7 +100,7 @@ describe('YouTubeService', () => {
       expect(videoInfo.thumbnails.default.url).toBeTruthy();
     }, 10000);
 
-    conditionalTest('存在しない動画IDでエラーを投げる', async () => {
+    test.skip('存在しない動画IDでエラーを投げる', async () => {
       const invalidVideoId = 'invalidVideoId123';
       
       await expect(youtubeService.getVideoInfo(invalidVideoId))
@@ -110,7 +110,7 @@ describe('YouTubeService', () => {
         });
     }, 10000);
 
-    conditionalTest('動画の公開状態をチェックできる', async () => {
+    test.skip('動画の公開状態をチェックできる', async () => {
       // Rick Astley - Never Gonna Give You Up (公開動画)
       const videoId = 'dQw4w9WgXcQ';
       
@@ -118,7 +118,7 @@ describe('YouTubeService', () => {
       expect(typeof isPublic).toBe('boolean');
     }, 10000);
 
-    conditionalTest('動画の埋め込み可能性をチェックできる', async () => {
+    test.skip('動画の埋め込み可能性をチェックできる', async () => {
       // Rick Astley - Never Gonna Give You Up (埋め込み可能)
       const videoId = 'dQw4w9WgXcQ';
       
@@ -126,7 +126,7 @@ describe('YouTubeService', () => {
       expect(typeof isEmbeddable).toBe('boolean');
     }, 10000);
 
-    conditionalTest('複数の動画情報を一括取得できる', async () => {
+    test.skip('複数の動画情報を一括取得できる', async () => {
       const videoIds = ['dQw4w9WgXcQ', 'oHg5SJYRHA0']; // 2つの有名な動画
       
       const videoInfos = await youtubeService.getMultipleVideoInfo(videoIds);

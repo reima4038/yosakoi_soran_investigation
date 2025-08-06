@@ -12,6 +12,7 @@ export interface ICriterion {
     minValue: number;
     maxValue: number;
     weight: number;
+    allowComments?: boolean;
 }
 export interface ICategory {
     id: string;
@@ -19,6 +20,7 @@ export interface ICategory {
     description: string;
     weight: number;
     criteria: ICriterion[];
+    allowComments?: boolean;
 }
 export interface ITemplate extends Document {
     name: string;
@@ -26,6 +28,7 @@ export interface ITemplate extends Document {
     createdAt: Date;
     creatorId: mongoose.Types.ObjectId;
     categories: ICategory[];
+    allowGeneralComments?: boolean;
 }
 export declare const Template: mongoose.Model<ITemplate, {}, {}, {}, mongoose.Document<unknown, {}, ITemplate, {}> & ITemplate & Required<{
     _id: unknown;

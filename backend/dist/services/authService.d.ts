@@ -11,6 +11,7 @@ export interface LoginData {
 }
 export interface JWTPayload {
     userId: string;
+    username: string;
     email: string;
     role: UserRole;
 }

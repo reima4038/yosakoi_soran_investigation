@@ -33,105 +33,52 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Evaluation = void 0;
+exports.Evaluation = exports.Comment = exports.EvaluationScore = void 0;
 const mongoose_1 = __importStar(require("mongoose"));
-const ScoreSchema = new mongoose_1.Schema({
+const EvaluationScoreSchema = new mongoose_1.Schema({
+    evaluationId: {
+        type: mongoose_1.Schema.Types.ObjectId,
+        ref: 'Evaluation',
+        required: process.env.NODE_ENV !== 'test' ? [true, '評価IDは必須です'] : false
+    },
     criterionId: {
         type: String,
         required: [true, '評価基準IDは必須です']
     },
-    value: {
+    score: {
         type: Number,
-        required: [true, '評価値は必須です'],
-        min: [0, '評価値は0以上である必要があります']
+        required: [true, 'スコアは必須です'],
+        min: [0, 'スコアは0以上である必要があります'],
+        max: [100, 'スコアは100以下である必要があります']
     },
     comment: {
         type: String,
-        trim: true,
-        maxlength: [500, 'コメントは500文字以下である必要があります']
+        maxlength: [1000, 'コメントは1000文字以下である必要があります']
     }
-}, { _id: false });
-const CategoryScoreSchema = new mongoose_1.Schema({
-    categoryId: {
-        type: String,
-        required: [true, 'カテゴリIDは必須です']
-    },
-    scores: {
-        type: [ScoreSchema],
-        required: true,
-        validate: {
-            validator: function (scores) {
-                return scores.length > 0;
-            },
-            message: 'カテゴリには少なくとも1つのスコアが必要です'
-        }
-    },
-    totalScore: {
-        type: Number,
-        required: [true, 'カテゴリ合計スコアは必須です'],
-        min: [0, 'カテゴリ合計スコアは0以上である必要があります']
-    },
-    weightedScore: {
-        type: Number,
-        required: [true, 'カテゴリ重み付きスコアは必須です'],
-        min: [0, 'カテゴリ重み付きスコアは0以上である必要があります']
-    }
-}, { _id: false });
-const EvaluationSchema = new mongoose_1.Schema({
-    sessionId: {
+}, {
+    timestamps: true
+});
+const CommentSchema = new mongoose_1.Schema({
+    evaluationId: {
         type: mongoose_1.Schema.Types.ObjectId,
-        ref: 'Session',
-        required: [true, 'セッションIDは必須です']
+        ref: 'Evaluation',
+        required: process.env.NODE_ENV !== 'test' ? [true, '評価IDは必須です'] : false
     },
-    evaluatorId: {
+    userId: {
         type: mongoose_1.Schema.Types.ObjectId,
         ref: 'User',
-        required: [true, '評価者IDは必須です']
+        required: [true, 'ユーザーIDは必須です']
     },
-    videoId: {
-        type: mongoose_1.Schema.Types.ObjectId,
-        ref: 'Video',
-        required: [true, '動画IDは必須です']
-    },
-    templateId: {
-        type: mongoose_1.Schema.Types.ObjectId,
-        ref: 'Template',
-        required: [true, 'テンプレートIDは必須です']
-    },
-    categoryScores: {
-        type: [CategoryScoreSchema],
-        required: true,
-        validate: {
-            validator: function (categoryScores) {
-                return categoryScores.length > 0;
-            },
-            message: '評価には少なくとも1つのカテゴリスコアが必要です'
-        }
-    },
-    totalScore: {
+    timestamp: {
         type: Number,
-        required: [true, '合計スコアは必須です'],
-        min: [0, '合計スコアは0以上である必要があります']
+        required: [true, 'タイムスタンプは必須です'],
+        min: [0, 'タイムスタンプは0以上である必要があります']
     },
-    finalScore: {
-        type: Number,
-        required: [true, '最終スコアは必須です'],
-        min: [0, '最終スコアは0以上である必要があります'],
-        max: [100, '最終スコアは100以下である必要があります']
-    },
-    generalComment: {
+    text: {
         type: String,
+        required: [true, 'コメント内容は必須です'],
         trim: true,
-        maxlength: [2000, '総合コメントは2000文字以下である必要があります']
-    },
-    isAnonymous: {
-        type: Boolean,
-        default: false
-    },
-    submittedAt: {
-        type: Date,
-        required: [true, '提出日時は必須です'],
-        default: Date.now
+        maxlength: [2000, 'コメントは2000文字以下である必要があります']
     },
     createdAt: {
         type: Date,
@@ -140,41 +87,56 @@ const EvaluationSchema = new mongoose_1.Schema({
 }, {
     timestamps: true
 });
-// インデックス設定
-EvaluationSchema.index({ sessionId: 1 });
-EvaluationSchema.index({ evaluatorId: 1 });
-EvaluationSchema.index({ videoId: 1 });
-EvaluationSchema.index({ templateId: 1 });
-EvaluationSchema.index({ submittedAt: -1 });
-EvaluationSchema.index({ finalScore: -1 });
-// 複合インデックス
-EvaluationSchema.index({ sessionId: 1, evaluatorId: 1 }, { unique: true });
-EvaluationSchema.index({ videoId: 1, evaluatorId: 1 });
-EvaluationSchema.index({ sessionId: 1, finalScore: -1 });
-// スコア計算の事前処理
-EvaluationSchema.pre('save', function (next) {
-    try {
-        // カテゴリスコアの合計を計算
-        this.totalScore = this.categoryScores.reduce((sum, category) => sum + category.totalScore, 0);
-        // 重み付きスコアの合計を最終スコアとして計算
-        this.finalScore = this.categoryScores.reduce((sum, category) => sum + category.weightedScore, 0);
-        // 最終スコアを0-100の範囲に正規化（必要に応じて）
-        if (this.finalScore > 100) {
-            this.finalScore = 100;
-        }
-        next();
+const EvaluationSchema = new mongoose_1.Schema({
+    sessionId: {
+        type: mongoose_1.Schema.Types.ObjectId,
+        ref: 'Session',
+        required: [true, 'セッションIDは必須です']
+    },
+    userId: {
+        type: mongoose_1.Schema.Types.ObjectId,
+        ref: 'User',
+        required: [true, 'ユーザーIDは必須です']
+    },
+    submittedAt: {
+        type: Date
+    },
+    isComplete: {
+        type: Boolean,
+        default: false
+    },
+    scores: [EvaluationScoreSchema],
+    comments: [CommentSchema],
+    lastSavedAt: {
+        type: Date,
+        default: Date.now
     }
-    catch (error) {
-        next(error);
-    }
+}, {
+    timestamps: true
 });
-// 匿名評価の場合の処理
-EvaluationSchema.methods.toJSON = function () {
-    const obj = this.toObject();
-    if (this.isAnonymous) {
-        delete obj.evaluatorId;
-    }
-    return obj;
+// インデックス設定
+EvaluationSchema.index({ sessionId: 1, userId: 1 }, { unique: true });
+EvaluationSchema.index({ sessionId: 1 });
+EvaluationSchema.index({ userId: 1 });
+EvaluationSchema.index({ submittedAt: 1 });
+EvaluationSchema.index({ isComplete: 1 });
+// コメントのインデックス
+EvaluationSchema.index({ 'comments.timestamp': 1 });
+EvaluationSchema.index({ 'comments.userId': 1 });
+// 評価完了チェック
+EvaluationSchema.methods.checkCompletion = function (templateCategories) {
+    const requiredCriteriaIds = templateCategories.flatMap(category => category.criteria.map((criterion) => criterion.id));
+    const scoredCriteriaIds = this.scores.map((score) => score.criterionId);
+    const allCriteriaScored = requiredCriteriaIds.every(id => scoredCriteriaIds.includes(id));
+    this.isComplete = allCriteriaScored;
+    return this.isComplete;
 };
+// 自動保存の更新
+EvaluationSchema.pre('save', function (next) {
+    this.lastSavedAt = new Date();
+    next();
+});
+exports.EvaluationScore = mongoose_1.default.model('EvaluationScore', EvaluationScoreSchema);
+exports.Comment = mongoose_1.default.model('Comment', CommentSchema);
 exports.Evaluation = mongoose_1.default.model('Evaluation', EvaluationSchema);
 //# sourceMappingURL=Evaluation.js.map

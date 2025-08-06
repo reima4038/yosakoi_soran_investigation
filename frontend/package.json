@@ -51,6 +51,11 @@
       "react-app/jest"
     ]
   },
+  "jest": {
+    "transformIgnorePatterns": [
+      "node_modules/(?!(@standard-schema|@reduxjs/toolkit|axios)/)"
+    ]
+  },
   "browserslist": {
     "production": [
       ">0.2%",

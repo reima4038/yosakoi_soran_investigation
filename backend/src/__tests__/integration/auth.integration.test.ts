@@ -2,28 +2,6 @@ import request from 'supertest';
 import app from '../../index';
 import { connectDB, disconnectDB } from '../setup';
 import { User } from '../../models/User';
-import { it } from 'node:test';
-import { describe } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { beforeEach } from 'node:test';
-import { describe } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { beforeEach } from 'node:test';
-import { describe } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { it } from 'node:test';
-import { describe } from 'node:test';
-import { beforeEach } from 'node:test';
-import { describe } from 'node:test';
 
 /**
  * Test data constants for authentication tests
@@ -87,7 +65,7 @@ const expectSuccessResponse = (response: any, expectedData?: any) => {
 /**
  * Helper function to assert error API responses
  */
-const expectErrorResponse = (response: unknown, expectedStatus: number) => {
+const expectErrorResponse = (response: any, expectedStatus: number) => {
   expect(response.status).toBe(expectedStatus);
   expect(response.body.status).toBe('error');
 };

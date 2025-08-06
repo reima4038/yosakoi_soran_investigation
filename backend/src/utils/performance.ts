@@ -93,7 +93,7 @@ export class PerformanceMonitor {
 /**
  * Middleware to track response times
  */
-export const performanceMiddleware = (req: any, res: any, next: any) => {
+export const performanceMiddleware = (_req: any, res: any, next: any) => {
   const startTime = Date.now();
   
   res.on('finish', () => {

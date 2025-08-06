@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.validationMiddleware = exports.requireSelfOrAdmin = exports.requireEvaluator = exports.requireAdmin = exports.requireRole = exports.optionalAuth = exports.authenticateToken = void 0;
+exports.auth = exports.validationMiddleware = exports.requireSelfOrAdmin = exports.requireEvaluator = exports.requireAdmin = exports.requireRole = exports.optionalAuth = exports.authenticateToken = void 0;
 const authService_1 = require("../services/authService");
 const User_1 = require("../models/User");
 /**
@@ -116,4 +116,6 @@ const validationMiddleware = () => {
     // Validation middleware placeholder
 };
 exports.validationMiddleware = validationMiddleware;
+// エイリアス
+exports.auth = exports.authenticateToken;
 //# sourceMappingURL=index.js.map

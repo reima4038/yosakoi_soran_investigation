@@ -19,7 +19,7 @@ const authLimiter = process.env.NODE_ENV === 'test'
         message: {
             status: 'error',
             code: 'RATE_LIMIT_EXCEEDED',
-            message: '試行回数が上限に達しました。しばらく待ってから再試行してください。'
+            message: '試行回数が上限に達しました。しばらく待ってから再試行してください。',
         },
         standardHeaders: true,
         legacyHeaders: false,
@@ -43,16 +43,14 @@ const registerValidation = [
     (0, express_validator_1.body)('role')
         .optional()
         .isIn(Object.values(User_1.UserRole))
-        .withMessage('無効なロールです')
+        .withMessage('無効なロールです'),
 ];
 const loginValidation = [
     (0, express_validator_1.body)('email')
         .isEmail()
         .withMessage('有効なメールアドレスを入力してください')
         .normalizeEmail(),
-    (0, express_validator_1.body)('password')
-        .notEmpty()
-        .withMessage('パスワードは必須です')
+    (0, express_validator_1.body)('password').notEmpty().withMessage('パスワードは必須です'),
 ];
 /**
  * ユーザー登録
@@ -67,7 +65,7 @@ router.post('/register', authLimiter, registerValidation, async (req, res) => {
                 status: 'error',
                 code: 'VALIDATION_ERROR',
                 message: 'バリデーションエラーが発生しました',
-                errors: errors.array()
+                errors: errors.array(),
             });
             return;
         }
@@ -75,7 +73,7 @@ router.post('/register', authLimiter, registerValidation, async (req, res) => {
             username: req.body.username,
             email: req.body.email,
             password: req.body.password,
-            role: req.body.role || User_1.UserRole.USER
+            role: req.body.role || User_1.UserRole.USER,
         };
         const { user, token } = await authService_1.AuthService.register(registerData);
         res.status(201).json({
@@ -88,10 +86,10 @@ router.post('/register', authLimiter, registerValidation, async (req, res) => {
                     email: user.email,
                     role: user.role,
                     profile: user.profile,
-                    createdAt: user.createdAt
+                    createdAt: user.createdAt,
                 },
-                token
-            }
+                token,
+            },
         });
     }
     catch (error) {
@@ -99,7 +97,7 @@ router.post('/register', authLimiter, registerValidation, async (req, res) => {
         res.status(400).json({
             status: 'error',
             code: 'REGISTRATION_FAILED',
-            message: error instanceof Error ? error.message : 'ユーザー登録に失敗しました'
+            message: error instanceof Error ? error.message : 'ユーザー登録に失敗しました',
         });
     }
 });
@@ -116,13 +114,13 @@ router.post('/login', authLimiter, loginValidation, async (req, res) => {
                 status: 'error',
                 code: 'VALIDATION_ERROR',
                 message: 'バリデーションエラーが発生しました',
-                errors: errors.array()
+                errors: errors.array(),
             });
             return;
         }
         const loginData = {
             email: req.body.email,
-            password: req.body.password
+            password: req.body.password,
         };
         const { user, token } = await authService_1.AuthService.login(loginData);
         res.json({
@@ -135,10 +133,10 @@ router.post('/login', authLimiter, loginValidation, async (req, res) => {
                     email: user.email,
                     role: user.role,
                     profile: user.profile,
-                    createdAt: user.createdAt
+                    createdAt: user.createdAt,
                 },
-                token
-            }
+                token,
+            },
         });
     }
     catch (error) {
@@ -146,7 +144,7 @@ router.post('/login', authLimiter, loginValidation, async (req, res) => {
         res.status(401).json({
             status: 'error',
             code: 'LOGIN_FAILED',
-            message: error instanceof Error ? error.message : 'ログインに失敗しました'
+            message: error instanceof Error ? error.message : 'ログインに失敗しました',
         });
     }
 });
@@ -160,7 +158,7 @@ router.get('/me', middleware_1.authenticateToken, async (req, res) => {
             res.status(401).json({
                 status: 'error',
                 code: 'UNAUTHORIZED',
-                message: '認証が必要です'
+                message: '認証が必要です',
             });
             return;
         }
@@ -169,7 +167,7 @@ router.get('/me', middleware_1.authenticateToken, async (req, res) => {
             res.status(404).json({
                 status: 'error',
                 code: 'USER_NOT_FOUND',
-                message: 'ユーザーが見つかりません'
+                message: 'ユーザーが見つかりません',
             });
             return;
         }
@@ -182,9 +180,9 @@ router.get('/me', middleware_1.authenticateToken, async (req, res) => {
                     email: user.email,
                     role: user.role,
                     profile: user.profile,
-                    createdAt: user.createdAt
-                }
-            }
+                    createdAt: user.createdAt,
+                },
+            },
         });
     }
     catch (error) {
@@ -192,7 +190,7 @@ router.get('/me', middleware_1.authenticateToken, async (req, res) => {
         res.status(500).json({
             status: 'error',
             code: 'INTERNAL_ERROR',
-            message: 'ユーザー情報の取得に失敗しました'
+            message: 'ユーザー情報の取得に失敗しました',
         });
     }
 });
@@ -216,7 +214,7 @@ router.put('/me', middleware_1.authenticateToken, [
     (0, express_validator_1.body)('profile.expertise.*')
         .optional()
         .isLength({ max: 50 })
-        .withMessage('専門分野は50文字以下である必要があります')
+        .withMessage('専門分野は50文字以下である必要があります'),
 ], async (req, res) => {
     try {
         // バリデーションエラーチェック
@@ -226,7 +224,7 @@ router.put('/me', middleware_1.authenticateToken, [
                 status: 'error',
                 code: 'VALIDATION_ERROR',
                 message: 'バリデーションエラーが発生しました',
-                errors: errors.array()
+                errors: errors.array(),
             });
             return;
         }
@@ -234,7 +232,7 @@ router.put('/me', middleware_1.authenticateToken, [
             res.status(401).json({
                 status: 'error',
                 code: 'UNAUTHORIZED',
-                message: '認証が必要です'
+                message: '認証が必要です',
             });
             return;
         }
@@ -243,7 +241,7 @@ router.put('/me', middleware_1.authenticateToken, [
             res.status(404).json({
                 status: 'error',
                 code: 'USER_NOT_FOUND',
-                message: 'ユーザーが見つかりません'
+                message: 'ユーザーが見つかりません',
             });
             return;
         }
@@ -251,7 +249,7 @@ router.put('/me', middleware_1.authenticateToken, [
         if (req.body.profile) {
             user.profile = {
                 ...user.profile,
-                ...req.body.profile
+                ...req.body.profile,
             };
             await user.save();
         }
@@ -265,9 +263,9 @@ router.put('/me', middleware_1.authenticateToken, [
                     email: user.email,
                     role: user.role,
                     profile: user.profile,
-                    createdAt: user.createdAt
-                }
-            }
+                    createdAt: user.createdAt,
+                },
+            },
         });
     }
     catch (error) {
@@ -275,7 +273,7 @@ router.put('/me', middleware_1.authenticateToken, [
         res.status(500).json({
             status: 'error',
             code: 'INTERNAL_ERROR',
-            message: 'ユーザー情報の更新に失敗しました'
+            message: 'ユーザー情報の更新に失敗しました',
         });
     }
 });
@@ -286,7 +284,7 @@ router.put('/me', middleware_1.authenticateToken, [
 router.post('/logout', middleware_1.authenticateToken, (_req, res) => {
     res.json({
         status: 'success',
-        message: 'ログアウトしました'
+        message: 'ログアウトしました',
     });
 });
 /**
@@ -298,8 +296,8 @@ router.post('/verify', middleware_1.authenticateToken, (req, res) => {
         status: 'success',
         message: 'トークンは有効です',
         data: {
-            user: req.user
-        }
+            user: req.user,
+        },
     });
 });
 exports.default = router;

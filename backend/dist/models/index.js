@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CommentType = exports.Comment = exports.Evaluation = exports.SessionStatus = exports.Session = exports.CriterionType = exports.Template = exports.Video = exports.UserRole = exports.User = void 0;
+exports.NotificationStatus = exports.NotificationType = exports.Notification = exports.DiscussionType = exports.DiscussionComment = exports.DiscussionThread = exports.SharePermission = exports.ShareVisibility = exports.ShareType = exports.Share = exports.CommentType = exports.Comment = exports.ICategoryScore = exports.IScore = exports.Evaluation = exports.SessionStatus = exports.Session = exports.CriterionType = exports.Template = exports.Video = exports.UserRole = exports.User = void 0;
 // Database models
 var User_1 = require("./User");
 Object.defineProperty(exports, "User", { enumerable: true, get: function () { return User_1.User; } });
@@ -15,7 +15,22 @@ Object.defineProperty(exports, "Session", { enumerable: true, get: function () {
 Object.defineProperty(exports, "SessionStatus", { enumerable: true, get: function () { return Session_1.SessionStatus; } });
 var Evaluation_1 = require("./Evaluation");
 Object.defineProperty(exports, "Evaluation", { enumerable: true, get: function () { return Evaluation_1.Evaluation; } });
+Object.defineProperty(exports, "IScore", { enumerable: true, get: function () { return Evaluation_1.IScore; } });
+Object.defineProperty(exports, "ICategoryScore", { enumerable: true, get: function () { return Evaluation_1.ICategoryScore; } });
 var Comment_1 = require("./Comment");
 Object.defineProperty(exports, "Comment", { enumerable: true, get: function () { return Comment_1.Comment; } });
 Object.defineProperty(exports, "CommentType", { enumerable: true, get: function () { return Comment_1.CommentType; } });
+var Share_1 = require("./Share");
+Object.defineProperty(exports, "Share", { enumerable: true, get: function () { return Share_1.Share; } });
+Object.defineProperty(exports, "ShareType", { enumerable: true, get: function () { return Share_1.ShareType; } });
+Object.defineProperty(exports, "ShareVisibility", { enumerable: true, get: function () { return Share_1.ShareVisibility; } });
+Object.defineProperty(exports, "SharePermission", { enumerable: true, get: function () { return Share_1.SharePermission; } });
+var Discussion_1 = require("./Discussion");
+Object.defineProperty(exports, "DiscussionThread", { enumerable: true, get: function () { return Discussion_1.DiscussionThread; } });
+Object.defineProperty(exports, "DiscussionComment", { enumerable: true, get: function () { return Discussion_1.DiscussionComment; } });
+Object.defineProperty(exports, "DiscussionType", { enumerable: true, get: function () { return Discussion_1.DiscussionType; } });
+var Notification_1 = require("./Notification");
+Object.defineProperty(exports, "Notification", { enumerable: true, get: function () { return Notification_1.Notification; } });
+Object.defineProperty(exports, "NotificationType", { enumerable: true, get: function () { return Notification_1.NotificationType; } });
+Object.defineProperty(exports, "NotificationStatus", { enumerable: true, get: function () { return Notification_1.NotificationStatus; } });
 //# sourceMappingURL=index.js.map
