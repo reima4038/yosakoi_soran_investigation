@@ -2,6 +2,7 @@ import request from 'supertest';
 import app from '../../index';
 import { Template } from '../../models/Template';
 import { User } from '../../models/User';
+import { connectDB, disconnectDB } from '../setup';
 import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
 
@@ -10,21 +11,38 @@ describe('Template Routes', () => {
   let userId: string;
 
   beforeAll(async () => {
+    await connectDB();
+
+    // Wait for connection to be ready
+    if (mongoose.connection.readyState !== 1) {
+      await new Promise((resolve) => {
+        mongoose.connection.once('connected', resolve);
+      });
+    }
+
+    // Clean up any existing data
+    await User.deleteMany({});
+    await Template.deleteMany({});
+
     // テスト用ユーザーを作成
     const user = new User({
       username: 'testuser',
       email: 'test@example.com',
       passwordHash: 'hashedpassword',
-      role: 'user'
+      role: 'user',
     });
     const savedUser = await user.save();
     userId = String(savedUser._id);
 
     // JWTトークンを生成
     authToken = jwt.sign(
-      { id: userId, username: 'testuser', email: 'test@example.com' },
-      process.env.JWT_SECRET || 'test-secret',
-      { expiresIn: '1h' }
+      { userId: savedUser._id, username: savedUser.username, email: savedUser.email, role: savedUser.role },
+      process.env.JWT_SECRET || 'test-secret-key-for-testing',
+      { 
+        expiresIn: '1h',
+        issuer: 'yosakoi-evaluation-system',
+        audience: 'yosakoi-users'
+      }
     );
   });
 
@@ -32,10 +50,16 @@ describe('Template Routes', () => {
     // テストデータをクリーンアップ
     await Template.deleteMany({});
     await User.deleteMany({});
+    await disconnectDB();
   });
 
   beforeEach(async () => {
     // 各テスト前にテンプレートデータをクリーンアップ
+    await Template.deleteMany({});
+  });
+
+  afterEach(async () => {
+    // 各テスト後にテンプレートデータをクリーンアップ
     await Template.deleteMany({});
   });
 
@@ -57,11 +81,11 @@ describe('Template Routes', () => {
               type: 'scale',
               minValue: 1,
               maxValue: 5,
-              weight: 1.0
-            }
-          ]
-        }
-      ]
+              weight: 1.0,
+            },
+          ],
+        },
+      ],
     };
 
     it('should create a new template successfully', async () => {
@@ -73,7 +97,9 @@ describe('Template Routes', () => {
 
       expect(response.body.status).toBe('success');
       expect(response.body.data.name).toBe(validTemplateData.name);
-      expect(response.body.data.description).toBe(validTemplateData.description);
+      expect(response.body.data.description).toBe(
+        validTemplateData.description
+      );
       expect(response.body.data.categories).toHaveLength(1);
       expect(response.body.data.creatorId._id).toBe(userId);
     });
@@ -91,7 +117,7 @@ describe('Template Routes', () => {
       const invalidData = {
         name: '',
         description: '',
-        categories: []
+        categories: [],
       };
 
       const response = await request(app)
@@ -110,9 +136,9 @@ describe('Template Routes', () => {
         categories: [
           {
             ...validTemplateData.categories[0],
-            weight: 0.5 // 合計が1にならない
-          }
-        ]
+            weight: 0.5, // 合計が1にならない
+          },
+        ],
       };
 
       const response = await request(app)
@@ -147,11 +173,11 @@ describe('Template Routes', () => {
                 type: 'scale',
                 minValue: 1,
                 maxValue: 5,
-                weight: 1.0
-              }
-            ]
-          }
-        ]
+                weight: 1.0,
+              },
+            ],
+          },
+        ],
       });
       await template.save();
 
@@ -166,9 +192,7 @@ describe('Template Routes', () => {
     });
 
     it('should return 401 without authentication', async () => {
-      const response = await request(app)
-        .get('/api/templates')
-        .expect(401);
+      const response = await request(app).get('/api/templates').expect(401);
 
       expect(response.body.status).toBe('error');
     });
@@ -195,11 +219,11 @@ describe('Template Routes', () => {
                 type: 'scale',
                 minValue: 1,
                 maxValue: 5,
-                weight: 1.0
-              }
-            ]
-          }
-        ]
+                weight: 1.0,
+              },
+            ],
+          },
+        ],
       });
       const savedTemplate = await template.save();
       const templateId = String(savedTemplate._id);

@@ -7,6 +7,7 @@ import { Template } from '../../models/Template';
 import { User } from '../../models/User';
 import { connectDB, disconnectDB } from '../setup';
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 
 describe('Evaluations API', () => {
   let authToken: string;
@@ -17,6 +18,13 @@ describe('Evaluations API', () => {
 
   beforeAll(async () => {
     await connectDB();
+    
+    // Wait for connection to be ready
+    if (mongoose.connection.readyState !== 1) {
+      await new Promise((resolve) => {
+        mongoose.connection.once('connected', resolve);
+      });
+    }
   });
 
   afterAll(async () => {

@@ -3,6 +3,15 @@ import { URLValidationErrorType, YouTubeURLNormalizer } from '../utils/urlNormal
 import { ErrorMessageManager } from '../utils/errorMessages';
 
 describe('YouTubeService', () => {
+  // console.warnをモック化してテスト出力をクリーンにする
+  beforeAll(() => {
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterAll(() => {
+    jest.restoreAllMocks();
+  });
+
   describe('extractVideoId', () => {
     test('YouTube URLからビデオIDを正しく抽出する（拡張版）', () => {
       const testCases = [

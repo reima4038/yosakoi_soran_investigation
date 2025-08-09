@@ -1,9 +1,17 @@
 import { User, UserRole } from '../../models/User';
 import { connectDB, disconnectDB } from '../setup';
+import mongoose from 'mongoose';
 
 describe('User Model', () => {
   beforeAll(async () => {
     await connectDB();
+    
+    // Wait for connection to be ready
+    if (mongoose.connection.readyState !== 1) {
+      await new Promise((resolve) => {
+        mongoose.connection.once('connected', resolve);
+      });
+    }
   });
 
   afterAll(async () => {

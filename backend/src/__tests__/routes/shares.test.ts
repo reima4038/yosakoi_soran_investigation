@@ -7,7 +7,7 @@ import { Video } from '../../models/Video';
 import { Template } from '../../models/Template';
 import { Share, ShareType, ShareVisibility } from '../../models/Share';
 import { AuthService } from '../../services/authService';
-
+import { connectDB, disconnectDB } from '../setup';
 
 describe('Shares API', () => {
   let authToken: string;
@@ -15,6 +15,14 @@ describe('Shares API', () => {
   let sessionId: string;
 
   beforeAll(async () => {
+    await connectDB();
+    
+    // Wait for connection to be ready
+    if (mongoose.connection.readyState !== 1) {
+      await new Promise((resolve) => {
+        mongoose.connection.once('connected', resolve);
+      });
+    }
     // テスト用ユーザー作成
     const user = new User({
       username: 'testuser',
@@ -35,7 +43,7 @@ describe('Shares API', () => {
 
     // テスト用動画作成
     const video = new Video({
-      youtubeId: 'test-video-id',
+      youtubeId: 'dQw4w9WgXcQ',
       title: 'テスト動画',
       channelName: 'テストチャンネル',
       uploadDate: new Date(),
@@ -49,6 +57,7 @@ describe('Shares API', () => {
     const template = new Template({
       name: 'テストテンプレート',
       description: 'テスト用のテンプレートです',
+      creatorId: new mongoose.Types.ObjectId(userId),
       categories: [
         {
           id: 'category1',
@@ -83,6 +92,18 @@ describe('Shares API', () => {
     });
     await session.save();
     sessionId = (session._id as mongoose.Types.ObjectId).toString();
+  });
+
+  afterAll(async () => {
+    // Clean up test data
+    if (mongoose.connection.readyState === 1) {
+      await Share.deleteMany({});
+      await Session.deleteMany({});
+      await Template.deleteMany({});
+      await Video.deleteMany({});
+      await User.deleteMany({});
+    }
+    await disconnectDB();
   });
 
   afterAll(async () => {

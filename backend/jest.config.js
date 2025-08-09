@@ -22,5 +22,11 @@ module.exports = {
     node: {
       options: ['--experimental-vm-modules']
     }
-  }
+  },
+  // Force tests to run sequentially to avoid MongoDB connection conflicts
+  maxWorkers: 1,
+  // Ensure proper cleanup between test suites
+  forceExit: true,
+  // Clear mocks between tests
+  clearMocks: true
 };
