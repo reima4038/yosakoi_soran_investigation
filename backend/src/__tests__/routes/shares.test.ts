@@ -106,14 +106,6 @@ describe('Shares API', () => {
     await disconnectDB();
   });
 
-  afterAll(async () => {
-    await User.deleteMany({});
-    await Video.deleteMany({});
-    await Template.deleteMany({});
-    await Session.deleteMany({});
-    await Share.deleteMany({});
-  });
-
   describe('POST /api/shares', () => {
     it('should create a new share', async () => {
       const shareData = {

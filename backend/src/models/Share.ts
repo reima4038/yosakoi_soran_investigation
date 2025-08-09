@@ -58,7 +58,18 @@ const ShareSchema = new Schema<IShare>({
   resourceId: {
     type: Schema.Types.ObjectId,
     required: [true, 'リソースIDは必須です'],
-    refPath: 'resourceType'
+    ref: function(this: IShare) {
+      switch (this.resourceType) {
+        case ShareType.SESSION_RESULTS:
+          return 'Session';
+        case ShareType.EVALUATION:
+          return 'Evaluation';
+        case ShareType.ANALYSIS:
+          return 'Session'; // 分析も基本的にはセッションベース
+        default:
+          return 'Session';
+      }
+    }
   },
   creatorId: {
     type: Schema.Types.ObjectId,
