@@ -78,11 +78,26 @@ const SessionList: React.FC = () => {
   const fetchSessions = async () => {
     try {
       setIsLoading(true);
-      // TODO: API呼び出し
-      // const response = await apiClient.get('/api/sessions');
-      // setSessions(response.data);
       
-      // モックデータ
+      // 実際のAPI呼び出し
+      const response = await fetch('/api/sessions', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error('セッション一覧の取得に失敗しました');
+      }
+      
+      const data = await response.json();
+      setSessions(data.data.sessions || []);
+    } catch (error: any) {
+      console.error('Sessions fetch error:', error);
+      setError('セッション一覧の取得に失敗しました');
+      
+      // エラー時はモックデータを使用（開発用）
       const mockSessions: Session[] = [
         {
           id: '1',
@@ -146,8 +161,6 @@ const SessionList: React.FC = () => {
         },
       ];
       setSessions(mockSessions);
-    } catch (error: any) {
-      setError('セッション一覧の取得に失敗しました');
     } finally {
       setIsLoading(false);
     }

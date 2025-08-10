@@ -97,7 +97,15 @@ const VideoSchema = new Schema<IVideo>({
     required: [true, '作成者は必須です']
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  toJSON: {
+    transform: function(_doc, ret) {
+      ret.id = ret._id;
+      delete ret._id;
+      delete (ret as any).__v;
+      return ret;
+    }
+  }
 });
 
 // インデックス設定

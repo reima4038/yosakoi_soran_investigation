@@ -53,7 +53,7 @@ class SessionService {
    */
   async createSession(sessionData: CreateSessionRequest): Promise<Session> {
     try {
-      const response = await api.post<{ status: string; data: Session }>(
+      const response = await apiClient.post<{ status: string; data: Session }>(
         this.baseUrl,
         sessionData
       );
@@ -81,7 +81,7 @@ class SessionService {
         ? `${this.baseUrl}?${queryParams.toString()}`
         : this.baseUrl;
 
-      const response = await api.get<{
+      const response = await apiClient.get<{
         status: string;
         data: SessionListResponse;
       }>(url);
@@ -97,7 +97,7 @@ class SessionService {
    */
   async getSession(sessionId: string): Promise<Session> {
     try {
-      const response = await api.get<{ status: string; data: Session }>(
+      const response = await apiClient.get<{ status: string; data: Session }>(
         `${this.baseUrl}/${sessionId}`
       );
       return response.data.data;
@@ -115,7 +115,7 @@ class SessionService {
     updates: UpdateSessionRequest
   ): Promise<Session> {
     try {
-      const response = await api.put<{ status: string; data: Session }>(
+      const response = await apiClient.put<{ status: string; data: Session }>(
         `${this.baseUrl}/${sessionId}`,
         updates
       );
@@ -131,7 +131,7 @@ class SessionService {
    */
   async deleteSession(sessionId: string): Promise<void> {
     try {
-      await api.delete(`${this.baseUrl}/${sessionId}`);
+      await apiClient.delete(`${this.baseUrl}/${sessionId}`);
     } catch (error) {
       console.error('セッション削除エラー:', error);
       throw error;
@@ -183,7 +183,7 @@ class SessionService {
     message?: string
   ): Promise<any> {
     try {
-      const response = await api.post<{ status: string; data: any }>(
+      const response = await apiClient.post<{ status: string; data: any }>(
         `${this.baseUrl}/${sessionId}/invite`,
         { emails, message }
       );
@@ -203,7 +203,7 @@ class SessionService {
     userInfo?: any
   ): Promise<any> {
     try {
-      const response = await api.post<{ status: string; data: any }>(
+      const response = await apiClient.post<{ status: string; data: any }>(
         `${this.baseUrl}/${sessionId}/join`,
         { token, userInfo }
       );
@@ -222,7 +222,7 @@ class SessionService {
     status: SessionStatus
   ): Promise<Session> {
     try {
-      const response = await api.patch<{ status: string; data: Session }>(
+      const response = await apiClient.patch<{ status: string; data: Session }>(
         `${this.baseUrl}/${sessionId}/status`,
         { status }
       );
@@ -238,7 +238,7 @@ class SessionService {
    */
   async getSessionProgress(sessionId: string): Promise<any> {
     try {
-      const response = await api.get<{ status: string; data: any }>(
+      const response = await apiClient.get<{ status: string; data: any }>(
         `${this.baseUrl}/${sessionId}/progress`
       );
       return response.data.data;
@@ -253,7 +253,7 @@ class SessionService {
    */
   async getOverdueNotifications(): Promise<any> {
     try {
-      const response = await api.get<{ status: string; data: any }>(
+      const response = await apiClient.get<{ status: string; data: any }>(
         `${this.baseUrl}/notifications/overdue`
       );
       return response.data.data;

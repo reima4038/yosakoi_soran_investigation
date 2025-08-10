@@ -914,7 +914,7 @@ const TemplateCreationForm: React.FC<TemplateCreationFormProps> = ({
         <DialogTitle>詳細重み調整</DialogTitle>
         <DialogContent>
           <Typography variant='body2' color='text.secondary' paragraph>
-            各カテゴリの重みを詳細に調整できます。合計が1.0になるように調整してください。
+            各カテゴリの重みを詳細に調整できます。合計が100%になるように調整してください。
           </Typography>
 
           {template.categories.map((category, categoryIndex) => (

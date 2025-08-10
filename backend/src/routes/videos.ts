@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { body, param, query, validationResult } from 'express-validator';
+import mongoose from 'mongoose';
 import { Video } from '../models/Video';
 import { youtubeService } from '../services/youtubeService';
 import { auth } from '../middleware';
@@ -20,6 +21,10 @@ router.use(languageDetectionMiddleware);
 const handleValidationErrors = (req: Request, res: Response, next: any): void => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
+    console.log('Validation errors:', JSON.stringify(errors.array(), null, 2));
+    console.log('Request params:', JSON.stringify(req.params, null, 2));
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    
     res.status(400).json({
       status: 'error',
       message: 'バリデーションエラー',
@@ -493,33 +498,60 @@ router.put('/:id', [
     .isMongoId()
     .withMessage('有効な動画IDを指定してください'),
   body('metadata.teamName')
-    .optional()
-    .isString()
-    .withMessage('チーム名は文字列である必要があります')
-    .isLength({ max: 100 })
-    .withMessage('チーム名は100文字以下である必要があります'),
+    .optional({ values: 'falsy' })
+    .custom((value) => {
+      if (value !== undefined && value !== null && typeof value !== 'string') {
+        throw new Error('チーム名は文字列である必要があります');
+      }
+      if (value && value.length > 100) {
+        throw new Error('チーム名は100文字以下である必要があります');
+      }
+      return true;
+    }),
   body('metadata.performanceName')
-    .optional()
-    .isString()
-    .withMessage('演舞名は文字列である必要があります')
-    .isLength({ max: 100 })
-    .withMessage('演舞名は100文字以下である必要があります'),
+    .optional({ values: 'falsy' })
+    .custom((value) => {
+      if (value !== undefined && value !== null && typeof value !== 'string') {
+        throw new Error('演舞名は文字列である必要があります');
+      }
+      if (value && value.length > 100) {
+        throw new Error('演舞名は100文字以下である必要があります');
+      }
+      return true;
+    }),
   body('metadata.eventName')
-    .optional()
-    .isString()
-    .withMessage('大会名は文字列である必要があります')
-    .isLength({ max: 100 })
-    .withMessage('大会名は100文字以下である必要があります'),
+    .optional({ values: 'falsy' })
+    .custom((value) => {
+      if (value !== undefined && value !== null && typeof value !== 'string') {
+        throw new Error('大会名は文字列である必要があります');
+      }
+      if (value && value.length > 100) {
+        throw new Error('大会名は100文字以下である必要があります');
+      }
+      return true;
+    }),
   body('metadata.year')
-    .optional()
-    .isInt({ min: 1900, max: new Date().getFullYear() + 1 })
-    .withMessage('年度は1900年から来年までの範囲で入力してください'),
+    .optional({ values: 'falsy' })
+    .custom((value) => {
+      if (value !== undefined && value !== null) {
+        const year = parseInt(value);
+        if (isNaN(year) || year < 1900 || year > new Date().getFullYear() + 1) {
+          throw new Error('年度は1900年から来年までの範囲で入力してください');
+        }
+      }
+      return true;
+    }),
   body('metadata.location')
-    .optional()
-    .isString()
-    .withMessage('場所は文字列である必要があります')
-    .isLength({ max: 100 })
-    .withMessage('場所は100文字以下である必要があります'),
+    .optional({ values: 'falsy' })
+    .custom((value) => {
+      if (value !== undefined && value !== null && typeof value !== 'string') {
+        throw new Error('場所は文字列である必要があります');
+      }
+      if (value && value.length > 100) {
+        throw new Error('場所は100文字以下である必要があります');
+      }
+      return true;
+    }),
   body('tags')
     .optional()
     .isArray()
@@ -536,6 +568,12 @@ router.put('/:id', [
     const { id } = req.params;
     const { metadata = {}, tags } = req.body;
     const userId = (req as any).user.userId;
+
+    console.log('PUT /videos/:id - Received ID:', id);
+    console.log('PUT /videos/:id - ID type:', typeof id);
+    console.log('PUT /videos/:id - ID length:', id.length);
+    console.log('PUT /videos/:id - Is valid ObjectId:', mongoose.Types.ObjectId.isValid(id));
+    console.log('PUT /videos/:id - Request body:', JSON.stringify(req.body, null, 2));
 
     // 動画の存在確認
     const video = await Video.findById(id);

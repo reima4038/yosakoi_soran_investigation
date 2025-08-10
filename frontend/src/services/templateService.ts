@@ -58,7 +58,7 @@ class TemplateService {
   // テンプレート一覧取得
   async getTemplates(): Promise<Template[]> {
     try {
-      const response = await api.get<TemplateListResponse>('/templates');
+      const response = await apiClient.get<TemplateListResponse>('/templates');
       return response.data.data;
     } catch (error) {
       console.error('Failed to fetch templates:', error);
@@ -69,7 +69,7 @@ class TemplateService {
   // テンプレート詳細取得
   async getTemplate(id: string): Promise<Template> {
     try {
-      const response = await api.get<TemplateResponse>(`/templates/${id}`);
+      const response = await apiClient.get<TemplateResponse>(`/templates/${id}`);
       return response.data.data;
     } catch (error) {
       console.error('Failed to fetch template:', error);
@@ -80,7 +80,7 @@ class TemplateService {
   // テンプレート作成
   async createTemplate(templateData: CreateTemplateRequest): Promise<Template> {
     try {
-      const response = await api.post<TemplateResponse>(
+      const response = await apiClient.post<TemplateResponse>(
         '/templates',
         templateData
       );
@@ -99,7 +99,7 @@ class TemplateService {
     templateData: CreateTemplateRequest
   ): Promise<Template> {
     try {
-      const response = await api.put<TemplateResponse>(
+      const response = await apiClient.put<TemplateResponse>(
         `/templates/${id}`,
         templateData
       );
@@ -115,7 +115,7 @@ class TemplateService {
   // テンプレート削除
   async deleteTemplate(id: string): Promise<void> {
     try {
-      await api.delete(`/templates/${id}`);
+      await apiClient.delete(`/templates/${id}`);
     } catch (error: any) {
       console.error('Failed to delete template:', error);
       const message =
@@ -127,7 +127,7 @@ class TemplateService {
   // テンプレート複製
   async duplicateTemplate(id: string): Promise<Template> {
     try {
-      const response = await api.post<TemplateResponse>(
+      const response = await apiClient.post<TemplateResponse>(
         `/templates/${id}/duplicate`
       );
       return response.data.data;
@@ -199,7 +199,7 @@ class TemplateService {
       0
     );
     if (Math.abs(categoryWeightSum - 1) > 0.001) {
-      errors.push('カテゴリの重みの合計は1である必要があります');
+      errors.push('カテゴリの重みの合計は100%である必要があります');
     }
 
     template.categories.forEach((category, categoryIndex) => {
@@ -207,9 +207,7 @@ class TemplateService {
         errors.push(`カテゴリ ${categoryIndex + 1}: 名前は必須です`);
       }
 
-      if (!category.description.trim()) {
-        errors.push(`カテゴリ「${category.name}」: 説明は必須です`);
-      }
+
 
       if (category.criteria.length === 0) {
         errors.push(
@@ -224,7 +222,7 @@ class TemplateService {
       );
       if (Math.abs(criteriaWeightSum - 1) > 0.001) {
         errors.push(
-          `カテゴリ「${category.name}」: 評価基準の重みの合計は1である必要があります`
+          `カテゴリ「${category.name}」: 評価基準の重みの合計は100%である必要があります`
         );
       }
 
@@ -235,9 +233,7 @@ class TemplateService {
           );
         }
 
-        if (!criterion.description.trim()) {
-          errors.push(`評価基準「${criterion.name}」: 説明は必須です`);
-        }
+
 
         if (criterion.maxValue <= criterion.minValue) {
           errors.push(

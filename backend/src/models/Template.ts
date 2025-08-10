@@ -49,7 +49,7 @@ const CriterionSchema = new Schema<ICriterion>({
   },
   description: {
     type: String,
-    required: [true, '評価基準の説明は必須です'],
+    required: false,
     trim: true,
     maxlength: [500, '評価基準の説明は500文字以下である必要があります']
   },
@@ -101,7 +101,7 @@ const CategorySchema = new Schema<ICategory>({
   },
   description: {
     type: String,
-    required: [true, 'カテゴリの説明は必須です'],
+    required: false,
     trim: true,
     maxlength: [500, 'カテゴリの説明は500文字以下である必要があります']
   },
@@ -178,14 +178,14 @@ TemplateSchema.pre('save', function(next) {
   // カテゴリの重みの合計をチェック
   const categoryWeightSum = this.categories.reduce((sum, category) => sum + category.weight, 0);
   if (Math.abs(categoryWeightSum - 1) > 0.001) {
-    return next(new Error('カテゴリの重みの合計は1である必要があります'));
+    return next(new Error('カテゴリの重みの合計は100%である必要があります'));
   }
 
   // 各カテゴリ内の評価基準の重みの合計をチェック
   for (const category of this.categories) {
     const criteriaWeightSum = category.criteria.reduce((sum, criterion) => sum + criterion.weight, 0);
     if (Math.abs(criteriaWeightSum - 1) > 0.001) {
-      return next(new Error(`カテゴリ「${category.name}」の評価基準の重みの合計は1である必要があります`));
+      return next(new Error(`カテゴリ「${category.name}」の評価基準の重みの合計は100%である必要があります`));
     }
   }
 

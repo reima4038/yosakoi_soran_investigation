@@ -34,9 +34,10 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, UserRole } from '../../contexts/AuthContext';
+import { templateService, Template } from '../../services/templateService';
 
-// テンプレートの型定義
-interface Template {
+// テンプレート表示用の型定義
+interface TemplateDisplay {
   id: string;
   name: string;
   description: string;
@@ -55,13 +56,35 @@ interface Template {
 const TemplateList: React.FC = () => {
   const navigate = useNavigate();
   const { user, hasAnyRole } = useAuth();
-  const [templates, setTemplates] = useState<Template[]>([]);
+  const [templates, setTemplates] = useState<TemplateDisplay[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [templateToDelete, setTemplateToDelete] = useState<Template | null>(null);
+  const [templateToDelete, setTemplateToDelete] = useState<TemplateDisplay | null>(null);
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateDisplay | null>(null);
+
+  // APIデータを表示用に変換
+  const convertToDisplayTemplate = (template: any): TemplateDisplay => {
+    const categoryCount = template.categories?.length || 0;
+    const criteriaCount = template.categories?.reduce((total: number, cat: any) => total + (cat.criteria?.length || 0), 0) || 0;
+    
+    return {
+      id: template._id || template.id,
+      name: template.name || 'Untitled',
+      description: template.description || '',
+      isDefault: template.isDefault || false,
+      isPublic: template.isPublic !== false, // デフォルトはtrue
+      categoryCount,
+      criteriaCount,
+      usageCount: template.usageCount || 0,
+      createdAt: template.createdAt,
+      updatedAt: template.updatedAt || template.createdAt,
+      creatorName: template.creatorId?.username || template.creatorId?.displayName || 'Unknown',
+      creatorAvatar: template.creatorId?.avatar,
+      tags: template.tags || [],
+    };
+  };
 
   // テンプレート一覧の取得
   useEffect(() => {
@@ -71,12 +94,21 @@ const TemplateList: React.FC = () => {
   const fetchTemplates = async () => {
     try {
       setIsLoading(true);
-      // TODO: API呼び出し
-      // const response = await apiClient.get('/api/templates');
-      // setTemplates(response.data);
+      setError('');
       
-      // モックデータ
-      const mockTemplates: Template[] = [
+      console.log('Fetching templates...');
+      const apiTemplates = await templateService.getTemplates();
+      console.log('Templates loaded:', apiTemplates);
+      
+      const displayTemplates = apiTemplates.map(convertToDisplayTemplate);
+      setTemplates(displayTemplates);
+    } catch (error: any) {
+      console.error('Template fetch error:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'テンプレート一覧の取得に失敗しました';
+      setError(errorMessage);
+      
+      // エラー時はモックデータを使用
+      const mockTemplates: TemplateDisplay[] = [
         {
           id: '1',
           name: '本祭評価テンプレート',
@@ -135,15 +167,13 @@ const TemplateList: React.FC = () => {
         },
       ];
       setTemplates(mockTemplates);
-    } catch (error: any) {
-      setError('テンプレート一覧の取得に失敗しました');
     } finally {
       setIsLoading(false);
     }
   };
 
   // メニューの制御
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, template: Template) => {
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, template: TemplateDisplay) => {
     event.stopPropagation();
     setMenuAnchorEl(event.currentTarget);
     setSelectedTemplate(template);
@@ -155,7 +185,7 @@ const TemplateList: React.FC = () => {
   };
 
   // テンプレート削除の確認
-  const handleDeleteClick = (template: Template) => {
+  const handleDeleteClick = (template: TemplateDisplay) => {
     setTemplateToDelete(template);
     setDeleteDialogOpen(true);
     handleMenuClose();
@@ -177,14 +207,14 @@ const TemplateList: React.FC = () => {
   };
 
   // テンプレート複製
-  const handleDuplicate = async (template: Template) => {
+  const handleDuplicate = async (template: TemplateDisplay) => {
     try {
       // TODO: API呼び出し
       // const response = await apiClient.post(`/api/templates/${template.id}/duplicate`);
       // const newTemplate = response.data;
       
       // モック処理
-      const newTemplate: Template = {
+      const newTemplate: TemplateDisplay = {
         ...template,
         id: `${template.id}_copy_${Date.now()}`,
         name: `${template.name} のコピー`,

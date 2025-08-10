@@ -19,10 +19,10 @@ import {
   Chip,
   CircularProgress,
 } from '@mui/material';
-import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { ja } from 'date-fns/locale';
+// import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
+// import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+// import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+// import { ja } from 'date-fns/locale';
 import { Video, Template, Session } from '../../types';
 import { videoService } from '../../services/videoService';
 import { templateService } from '../../services/templateService';
@@ -89,10 +89,15 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
     const loadInitialData = async () => {
       try {
         setLoadingData(true);
+        console.log('Loading initial data for session creation...');
+        
         const [videosData, templatesData] = await Promise.all([
           videoService.getVideos({ page: 1, limit: 100 }),
           templateService.getTemplates(),
         ]);
+
+        console.log('Videos loaded:', videosData);
+        console.log('Templates loaded:', templatesData);
 
         setVideos(videosData.videos);
         setTemplates(templatesData);
@@ -109,9 +114,10 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
           );
           if (template) setSelectedTemplate(template);
         }
-      } catch (err) {
-        setError('データの読み込みに失敗しました');
-        // console.error('初期データ読み込みエラー:', err);
+      } catch (err: any) {
+        console.error('初期データ読み込みエラー:', err);
+        const errorMessage = err.response?.data?.message || err.message || 'データの読み込みに失敗しました';
+        setError(`データの読み込みに失敗しました: ${errorMessage}`);
       } finally {
         setLoadingData(false);
       }
@@ -234,7 +240,7 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
   }
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ja}>
+    // <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ja}>
       <Card>
         <CardHeader
           title='新しい評価セッションを作成'
@@ -414,29 +420,29 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
               </Grid>
 
               <Grid item xs={12} md={6}>
-                <DateTimePicker
+                <TextField
+                  fullWidth
                   label='開始日時'
-                  value={formData.startDate}
-                  onChange={date => handleInputChange('startDate', date)}
-                  slotProps={{
-                    textField: {
-                      fullWidth: true,
-                      helperText: '未設定の場合は即座に開始されます',
-                    },
+                  type='datetime-local'
+                  value={formData.startDate ? formData.startDate.toISOString().slice(0, 16) : ''}
+                  onChange={e => handleInputChange('startDate', e.target.value ? new Date(e.target.value) : null)}
+                  helperText='未設定の場合は即座に開始されます'
+                  InputLabelProps={{
+                    shrink: true,
                   }}
                 />
               </Grid>
 
               <Grid item xs={12} md={6}>
-                <DateTimePicker
+                <TextField
+                  fullWidth
                   label='終了日時'
-                  value={formData.endDate}
-                  onChange={date => handleInputChange('endDate', date)}
-                  slotProps={{
-                    textField: {
-                      fullWidth: true,
-                      helperText: '未設定の場合は手動で終了します',
-                    },
+                  type='datetime-local'
+                  value={formData.endDate ? formData.endDate.toISOString().slice(0, 16) : ''}
+                  onChange={e => handleInputChange('endDate', e.target.value ? new Date(e.target.value) : null)}
+                  helperText='未設定の場合は手動で終了します'
+                  InputLabelProps={{
+                    shrink: true,
                   }}
                 />
               </Grid>
@@ -545,7 +551,7 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
           </form>
         </CardContent>
       </Card>
-    </LocalizationProvider>
+    // </LocalizationProvider>
   );
 };
 

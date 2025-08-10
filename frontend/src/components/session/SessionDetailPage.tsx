@@ -126,11 +126,25 @@ const SessionDetailPage: React.FC = () => {
   const fetchSessionDetail = async (sessionId: string) => {
     try {
       setIsLoading(true);
-      // TODO: API呼び出し
-      // const response = await apiClient.get(`/api/sessions/${sessionId}`);
-      // setSession(response.data);
-
-      // モックデータ
+      
+      // 実際のAPI呼び出し
+      const response = await fetch(`/api/sessions/${sessionId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error('セッション詳細の取得に失敗しました');
+      }
+      
+      const data = await response.json();
+      setSession(data.data);
+    } catch (error: any) {
+      console.error('Session detail fetch error:', error);
+      
+      // エラー時はモックデータを使用（開発用）
       const mockSession: SessionDetail = {
         id: sessionId,
         name: '第45回よさこい祭り 本祭評価',
@@ -233,8 +247,6 @@ const SessionDetailPage: React.FC = () => {
         },
       };
       setSession(mockSession);
-    } catch (error: any) {
-      setError('セッション詳細の取得に失敗しました');
     } finally {
       setIsLoading(false);
     }

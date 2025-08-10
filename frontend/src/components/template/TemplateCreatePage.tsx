@@ -27,6 +27,10 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -38,12 +42,14 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { templateService, CreateTemplateRequest, CriterionType } from '../../services/templateService';
 
 // 評価項目の型定義
 interface EvaluationCriterion {
   id: string;
   name: string;
   description: string;
+  type: CriterionType;
   weight: number;
   minScore: number;
   maxScore: number;
@@ -88,6 +94,7 @@ const TemplateCreatePage: React.FC = () => {
   const [activeStep, setActiveStep] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [validationError, setValidationError] = useState('');
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
 
   const [templateForm, setTemplateForm] = useState<TemplateForm>({
@@ -103,6 +110,20 @@ const TemplateCreatePage: React.FC = () => {
     },
     tags: [],
   });
+
+  // 評価タイプのラベル取得
+  const getCriterionTypeLabel = (type: CriterionType): string => {
+    switch (type) {
+      case CriterionType.NUMERIC:
+        return '数値入力';
+      case CriterionType.SCALE:
+        return 'スケール評価';
+      case CriterionType.BOOLEAN:
+        return 'はい/いいえ';
+      default:
+        return 'スケール評価';
+    }
+  };
 
   // 基本情報の更新
   const handleBasicInfoChange = (field: string, value: any) => {
@@ -162,6 +183,7 @@ const TemplateCreatePage: React.FC = () => {
       id: `crit_${Date.now()}`,
       name: '',
       description: '',
+      type: CriterionType.SCALE,
       weight: 20,
       minScore: 1,
       maxScore: 5,
@@ -221,13 +243,17 @@ const TemplateCreatePage: React.FC = () => {
       case 0: // 基本情報
         return templateForm.name.trim() !== '' && templateForm.description.trim() !== '';
       case 1: // カテゴリ
+        const categoryWeightSum = templateForm.categories.reduce((sum, cat) => sum + cat.weight, 0);
         return templateForm.categories.length > 0 && 
-               templateForm.categories.every(cat => cat.name.trim() !== '');
+               templateForm.categories.every(cat => cat.name.trim() !== '') &&
+               Math.abs(categoryWeightSum - 100) < 0.1; // 100%に近いかチェック
       case 2: // 評価項目
-        return templateForm.categories.every(cat => 
-          cat.criteria.length > 0 && 
-          cat.criteria.every(crit => crit.name.trim() !== '')
-        );
+        return templateForm.categories.every(cat => {
+          const criteriaWeightSum = cat.criteria.reduce((sum, crit) => sum + crit.weight, 0);
+          return cat.criteria.length > 0 && 
+                 cat.criteria.every(crit => crit.name.trim() !== '') &&
+                 Math.abs(criteriaWeightSum - 100) < 0.1; // 各カテゴリ内で100%に近いかチェック
+        });
       case 3: // 設定
         return true;
       default:
@@ -239,15 +265,58 @@ const TemplateCreatePage: React.FC = () => {
   const handleSave = async () => {
     try {
       setIsLoading(true);
-      // TODO: API呼び出し
-      // const response = await apiClient.post('/api/templates', templateForm);
-      // navigate(`/templates/${response.data.id}`);
+      setError('');
       
-      // モック処理
       console.log('Creating template:', templateForm);
+      
+      // TemplateFormをCreateTemplateRequestに変換
+      const createRequest = {
+        name: templateForm.name,
+        description: templateForm.description,
+        categories: templateForm.categories.map(cat => ({
+          id: cat.id,
+          name: cat.name,
+          description: cat.description,
+          weight: cat.weight / 100, // %表記を小数点表記に変換
+          criteria: cat.criteria.map(crit => ({
+            id: crit.id,
+            name: crit.name,
+            description: crit.description,
+            type: crit.type,
+            weight: crit.weight / 100, // %表記を小数点表記に変換
+            minValue: crit.minScore,
+            maxValue: crit.maxScore,
+            allowComments: crit.isRequired, // 適切にマッピング
+          })),
+          allowComments: templateForm.settings.allowComments,
+        })),
+        allowGeneralComments: templateForm.settings.allowComments,
+      };
+      
+      console.log('Sending create request:', JSON.stringify(createRequest, null, 2));
+      
+      // templateServiceを使用してテンプレートを作成
+      const response = await templateService.createTemplate(createRequest);
+      console.log('Template created successfully:', response);
+      
       navigate('/templates');
     } catch (error: any) {
-      setError('テンプレートの作成に失敗しました');
+      console.error('Template creation error:', error);
+      let errorMessage = 'テンプレートの作成に失敗しました';
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.errors) {
+        // バリデーションエラーの配列がある場合
+        const errors = error.response.data.errors;
+        if (Array.isArray(errors) && errors.length > 0) {
+          errorMessage = errors.join('\n');
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -350,7 +419,7 @@ const TemplateCreatePage: React.FC = () => {
                         value={category.description}
                         onChange={(e) => handleCategoryChange(category.id, 'description', e.target.value)}
                         fullWidth
-                        placeholder="このカテゴリで評価する内容を説明してください"
+                        placeholder="このカテゴリで評価する内容を説明してください（任意）"
                       />
                     </Grid>
                   </Grid>
@@ -421,8 +490,24 @@ const TemplateCreatePage: React.FC = () => {
                               value={criterion.description}
                               onChange={(e) => handleCriterionChange(category.id, criterion.id, 'description', e.target.value)}
                               fullWidth
-                              placeholder="この項目で評価する内容を説明してください"
+                              placeholder="この項目で評価する内容を説明してください（任意）"
                             />
+                          </Grid>
+                          <Grid item xs={12} md={3}>
+                            <FormControl fullWidth>
+                              <InputLabel>評価タイプ</InputLabel>
+                              <Select
+                                value={criterion.type}
+                                label="評価タイプ"
+                                onChange={(e) => handleCriterionChange(category.id, criterion.id, 'type', e.target.value)}
+                              >
+                                {Object.values(CriterionType).map(type => (
+                                  <MenuItem key={type} value={type}>
+                                    {getCriterionTypeLabel(type)}
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
                           </Grid>
                           <Grid item xs={12} md={3}>
                             <TextField
@@ -629,7 +714,9 @@ const TemplateCreatePage: React.FC = () => {
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
+          {error.split('\n').map((line, index) => (
+            <div key={index}>{line}</div>
+          ))}
         </Alert>
       )}
 

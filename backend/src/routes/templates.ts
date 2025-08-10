@@ -16,7 +16,7 @@ router.get('/', authenticateToken, async (_req: Request, res: Response) => {
       status: 'success',
       data: templates
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Template list error:', error);
     res.status(500).json({
       status: 'error',
@@ -53,7 +53,7 @@ router.get('/:id', authenticateToken, async (req: Request, res: Response): Promi
       status: 'success',
       data: template
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Template detail error:', error);
     res.status(500).json({
       status: 'error',
@@ -67,6 +67,14 @@ router.post('/', authenticateToken, async (req: Request, res: Response): Promise
   try {
     const { name, description, categories } = req.body;
     const userId = req.user?.userId;
+
+    console.log('Template creation request:', {
+      name,
+      description,
+      categories: categories ? categories.length : 'undefined',
+      userId,
+      requestBody: JSON.stringify(req.body, null, 2)
+    });
 
     if (!userId) {
       res.status(401).json({
@@ -98,14 +106,20 @@ router.post('/', authenticateToken, async (req: Request, res: Response): Promise
     if (Math.abs(categoryWeightSum - 1) > 0.001) {
       res.status(400).json({
         status: 'error',
-        message: 'カテゴリの重みの合計は1である必要があります'
+        message: 'カテゴリの重みの合計は100%である必要があります'
       });
       return;
     }
 
     // 各カテゴリ内の評価基準の重みの合計をチェック
     for (const category of categories) {
-      if (!category.criteria || category.criteria.length === 0) {
+      console.log('Processing category:', {
+        name: category.name,
+        criteria: category.criteria ? category.criteria.length : 'undefined',
+        criteriaType: typeof category.criteria
+      });
+
+      if (!category.criteria || !Array.isArray(category.criteria) || category.criteria.length === 0) {
         res.status(400).json({
           status: 'error',
           message: `カテゴリ「${category.name}」には少なくとも1つの評価基準が必要です`
@@ -117,7 +131,7 @@ router.post('/', authenticateToken, async (req: Request, res: Response): Promise
       if (Math.abs(criteriaWeightSum - 1) > 0.001) {
         res.status(400).json({
           status: 'error',
-          message: `カテゴリ「${category.name}」の評価基準の重みの合計は1である必要があります`
+          message: `カテゴリ「${category.name}」の評価基準の重みの合計は100%である必要があります`
         });
         return;
       }
@@ -140,9 +154,21 @@ router.post('/', authenticateToken, async (req: Request, res: Response): Promise
       data: populatedTemplate,
       message: 'テンプレートが正常に作成されました'
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Template creation error:', error);
     
+    // Mongooseバリデーションエラーの場合
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map((err: any) => err.message);
+      res.status(400).json({
+        status: 'error',
+        message: validationErrors.join(', '),
+        errors: validationErrors
+      });
+      return;
+    }
+    
+    // 重みに関するカスタムエラーの場合
     if (error instanceof Error && error.message.includes('重み')) {
       res.status(400).json({
         status: 'error',
@@ -222,7 +248,7 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response): Promi
       data: populatedTemplate,
       message: 'テンプレートが正常に更新されました'
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Template update error:', error);
     
     if (error instanceof Error && error.message.includes('重み')) {
@@ -278,7 +304,7 @@ router.delete('/:id', authenticateToken, async (req: Request, res: Response): Pr
       status: 'success',
       message: 'テンプレートが正常に削除されました'
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Template deletion error:', error);
     res.status(500).json({
       status: 'error',
@@ -327,7 +353,7 @@ router.post('/:id/duplicate', authenticateToken, async (req: Request, res: Respo
       data: populatedTemplate,
       message: 'テンプレートが正常に複製されました'
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Template duplication error:', error);
     res.status(500).json({
       status: 'error',

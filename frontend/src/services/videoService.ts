@@ -133,8 +133,18 @@ class VideoService {
    * 動画情報を更新
    */
   async updateVideo(id: string, data: UpdateVideoRequest): Promise<Video> {
-    const response = await apiClient.put(`/videos/${id}`, data);
-    return response.data.data;
+    console.log('VideoService.updateVideo called with ID:', id);
+    console.log('VideoService.updateVideo URL:', `/videos/${id}`);
+    console.log('VideoService.updateVideo data:', JSON.stringify(data, null, 2));
+    
+    try {
+      const response = await apiClient.put(`/videos/${id}`, data);
+      console.log('VideoService.updateVideo response:', response.data);
+      return response.data.data;
+    } catch (error) {
+      console.error('VideoService.updateVideo error:', error);
+      throw error;
+    }
   }
 
   /**

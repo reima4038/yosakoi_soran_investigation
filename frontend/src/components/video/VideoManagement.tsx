@@ -11,10 +11,14 @@ import {
 import { Add as AddIcon } from '@mui/icons-material';
 import VideoList from './VideoList';
 import VideoRegistrationForm from './VideoRegistrationForm';
+import VideoEditForm from './VideoEditForm';
 import { Video } from '../../services/videoService';
 
 const VideoManagement: React.FC = () => {
   const [registrationFormOpen, setRegistrationFormOpen] = useState(false);
+  const [editFormOpen, setEditFormOpen] = useState(false);
+  const [selectedVideoForEdit, setSelectedVideoForEdit] =
+    useState<Video | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
@@ -35,14 +39,28 @@ const VideoManagement: React.FC = () => {
     setRefreshTrigger(prev => prev + 1);
   };
 
+  const handleEditSuccess = () => {
+    setSnackbar({
+      open: true,
+      message: '動画が正常に更新されました',
+      severity: 'success',
+    });
+    setRefreshTrigger(prev => prev + 1);
+  };
+
   const handleVideoSelect = (_video: Video) => {
     // 動画選択時の処理（後のタスクで実装）
     // console.log('Selected video:', video);
   };
 
-  const handleVideoEdit = (_video: Video) => {
-    // 動画編集時の処理（後のタスクで実装）
-    // console.log('Edit video:', video);
+  const handleVideoEdit = (video: Video) => {
+    setSelectedVideoForEdit(video);
+    setEditFormOpen(true);
+  };
+
+  const handleEditFormClose = () => {
+    setEditFormOpen(false);
+    setSelectedVideoForEdit(null);
   };
 
   const handleSnackbarClose = () => {
@@ -97,6 +115,13 @@ const VideoManagement: React.FC = () => {
           open={registrationFormOpen}
           onClose={() => setRegistrationFormOpen(false)}
           onSuccess={handleRegistrationSuccess}
+        />
+
+        <VideoEditForm
+          open={editFormOpen}
+          video={selectedVideoForEdit}
+          onClose={handleEditFormClose}
+          onSuccess={handleEditSuccess}
         />
 
         <Snackbar
