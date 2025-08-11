@@ -13,6 +13,11 @@ import {
   FormControlLabel,
   Switch,
   Autocomplete,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Snackbar,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -21,7 +26,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth, UserRole } from '../../contexts/AuthContext';
 import { sessionService } from '../../services/sessionService';
-import { Session } from '../../types';
+import { Session, Video, Template } from '../../types';
 
 const SessionEditPage: React.FC = () => {
   const navigate = useNavigate();
@@ -32,6 +37,8 @@ const SessionEditPage: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [originalData, setOriginalData] = useState<any>(null);
 
   // フォームの状態
   const [formData, setFormData] = useState({
@@ -39,6 +46,8 @@ const SessionEditPage: React.FC = () => {
     description: '',
     startDate: '',
     endDate: '',
+    videoId: '',
+    templateId: '',
     settings: {
       isAnonymous: false,
       showResultsAfterSubmit: true,
@@ -46,19 +55,123 @@ const SessionEditPage: React.FC = () => {
     },
   });
 
+  // 動画・テンプレートの選択肢
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [isLoadingOptions, setIsLoadingOptions] = useState(false);
+
+  // 確認ダイアログの状態
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+
   // バリデーションエラーの状態
   const [validationErrors, setValidationErrors] = useState({
     name: '',
     startDate: '',
     endDate: '',
+    videoId: '',
+    templateId: '',
   });
 
   // セッション詳細の取得
   useEffect(() => {
     if (id) {
       fetchSession(id);
+      fetchOptions();
     }
   }, [id]);
+
+  // ページ離脱時の確認
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  // 動画・テンプレートの選択肢を取得
+  const fetchOptions = async () => {
+    try {
+      setIsLoadingOptions(true);
+      
+      // 実際のAPIエンドポイントに置き換える必要があります
+      // const [videosResponse, templatesResponse] = await Promise.all([
+      //   fetch('/api/videos'),
+      //   fetch('/api/templates')
+      // ]);
+      
+      // モックデータ（実際のAPIに置き換える）
+      const mockVideos: Video[] = [
+        {
+          id: 'video1',
+          youtubeId: 'dQw4w9WgXcQ',
+          title: '鳴子踊り - 伝統チーム',
+          channelName: 'よさこいチャンネル',
+          uploadDate: '2024-07-01',
+          description: '伝統的な鳴子踊りの演舞',
+          metadata: {
+            teamName: '伝統チーム',
+            performanceName: '鳴子踊り',
+            eventName: 'よさこい祭り',
+            year: 2024,
+          },
+          tags: ['よさこい', '鳴子踊り'],
+          thumbnailUrl: 'https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg',
+          createdAt: '2024-07-01T00:00:00Z',
+          createdBy: 'admin',
+        },
+        {
+          id: 'video2',
+          youtubeId: 'abc123def',
+          title: '現代風よさこい - 青春チーム',
+          channelName: 'よさこいチャンネル',
+          uploadDate: '2024-07-02',
+          description: '現代風アレンジのよさこい演舞',
+          metadata: {
+            teamName: '青春チーム',
+            performanceName: '現代風よさこい',
+            eventName: 'よさこい祭り',
+            year: 2024,
+          },
+          tags: ['よさこい', '現代風'],
+          thumbnailUrl: 'https://img.youtube.com/vi/abc123def/maxresdefault.jpg',
+          createdAt: '2024-07-02T00:00:00Z',
+          createdBy: 'admin',
+        },
+      ];
+
+      const mockTemplates: Template[] = [
+        {
+          id: 'template1',
+          name: '本祭評価テンプレート',
+          description: '本祭での演舞評価用の標準テンプレート',
+          createdAt: '2024-06-01T00:00:00Z',
+          creatorId: 'admin',
+          categories: [],
+        },
+        {
+          id: 'template2',
+          name: '地方車評価テンプレート',
+          description: '地方車での演舞評価用テンプレート',
+          createdAt: '2024-06-02T00:00:00Z',
+          creatorId: 'admin',
+          categories: [],
+        },
+      ];
+
+      setVideos(mockVideos);
+      setTemplates(mockTemplates);
+    } catch (error) {
+      
+    } finally {
+      setIsLoadingOptions(false);
+    }
+  };
 
   const fetchSession = async (sessionId: string) => {
     try {
@@ -69,15 +182,21 @@ const SessionEditPage: React.FC = () => {
       setSession(sessionData);
 
       // フォームデータの初期化
-      setFormData({
+      const initialFormData = {
         name: sessionData.name,
         description: sessionData.description,
         startDate: new Date(sessionData.startDate).toISOString().slice(0, 16),
         endDate: new Date(sessionData.endDate).toISOString().slice(0, 16),
+        videoId: sessionData.videoId,
+        templateId: sessionData.templateId,
         settings: sessionData.settings,
-      });
+      };
+      
+      setFormData(initialFormData);
+      setOriginalData(initialFormData);
+      setHasUnsavedChanges(false);
     } catch (error: any) {
-      console.error('Session fetch error:', error);
+      
       setError('セッション情報の取得に失敗しました');
     } finally {
       setIsLoading(false);
@@ -90,6 +209,8 @@ const SessionEditPage: React.FC = () => {
       name: '',
       startDate: '',
       endDate: '',
+      videoId: '',
+      templateId: '',
     };
 
     // セッション名の検証
@@ -117,16 +238,35 @@ const SessionEditPage: React.FC = () => {
       }
     }
 
+    // 動画・テンプレートの検証
+    if (!formData.videoId) {
+      errors.videoId = '評価対象動画を選択してください';
+    }
+
+    if (!formData.templateId) {
+      errors.templateId = '評価テンプレートを選択してください';
+    }
+
     setValidationErrors(errors);
     return !Object.values(errors).some(error => error !== '');
   };
 
+  // 変更検知
+  const checkForChanges = (newFormData: any) => {
+    if (!originalData) return false;
+    
+    return JSON.stringify(newFormData) !== JSON.stringify(originalData);
+  };
+
   // フォーム入力の処理
   const handleInputChange = (field: string, value: any) => {
-    setFormData(prev => ({
-      ...prev,
+    const newFormData = {
+      ...formData,
       [field]: value,
-    }));
+    };
+    
+    setFormData(newFormData);
+    setHasUnsavedChanges(checkForChanges(newFormData));
 
     // リアルタイムバリデーション
     if (validationErrors[field as keyof typeof validationErrors]) {
@@ -138,13 +278,16 @@ const SessionEditPage: React.FC = () => {
   };
 
   const handleSettingsChange = (field: string, value: boolean) => {
-    setFormData(prev => ({
-      ...prev,
+    const newFormData = {
+      ...formData,
       settings: {
-        ...prev.settings,
+        ...formData.settings,
         [field]: value,
       },
-    }));
+    };
+    
+    setFormData(newFormData);
+    setHasUnsavedChanges(checkForChanges(newFormData));
   };
 
   // セッション更新の処理
@@ -167,11 +310,15 @@ const SessionEditPage: React.FC = () => {
         description: formData.description.trim(),
         startDate: new Date(formData.startDate),
         endDate: new Date(formData.endDate),
+        videoId: formData.videoId,
+        templateId: formData.templateId,
         settings: formData.settings,
       };
 
       await sessionService.updateSession(id, updateData);
       setSuccessMessage('セッション情報を更新しました');
+      setHasUnsavedChanges(false);
+      setOriginalData(formData);
 
       // 2秒後に詳細ページに戻る
       setTimeout(() => {
@@ -193,6 +340,31 @@ const SessionEditPage: React.FC = () => {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // キャンセル処理
+  const handleCancel = () => {
+    if (hasUnsavedChanges) {
+      setPendingNavigation(`/sessions/${id}`);
+      setConfirmDialogOpen(true);
+    } else {
+      navigate(`/sessions/${id}`);
+    }
+  };
+
+  // 確認ダイアログでの続行
+  const handleConfirmNavigation = () => {
+    if (pendingNavigation) {
+      navigate(pendingNavigation);
+    }
+    setConfirmDialogOpen(false);
+    setPendingNavigation(null);
+  };
+
+  // 確認ダイアログでのキャンセル
+  const handleCancelNavigation = () => {
+    setConfirmDialogOpen(false);
+    setPendingNavigation(null);
   };
 
   // 編集権限の確認
@@ -323,6 +495,77 @@ const SessionEditPage: React.FC = () => {
                   />
                 </Grid>
               </Grid>
+
+              {/* 動画・テンプレート選択 */}
+              <Grid container spacing={2} sx={{ mt: 2 }}>
+                <Grid item xs={12}>
+                  <Autocomplete
+                    options={videos}
+                    getOptionLabel={(option) => option.title}
+                    value={videos.find(v => v.id === formData.videoId) || null}
+                    onChange={(event, newValue) => {
+                      handleInputChange('videoId', newValue?.id || '');
+                    }}
+                    loading={isLoadingOptions}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="評価対象動画"
+                        required
+                        error={!!validationErrors.videoId}
+                        helperText={validationErrors.videoId}
+                      />
+                    )}
+                    renderOption={(props, option) => (
+                      <Box component="li" {...props}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <img
+                            src={option.thumbnailUrl}
+                            alt={option.title}
+                            style={{ width: 60, height: 34, objectFit: 'cover', borderRadius: 4 }}
+                          />
+                          <Box>
+                            <Typography variant="body2">{option.title}</Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {option.metadata.teamName}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Box>
+                    )}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <Autocomplete
+                    options={templates}
+                    getOptionLabel={(option) => option.name}
+                    value={templates.find(t => t.id === formData.templateId) || null}
+                    onChange={(event, newValue) => {
+                      handleInputChange('templateId', newValue?.id || '');
+                    }}
+                    loading={isLoadingOptions}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="評価テンプレート"
+                        required
+                        error={!!validationErrors.templateId}
+                        helperText={validationErrors.templateId}
+                      />
+                    )}
+                    renderOption={(props, option) => (
+                      <Box component="li" {...props}>
+                        <Box>
+                          <Typography variant="body2">{option.name}</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {option.description}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    )}
+                  />
+                </Grid>
+              </Grid>
             </CardContent>
           </Card>
         </Grid>
@@ -384,7 +627,7 @@ const SessionEditPage: React.FC = () => {
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
         <Button
           variant='outlined'
-          onClick={() => navigate(`/sessions/${id}`)}
+          onClick={handleCancel}
           disabled={isSaving}
         >
           キャンセル
@@ -393,11 +636,50 @@ const SessionEditPage: React.FC = () => {
           variant='contained'
           startIcon={<SaveIcon />}
           onClick={handleSave}
-          disabled={isSaving || !formData.name.trim() || !formData.startDate || !formData.endDate}
+          disabled={
+            isSaving || 
+            !hasUnsavedChanges ||
+            !formData.name.trim() || 
+            !formData.startDate || 
+            !formData.endDate || 
+            !formData.videoId || 
+            !formData.templateId
+          }
         >
-          {isSaving ? '保存中...' : '保存'}
+          {isSaving ? '保存中...' : hasUnsavedChanges ? '変更を保存' : '保存済み'}
         </Button>
       </Box>
+
+      {/* 確認ダイアログ */}
+      <Dialog open={confirmDialogOpen} onClose={handleCancelNavigation}>
+        <DialogTitle>未保存の変更があります</DialogTitle>
+        <DialogContent>
+          <Typography>
+            変更内容が保存されていません。このページを離れますか？
+            変更内容は失われます。
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelNavigation}>
+            キャンセル
+          </Button>
+          <Button onClick={handleConfirmNavigation} color="error" variant="contained">
+            離れる
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 成功メッセージのSnackbar */}
+      <Snackbar
+        open={!!successMessage}
+        autoHideDuration={3000}
+        onClose={() => setSuccessMessage('')}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="success" onClose={() => setSuccessMessage('')}>
+          {successMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
