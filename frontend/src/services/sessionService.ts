@@ -46,7 +46,7 @@ export interface SessionListResponse {
 }
 
 class SessionService {
-  private baseUrl = '/api/sessions';
+  private baseUrl = '/sessions';
 
   /**
    * セッションを作成する
