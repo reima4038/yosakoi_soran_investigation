@@ -29,7 +29,13 @@ import {
   ErrorBoundary,
   GlobalStateManager,
 } from './components/common';
-import { SessionList, SessionDetailPage, SessionManagement } from './components/session';
+import { 
+  SessionList, 
+  SessionDetailPage, 
+  SessionManagement,
+  SessionEditPage,
+  ParticipantManagementPage 
+} from './components/session';
 import {
   TemplateList,
   TemplateDetailPage,
@@ -289,6 +295,26 @@ const AppContent: React.FC = () => {
                 requiredRoles={[UserRole.ADMIN, UserRole.EVALUATOR]}
               >
                 <SessionDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path='/sessions/:id/edit'
+            element={
+              <ProtectedRoute
+                requiredRoles={[UserRole.ADMIN, UserRole.EVALUATOR]}
+              >
+                <SessionEditPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path='/sessions/:id/participants'
+            element={
+              <ProtectedRoute
+                requiredRoles={[UserRole.ADMIN, UserRole.EVALUATOR]}
+              >
+                <ParticipantManagementPage />
               </ProtectedRoute>
             }
           />
