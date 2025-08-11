@@ -32,6 +32,7 @@ import {
   PersonAdd as PersonAddIcon,
   Delete as DeleteIcon,
   Email as EmailIcon,
+  Upload as UploadIcon,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth, UserRole } from '../../contexts/AuthContext';
@@ -72,6 +73,15 @@ const ParticipantManagementPage: React.FC = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [participantToDelete, setParticipantToDelete] = useState<SessionParticipant | null>(null);
 
+  // 招待フォームのバリデーション
+  const [inviteErrors, setInviteErrors] = useState({
+    emails: '',
+    role: '',
+  });
+
+  // CSVファイルアップロード
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+
   // セッション詳細の取得
   useEffect(() => {
     if (id) {
@@ -84,55 +94,189 @@ const ParticipantManagementPage: React.FC = () => {
       setIsLoading(true);
       setError('');
       
-      const sessionData = await sessionService.getSession(sessionId);
+      // セッション基本情報と参加者情報を並行取得
+      const [sessionData, participantsData] = await Promise.all([
+        sessionService.getSession(sessionId),
+        sessionService.getSessionParticipants(sessionId).catch(() => null) // 参加者APIが失敗してもセッション情報は取得
+      ]);
+      
       setSession(sessionData);
       
-      // 参加者データの変換（実際のAPIレスポンスに合わせて調整が必要）
-      const participantData: SessionParticipant[] = sessionData.participants.map(p => ({
-        id: p.userId,
-        name: `User ${p.userId}`, // 実際のユーザー名を取得する必要がある
-        email: `user${p.userId}@example.com`, // 実際のメールアドレスを取得する必要がある
-        role: p.role,
-        hasSubmitted: p.hasSubmitted,
-        invitedAt: p.invitedAt.toISOString(),
-        joinedAt: p.joinedAt?.toISOString(),
-        invitationStatus: p.joinedAt ? 'accepted' : 'pending',
-      }));
-      
-      setParticipants(participantData);
+      if (participantsData) {
+        // 実際のAPIレスポンスから参加者データを変換
+        const participantData: SessionParticipant[] = participantsData.participants?.map((p: any) => ({
+          id: p.id || p.userId,
+          name: p.user?.profile?.displayName || p.user?.username || p.name || 'Unknown User',
+          email: p.user?.email || p.email || '',
+          avatar: p.user?.profile?.avatar || p.avatar,
+          role: p.role,
+          hasSubmitted: p.hasSubmitted || false,
+          submittedAt: p.submittedAt,
+          invitedAt: p.invitedAt,
+          joinedAt: p.joinedAt,
+          invitationStatus: p.joinedAt ? 'accepted' : (p.invitationStatus || 'pending'),
+        })) || [];
+        
+        setParticipants(participantData);
+      } else {
+        // APIが利用できない場合はセッションデータから参加者情報を取得
+        const fallbackParticipants: SessionParticipant[] = sessionData.participants?.map((p: any) => ({
+          id: p.userId || p.id,
+          name: p.user?.profile?.displayName || p.user?.username || `User ${p.userId}`,
+          email: p.user?.email || `user${p.userId}@example.com`,
+          avatar: p.user?.profile?.avatar,
+          role: p.role,
+          hasSubmitted: p.hasSubmitted || false,
+          submittedAt: p.submittedAt,
+          invitedAt: p.invitedAt?.toISOString ? p.invitedAt.toISOString() : p.invitedAt,
+          joinedAt: p.joinedAt?.toISOString ? p.joinedAt.toISOString() : p.joinedAt,
+          invitationStatus: p.joinedAt ? 'accepted' : 'pending',
+        })) || [];
+        
+        setParticipants(fallbackParticipants);
+      }
     } catch (error: any) {
       console.error('Session fetch error:', error);
-      setError('セッション情報の取得に失敗しました');
+      
+      // エラーの詳細な処理
+      if (error.response?.status === 404) {
+        setError('セッションが見つかりません');
+      } else if (error.response?.status === 403) {
+        setError('このセッションにアクセスする権限がありません');
+      } else {
+        setError('セッション情報の取得に失敗しました');
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
+  // メールアドレスのバリデーション
+  const validateEmails = (emailString: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emails = emailString
+      .split(',')
+      .map(email => email.trim())
+      .filter(email => email);
+
+    if (emails.length === 0) {
+      return { isValid: false, error: 'メールアドレスを入力してください' };
+    }
+
+    const invalidEmails = emails.filter(email => !emailRegex.test(email));
+    if (invalidEmails.length > 0) {
+      return { 
+        isValid: false, 
+        error: `無効なメールアドレス: ${invalidEmails.join(', ')}` 
+      };
+    }
+
+    // 既存の参加者との重複チェック
+    const existingEmails = participants.map(p => p.email.toLowerCase());
+    const duplicateEmails = emails.filter(email => 
+      existingEmails.includes(email.toLowerCase())
+    );
+    
+    if (duplicateEmails.length > 0) {
+      return { 
+        isValid: false, 
+        error: `既に参加者として登録済み: ${duplicateEmails.join(', ')}` 
+      };
+    }
+
+    return { isValid: true, error: '', emails };
+  };
+
+  // CSVファイルの処理
+  const handleCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setCsvFile(file);
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      const lines = text.split('\n').filter(line => line.trim());
+      
+      // CSVの各行からメールアドレスを抽出（1列目をメールアドレスとして扱う）
+      const emails = lines
+        .map(line => line.split(',')[0]?.trim())
+        .filter(email => email && email !== 'email' && email !== 'メールアドレス') // ヘッダー行を除外
+        .join(', ');
+      
+      setInviteEmails(emails);
+    };
+    
+    reader.readAsText(file);
+  };
+
+  // 招待フォームのバリデーション
+  const validateInviteForm = () => {
+    const errors = { emails: '', role: '' };
+    
+    const emailValidation = validateEmails(inviteEmails);
+    if (!emailValidation.isValid) {
+      errors.emails = emailValidation.error;
+    }
+
+    if (!inviteRole) {
+      errors.role = '権限を選択してください';
+    }
+
+    setInviteErrors(errors);
+    return emailValidation.isValid && !errors.role;
+  };
+
   // 参加者招待の処理
   const handleInvite = async () => {
-    if (!id || !inviteEmails.trim()) return;
+    if (!id) return;
+
+    // バリデーションチェック
+    if (!validateInviteForm()) {
+      return;
+    }
 
     try {
       setIsInviting(true);
       setError('');
       
-      const emails = inviteEmails
-        .split(',')
-        .map(email => email.trim())
-        .filter(email => email);
+      const emailValidation = validateEmails(inviteEmails);
+      if (!emailValidation.isValid || !emailValidation.emails) {
+        setError(emailValidation.error);
+        return;
+      }
 
-      await sessionService.inviteEvaluators(id, emails, inviteMessage);
+      const inviteData = {
+        emails: emailValidation.emails,
+        message: inviteMessage.trim() || undefined,
+        role: inviteRole,
+      };
+
+      await sessionService.inviteEvaluators(id, inviteData.emails, inviteData.message);
       
-      setSuccessMessage(`${emails.length}名の参加者を招待しました`);
+      setSuccessMessage(`${inviteData.emails.length}名の参加者を招待しました`);
       setInviteDialogOpen(false);
       setInviteEmails('');
       setInviteMessage('');
+      setInviteRole(SessionUserRole.EVALUATOR);
+      setInviteErrors({ emails: '', role: '' });
       
       // 参加者リストを再取得
       await fetchSessionData(id);
     } catch (error: any) {
       console.error('Invite error:', error);
-      setError('参加者の招待に失敗しました');
+      
+      // エラーの詳細な処理
+      if (error.response?.status === 400) {
+        setError('招待データに問題があります');
+      } else if (error.response?.status === 403) {
+        setError('参加者を招待する権限がありません');
+      } else if (error.response?.status === 409) {
+        setError('一部のメールアドレスは既に招待済みです');
+      } else {
+        setError('参加者の招待に失敗しました');
+      }
     } finally {
       setIsInviting(false);
     }
@@ -143,38 +287,64 @@ const ParticipantManagementPage: React.FC = () => {
     if (!participantToDelete || !id) return;
 
     try {
-      // 実際のAPIエンドポイントが必要
-      // await sessionService.removeParticipant(id, participantToDelete.id);
+      setError('');
       
+      await sessionService.removeParticipant(id, participantToDelete.id);
+      
+      // ローカル状態を更新
       setParticipants(prev => 
         prev.filter(p => p.id !== participantToDelete.id)
       );
       
-      setSuccessMessage('参加者を削除しました');
+      setSuccessMessage(`${participantToDelete.name}を参加者から削除しました`);
       setDeleteDialogOpen(false);
       setParticipantToDelete(null);
     } catch (error: any) {
-      console.error('Delete participant error:', error);
-      setError('参加者の削除に失敗しました');
+      
+      
+      // エラーの詳細な処理
+      if (error.response?.status === 403) {
+        setError('参加者を削除する権限がありません');
+      } else if (error.response?.status === 404) {
+        setError('参加者が見つかりません');
+      } else {
+        setError('参加者の削除に失敗しました');
+      }
+      
+      setDeleteDialogOpen(false);
+      setParticipantToDelete(null);
     }
   };
 
   // 権限変更の処理
   const handleRoleChange = async (participantId: string, newRole: SessionUserRole) => {
+    if (!id) return;
+    
     try {
-      // 実際のAPIエンドポイントが必要
-      // await sessionService.updateParticipantRole(id, participantId, newRole);
+      setError('');
       
+      await sessionService.updateParticipantRole(id, participantId, newRole);
+      
+      // ローカル状態を更新
       setParticipants(prev =>
         prev.map(p =>
           p.id === participantId ? { ...p, role: newRole } : p
         )
       );
       
-      setSuccessMessage('参加者の権限を変更しました');
+      const participant = participants.find(p => p.id === participantId);
+      setSuccessMessage(`${participant?.name}の権限を${newRole}に変更しました`);
     } catch (error: any) {
-      console.error('Role change error:', error);
-      setError('権限の変更に失敗しました');
+      
+      
+      // エラーの詳細な処理
+      if (error.response?.status === 403) {
+        setError('参加者の権限を変更する権限がありません');
+      } else if (error.response?.status === 404) {
+        setError('参加者が見つかりません');
+      } else {
+        setError('権限の変更に失敗しました');
+      }
     }
   };
 
@@ -269,6 +439,58 @@ const ParticipantManagementPage: React.FC = () => {
         </Alert>
       )}
 
+      {/* 参加者統計 */}
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" color="primary">
+                {participants.length}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                総参加者数
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" color="success.main">
+                {participants.filter(p => p.invitationStatus === 'accepted').length}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                参加済み
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" color="warning.main">
+                {participants.filter(p => p.invitationStatus === 'pending').length}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                招待中
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" color="info.main">
+                {participants.filter(p => p.hasSubmitted).length}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                評価提出済み
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
       {/* 参加者一覧 */}
       <Card>
         <CardContent>
@@ -287,7 +509,19 @@ const ParticipantManagementPage: React.FC = () => {
                       </Avatar>
                     </ListItemAvatar>
                     <ListItemText
-                      primary={participant.name}
+                      primary={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="subtitle1">
+                            {participant.name}
+                          </Typography>
+                          <Chip
+                            label={participant.role}
+                            size="small"
+                            variant="outlined"
+                            color="primary"
+                          />
+                        </Box>
+                      }
                       secondary={
                         <Box>
                           <Typography variant="body2" color="text.secondary">
@@ -296,6 +530,7 @@ const ParticipantManagementPage: React.FC = () => {
                           <Typography variant="caption" color="text.secondary">
                             招待日: {formatDate(participant.invitedAt)}
                             {participant.joinedAt && ` | 参加日: ${formatDate(participant.joinedAt)}`}
+                            {participant.submittedAt && ` | 提出日: ${formatDate(participant.submittedAt)}`}
                           </Typography>
                         </Box>
                       }
@@ -347,30 +582,91 @@ const ParticipantManagementPage: React.FC = () => {
       </Card>
 
       {/* 招待ダイアログ */}
-      <Dialog open={inviteDialogOpen} onClose={() => setInviteDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog 
+        open={inviteDialogOpen} 
+        onClose={() => {
+          setInviteDialogOpen(false);
+          setInviteEmails('');
+          setInviteMessage('');
+          setInviteRole(SessionUserRole.EVALUATOR);
+          setInviteErrors({ emails: '', role: '' });
+        }} 
+        maxWidth="sm" 
+        fullWidth
+      >
         <DialogTitle>参加者を招待</DialogTitle>
         <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            メールアドレスを直接入力するか、CSVファイルから一括で招待できます。
+          </Typography>
           <TextField
             fullWidth
             label="メールアドレス"
             placeholder="email1@example.com, email2@example.com"
             value={inviteEmails}
-            onChange={(e) => setInviteEmails(e.target.value)}
+            onChange={(e) => {
+              setInviteEmails(e.target.value);
+              // リアルタイムバリデーション
+              if (inviteErrors.emails) {
+                setInviteErrors(prev => ({ ...prev, emails: '' }));
+              }
+            }}
             margin="normal"
             multiline
             rows={3}
-            helperText="複数のメールアドレスはカンマで区切ってください"
+            error={!!inviteErrors.emails}
+            helperText={inviteErrors.emails || "複数のメールアドレスはカンマで区切ってください"}
           />
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 2, mb: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              または
+            </Typography>
+            <Button
+              variant="outlined"
+              component="label"
+              startIcon={<UploadIcon />}
+              size="small"
+            >
+              CSVファイルから読み込み
+              <input
+                type="file"
+                accept=".csv"
+                hidden
+                onChange={handleCsvUpload}
+              />
+            </Button>
+            {csvFile && (
+              <Typography variant="caption" color="text.secondary">
+                {csvFile.name}
+              </Typography>
+            )}
+          </Box>
           
-          <FormControl fullWidth margin="normal">
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+            CSVファイルの1列目をメールアドレスとして読み込みます
+          </Typography>
+          
+          <FormControl fullWidth margin="normal" error={!!inviteErrors.role}>
             <InputLabel>権限</InputLabel>
             <Select
               value={inviteRole}
-              onChange={(e) => setInviteRole(e.target.value as SessionUserRole)}
+              onChange={(e) => {
+                setInviteRole(e.target.value as SessionUserRole);
+                // リアルタイムバリデーション
+                if (inviteErrors.role) {
+                  setInviteErrors(prev => ({ ...prev, role: '' }));
+                }
+              }}
             >
               <MenuItem value={SessionUserRole.EVALUATOR}>評価者</MenuItem>
               <MenuItem value={SessionUserRole.OBSERVER}>観察者</MenuItem>
             </Select>
+            {inviteErrors.role && (
+              <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>
+                {inviteErrors.role}
+              </Typography>
+            )}
           </FormControl>
           
           <TextField
@@ -381,17 +677,28 @@ const ParticipantManagementPage: React.FC = () => {
             margin="normal"
             multiline
             rows={3}
+            placeholder={`${session?.name}の評価セッションにご招待いたします。\n\n評価期間: ${session ? formatDate(session.startDate) : ''} ～ ${session ? formatDate(session.endDate) : ''}\n\nご参加をお待ちしております。`}
+            helperText="空欄の場合は標準的な招待メッセージが送信されます"
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setInviteDialogOpen(false)}>
+          <Button 
+            onClick={() => {
+              setInviteDialogOpen(false);
+              setInviteEmails('');
+              setInviteMessage('');
+              setInviteRole(SessionUserRole.EVALUATOR);
+              setInviteErrors({ emails: '', role: '' });
+            }}
+            disabled={isInviting}
+          >
             キャンセル
           </Button>
           <Button
             onClick={handleInvite}
             variant="contained"
             startIcon={<EmailIcon />}
-            disabled={isInviting || !inviteEmails.trim()}
+            disabled={isInviting || !inviteEmails.trim() || !inviteRole}
           >
             {isInviting ? '招待中...' : '招待を送信'}
           </Button>

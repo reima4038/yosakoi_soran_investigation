@@ -262,6 +262,53 @@ class SessionService {
       throw error;
     }
   }
+
+  /**
+   * セッション参加者一覧を取得する
+   */
+  async getSessionParticipants(sessionId: string): Promise<any> {
+    try {
+      const response = await apiClient.get<{ status: string; data: any }>(
+        `${this.baseUrl}/${sessionId}/participants`
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error('参加者一覧取得エラー:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 参加者を削除する
+   */
+  async removeParticipant(sessionId: string, participantId: string): Promise<void> {
+    try {
+      await apiClient.delete(`${this.baseUrl}/${sessionId}/participants/${participantId}`);
+    } catch (error) {
+      console.error('参加者削除エラー:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 参加者の権限を変更する
+   */
+  async updateParticipantRole(
+    sessionId: string, 
+    participantId: string, 
+    role: string
+  ): Promise<any> {
+    try {
+      const response = await apiClient.patch<{ status: string; data: any }>(
+        `${this.baseUrl}/${sessionId}/participants/${participantId}`,
+        { role }
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error('参加者権限変更エラー:', error);
+      throw error;
+    }
+  }
 }
 
 export const sessionService = new SessionService();
