@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -36,9 +36,10 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, UserRole } from '../../contexts/AuthContext';
+import { sessionService } from '../../services/sessionService';
 
-// セッションの型定義
-interface Session {
+// 表示用のセッション型定義
+interface SessionDisplay {
   id: string;
   name: string;
   description: string;
@@ -62,43 +63,55 @@ interface Session {
 const SessionList: React.FC = () => {
   const navigate = useNavigate();
   const { user, hasRole, hasAnyRole } = useAuth();
-  const [sessions, setSessions] = useState<Session[]>([]);
+  const [sessions, setSessions] = useState<SessionDisplay[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [sessionToDelete, setSessionToDelete] = useState<Session | null>(null);
+  const [sessionToDelete, setSessionToDelete] = useState<SessionDisplay | null>(null);
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedSession, setSelectedSession] = useState<Session | null>(null);
+  const [selectedSession, setSelectedSession] = useState<SessionDisplay | null>(null);
 
-  // セッション一覧の取得
-  useEffect(() => {
-    fetchSessions();
-  }, []);
+  // APIデータを表示用に変換
+  const convertToDisplaySession = (session: any): SessionDisplay => {
+    return {
+      id: session._id || session.id,
+      name: session.name || 'Untitled Session',
+      description: session.description || '',
+      status: session.status || 'draft',
+      startDate: session.startDate || new Date().toISOString(),
+      endDate: session.endDate || new Date().toISOString(),
+      videoTitle: session.videoId?.title || 'Unknown Video',
+      templateName: session.templateId?.name || 'Unknown Template',
+      participantCount: session.evaluators?.length || 0,
+      submittedCount: 0, // TODO: 実際の提出数を計算
+      participants: session.evaluators?.map((evaluator: any) => ({
+        id: evaluator._id || evaluator.id,
+        name: evaluator.profile?.displayName || evaluator.username || 'Unknown',
+        avatar: evaluator.profile?.avatar,
+        hasSubmitted: false, // TODO: 実際の提出状況を確認
+      })) || [],
+      createdAt: session.createdAt,
+      creatorName: session.creatorId?.profile?.displayName || session.creatorId?.username || 'Unknown',
+    };
+  };
 
-  const fetchSessions = async () => {
+  const fetchSessions = useCallback(async () => {
     try {
       setIsLoading(true);
+      setError('');
       
-      // 実際のAPI呼び出し
-      const response = await fetch('/api/sessions', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      console.log('Fetching sessions...');
+      const response = await sessionService.getSessions();
+      console.log('Sessions loaded:', response);
       
-      if (!response.ok) {
-        throw new Error('セッション一覧の取得に失敗しました');
-      }
-      
-      const data = await response.json();
-      setSessions(data.data.sessions || []);
+      const displaySessions = response.sessions.map(convertToDisplaySession);
+      setSessions(displaySessions);
     } catch (error: any) {
       console.error('Sessions fetch error:', error);
       setError('セッション一覧の取得に失敗しました');
       
       // エラー時はモックデータを使用（開発用）
-      const mockSessions: Session[] = [
+      const mockSessions: SessionDisplay[] = [
         {
           id: '1',
           name: '第45回よさこい祭り 本祭評価',
@@ -164,10 +177,15 @@ const SessionList: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  // セッション一覧の取得
+  useEffect(() => {
+    fetchSessions();
+  }, []);
 
   // ステータス表示用の設定
-  const getStatusConfig = (status: Session['status']) => {
+  const getStatusConfig = (status: SessionDisplay['status']) => {
     switch (status) {
       case 'draft':
         return { label: '下書き', color: 'default' as const, icon: <EditIcon /> };
@@ -183,13 +201,13 @@ const SessionList: React.FC = () => {
   };
 
   // 進捗率の計算
-  const getProgressPercentage = (session: Session) => {
+  const getProgressPercentage = (session: SessionDisplay) => {
     if (session.participantCount === 0) return 0;
     return Math.round((session.submittedCount / session.participantCount) * 100);
   };
 
   // メニューの制御
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, session: Session) => {
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, session: SessionDisplay) => {
     setMenuAnchorEl(event.currentTarget);
     setSelectedSession(session);
   };
@@ -200,7 +218,7 @@ const SessionList: React.FC = () => {
   };
 
   // セッション削除の確認
-  const handleDeleteClick = (session: Session) => {
+  const handleDeleteClick = (session: SessionDisplay) => {
     setSessionToDelete(session);
     setDeleteDialogOpen(true);
     handleMenuClose();
@@ -211,12 +229,12 @@ const SessionList: React.FC = () => {
     if (!sessionToDelete) return;
 
     try {
-      // TODO: API呼び出し
-      // await apiClient.delete(`/api/sessions/${sessionToDelete.id}`);
+      await sessionService.deleteSession(sessionToDelete.id);
       setSessions(prev => prev.filter(s => s.id !== sessionToDelete.id));
       setDeleteDialogOpen(false);
       setSessionToDelete(null);
     } catch (error: any) {
+      
       setError('セッションの削除に失敗しました');
     }
   };
