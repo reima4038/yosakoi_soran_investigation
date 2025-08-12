@@ -95,10 +95,32 @@ class SessionService {
   /**
    * セッション詳細を取得する
    */
-  async getSession(sessionId: string): Promise<Session> {
+  async getSession(sessionId: string, includeDetails: boolean = true): Promise<Session> {
     try {
-      const response = await apiClient.get<{ status: string; data: Session }>(
-        `${this.baseUrl}/${sessionId}`
+      const queryParams = new URLSearchParams();
+      if (includeDetails) {
+        queryParams.append('include', 'video,template,participants,evaluations');
+      }
+      
+      const url = queryParams.toString()
+        ? `${this.baseUrl}/${sessionId}?${queryParams.toString()}`
+        : `${this.baseUrl}/${sessionId}`;
+
+      const response = await apiClient.get<{ status: string; data: Session }>(url);
+      return response.data.data;
+    } catch (error) {
+      console.error('セッション詳細取得エラー:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * セッション詳細を関連データと共に取得する
+   */
+  async getSessionWithDetails(sessionId: string): Promise<any> {
+    try {
+      const response = await apiClient.get<{ status: string; data: any }>(
+        `${this.baseUrl}/${sessionId}/details`
       );
       return response.data.data;
     } catch (error) {

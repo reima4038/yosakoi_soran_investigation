@@ -41,7 +41,13 @@
     "docs:template:feature": "./scripts/generate-doc.sh feature",
     "docs:final-check": "./scripts/final-quality-check.sh"
   },
-  "keywords": ["yosakoi", "evaluation", "youtube", "react", "nodejs"],
+  "keywords": [
+    "yosakoi",
+    "evaluation",
+    "youtube",
+    "react",
+    "nodejs"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {
