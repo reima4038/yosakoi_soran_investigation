@@ -85,14 +85,14 @@ interface SessionDetail extends Session {
     avatar?: string;
     role: string;
     hasSubmitted: boolean;
-    submittedAt?: string;
-    invitedAt: string;
-    joinedAt?: string;
+    submittedAt?: string | Date;
+    invitedAt: string | Date;
+    joinedAt?: string | Date;
   }>;
   evaluations?: Array<{
     id: string;
     evaluatorName: string;
-    submittedAt: string;
+    submittedAt: string | Date;
     overallScore: number;
     commentCount: number;
   }>;
@@ -187,15 +187,28 @@ const SessionDetailPage: React.FC = () => {
   };
 
   // 日付フォーマット
-  const formatDate = (date: string | Date) => {
-    const dateObj = typeof date === 'string' ? new Date(date) : date;
-    return dateObj.toLocaleDateString('ja-JP', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+  const formatDate = (date: string | Date | undefined | null) => {
+    if (!date) return '未設定';
+    
+    try {
+      const dateObj = typeof date === 'string' ? new Date(date) : date;
+      
+      // 無効な日付の場合
+      if (isNaN(dateObj.getTime())) {
+        return '無効な日付';
+      }
+      
+      return dateObj.toLocaleDateString('ja-JP', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch (error) {
+      
+      return '日付エラー';
+    }
   };
 
   // タブ変更

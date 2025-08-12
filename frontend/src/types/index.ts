@@ -77,14 +77,14 @@ export interface Session {
   id: string;
   name: string;
   description: string;
-  startDate: Date;
-  endDate: Date;
+  startDate: Date | string;
+  endDate: Date | string;
   status: SessionStatus;
   videoId: string;
   templateId: string;
   creatorId: string;
   participants: SessionUser[];
-  createdAt: Date;
+  createdAt: Date | string;
   settings: {
     isAnonymous: boolean;
     showResultsAfterSubmit: boolean;
@@ -104,8 +104,8 @@ export interface SessionUser {
   userId: string;
   role: SessionUserRole;
   hasSubmitted: boolean;
-  invitedAt: Date;
-  joinedAt?: Date;
+  invitedAt: Date | string;
+  joinedAt?: Date | string;
 }
 
 export enum SessionUserRole {
@@ -118,7 +118,7 @@ export interface Evaluation {
   id: string;
   sessionId: string;
   userId: string;
-  submittedAt: Date;
+  submittedAt: Date | string;
   isComplete: boolean;
   scores: EvaluationScore[];
   comments: Comment[];

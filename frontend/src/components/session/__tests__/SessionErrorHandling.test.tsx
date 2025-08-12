@@ -497,6 +497,102 @@ describe('セッション管理のエラーハンドリングテスト', () => {
       });
     });
 
+    test('無効な日付データでのエラー処理', async () => {
+      // 無効な日付データを含むセッションデータを返すようにモックを設定
+      mockSessionService.getSession.mockResolvedValue({
+        id: 'session-1',
+        name: 'テストセッション',
+        description: 'テスト用のセッション',
+        startDate: 'invalid-date' as any,
+        endDate: null as any,
+        status: 'active' as any,
+        videoId: 'video-1',
+        templateId: 'template-1',
+        creatorId: 'admin-1',
+        participants: [],
+        createdAt: undefined as any,
+        settings: {
+          isAnonymous: false,
+          showResultsAfterSubmit: true,
+          allowComments: true,
+        },
+      });
+
+      // セッション詳細ページをレンダリング
+      render(
+        <TestWrapper initialEntries={['/sessions/session-1']}>
+          <SessionDetailPage />
+        </TestWrapper>
+      );
+
+      // セッション名は表示されるが、日付エラーは適切に処理されることを確認
+      await waitFor(() => {
+        expect(screen.getByText('テストセッション')).toBeInTheDocument();
+      });
+
+      // 無効な日付が適切に処理されることを確認
+      expect(
+        screen.getByText(/未設定|無効な日付|日付エラー/)
+      ).toBeInTheDocument();
+    });
+
+    test('参加者データに無効な日付が含まれる場合のエラー処理', async () => {
+      // 参加者データに無効な日付を含むセッションデータを返すようにモックを設定
+      mockSessionService.getSession.mockResolvedValue({
+        id: 'session-1',
+        name: 'テストセッション',
+        description: 'テスト用のセッション',
+        startDate: new Date('2024-01-01T10:00:00Z'),
+        endDate: new Date('2024-01-31T18:00:00Z'),
+        status: 'active' as any,
+        videoId: 'video-1',
+        templateId: 'template-1',
+        creatorId: 'admin-1',
+        participants: [],
+        createdAt: new Date('2024-01-01T00:00:00Z'),
+        settings: {
+          isAnonymous: false,
+          showResultsAfterSubmit: true,
+          allowComments: true,
+        },
+        participantDetails: [
+          {
+            id: 'participant-1',
+            name: 'テスト参加者',
+            email: 'participant@example.com',
+            role: 'evaluator',
+            hasSubmitted: false,
+            invitedAt: 'invalid-date' as any,
+            joinedAt: null as any,
+          },
+        ],
+      } as any);
+
+      // セッション詳細ページをレンダリング
+      render(
+        <TestWrapper initialEntries={['/sessions/session-1']}>
+          <SessionDetailPage />
+        </TestWrapper>
+      );
+
+      // セッション名は表示されることを確認
+      await waitFor(() => {
+        expect(screen.getByText('テストセッション')).toBeInTheDocument();
+      });
+
+      // 参加者タブをクリック
+      const participantTab = screen.getByRole('tab', { name: /参加者/i });
+      fireEvent.click(participantTab);
+
+      // 参加者情報が表示され、無効な日付が適切に処理されることを確認
+      await waitFor(() => {
+        expect(screen.getByText('テスト参加者')).toBeInTheDocument();
+        expect(
+          screen.getByText(/未設定|無効な日付|日付エラー/)
+        ).toBeInTheDocument();
+      });
+    });
+
     test('セッション一覧でのエラー処理', async () => {
       // セッション一覧取得でエラー
       const listError = new Error('Failed to fetch sessions');
