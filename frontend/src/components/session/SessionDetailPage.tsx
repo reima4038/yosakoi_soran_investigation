@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Card,
@@ -142,7 +142,7 @@ const SessionDetailPage: React.FC = () => {
         setError('セッションデータが見つかりません。');
       }
     } catch (error: any) {
-      console.error('Session detail fetch error:', error);
+      
       
       // エラーの種類に応じて適切な処理を行う
       if (error.response?.status === 404) {
@@ -206,7 +206,19 @@ const SessionDetailPage: React.FC = () => {
   };
 
   // 編集権限の確認
-  const canEdit = hasAnyRole([UserRole.ADMIN, UserRole.EVALUATOR]);
+  const canEdit = useMemo(() => {
+    if (!user || !session) return false;
+    
+    // ADMINは常に編集可能
+    if (user.role === UserRole.ADMIN) return true;
+    
+    // EVALUATORの場合、セッション作成者のみ編集可能
+    if (user.role === UserRole.EVALUATOR) {
+      return session.creatorId === user.id;
+    }
+    
+    return false;
+  }, [user, session]);
 
   if (isLoading) {
     return (

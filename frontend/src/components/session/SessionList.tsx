@@ -58,11 +58,12 @@ interface SessionDisplay {
   }>;
   createdAt: string;
   creatorName: string;
+  creatorId: string;
 }
 
 const SessionList: React.FC = () => {
   const navigate = useNavigate();
-  const { user, hasRole, hasAnyRole } = useAuth();
+  const { user, hasAnyRole } = useAuth();
   const [sessions, setSessions] = useState<SessionDisplay[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -112,6 +113,12 @@ const SessionList: React.FC = () => {
                    session.creatorId?.profile?.displayName || 
                    session.creatorId?.username || 
                    'Unknown Creator',
+      creatorId: session.creator?.id ||
+                 session.creator?._id ||
+                 session.creatorId?._id ||
+                 session.creatorId?.id ||
+                 session.creatorId ||
+                 'unknown',
     };
   };
 
@@ -242,6 +249,21 @@ const SessionList: React.FC = () => {
   // セッション作成権限の確認
   const canCreateSession = hasAnyRole([UserRole.ADMIN, UserRole.EVALUATOR]);
 
+  // セッション編集権限の確認
+  const canEditSession = (session: SessionDisplay) => {
+    if (!user) return false;
+    
+    // ADMINは常に編集可能
+    if (user.role === UserRole.ADMIN) return true;
+    
+    // EVALUATORの場合、セッション作成者のみ編集可能
+    if (user.role === UserRole.EVALUATOR) {
+      return session.creatorId === user.id;
+    }
+    
+    return false;
+  };
+
   if (isLoading && sessions.length === 0) {
     return (
       <Box sx={{ p: 3 }}>
@@ -332,7 +354,7 @@ const SessionList: React.FC = () => {
                       color={statusConfig.color}
                       size="small"
                     />
-                    {canCreateSession && (
+                    {canEditSession(session) && (
                       <IconButton
                         size="small"
                         onClick={(e) => {

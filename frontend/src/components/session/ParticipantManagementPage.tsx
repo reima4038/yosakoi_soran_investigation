@@ -57,12 +57,14 @@ interface SessionParticipant {
 const ParticipantManagementPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const { hasAnyRole } = useAuth();
+  const { user, hasAnyRole } = useAuth();
   const [session, setSession] = useState<Session | null>(null);
   const [participants, setParticipants] = useState<SessionParticipant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [hasManagePermission, setHasManagePermission] = useState(false);
+  const [permissionChecked, setPermissionChecked] = useState(false);
 
   // 招待ダイアログの状態
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
@@ -108,7 +110,7 @@ const ParticipantManagementPage: React.FC = () => {
     if (id) {
       fetchSessionData(id);
     }
-  }, [id]);
+  }, [fetchSessionData, id]);
 
   const fetchSessionData = async (sessionId: string) => {
     try {
@@ -122,6 +124,9 @@ const ParticipantManagementPage: React.FC = () => {
       ]);
 
       setSession(sessionData);
+
+      // 権限チェック
+      checkManagePermission(sessionData);
 
       if (participantsData) {
         // 実際のAPIレスポンスから参加者データを変換
@@ -176,15 +181,44 @@ const ParticipantManagementPage: React.FC = () => {
 
       // エラーの詳細な処理
       if (error.response?.status === 404) {
-        setError('セッションが見つかりません');
+        setError('指定されたセッションが見つかりません。');
       } else if (error.response?.status === 403) {
-        setError('このセッションにアクセスする権限がありません');
+        setError('このセッションにアクセスする権限がありません。');
+      } else if (error.response?.status >= 500) {
+        setError('サーバーエラーが発生しました。しばらく時間をおいてから再度お試しください。');
+      } else if (error.code === 'NETWORK_ERROR' || !error.response) {
+        setError('ネットワークエラーが発生しました。インターネット接続を確認してください。');
       } else {
-        setError('セッション情報の取得に失敗しました');
+        setError(`セッション情報の取得に失敗しました。${error.message || 'エラーが発生しました。'}`);
       }
     } finally {
       setIsLoading(false);
+      setPermissionChecked(true);
     }
+  };
+
+  // 参加者管理権限のチェック
+  const checkManagePermission = (sessionData: Session) => {
+    if (!user) {
+      setHasManagePermission(false);
+      return;
+    }
+
+    // ADMINは常に管理可能
+    if (user.role === UserRole.ADMIN) {
+      setHasManagePermission(true);
+      return;
+    }
+
+    // EVALUATORの場合、セッション作成者のみ管理可能
+    if (user.role === UserRole.EVALUATOR) {
+      const isCreator = sessionData.creatorId === user.id;
+      setHasManagePermission(isCreator);
+      return;
+    }
+
+    // その他のロールは管理不可
+    setHasManagePermission(false);
   };
 
   // メールアドレスのバリデーション
@@ -488,10 +522,7 @@ const ParticipantManagementPage: React.FC = () => {
     });
   };
 
-  // 管理権限の確認
-  const canManage = hasAnyRole([UserRole.ADMIN, UserRole.EVALUATOR]);
-
-  if (isLoading) {
+  if (isLoading || !permissionChecked) {
     return (
       <Box sx={{ p: 3 }}>
         <LinearProgress />
@@ -505,29 +536,56 @@ const ParticipantManagementPage: React.FC = () => {
   if (error && !session) {
     return (
       <Box sx={{ p: 3 }}>
-        <Alert severity='error'>{error}</Alert>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate('/sessions')}
-          sx={{ mt: 2 }}
-        >
-          セッション一覧に戻る
-        </Button>
+        <Alert severity='error' sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            variant="contained"
+            startIcon={<ArrowBackIcon />}
+            onClick={() => navigate('/sessions')}
+          >
+            セッション一覧に戻る
+          </Button>
+          {id && (
+            <Button
+              variant="outlined"
+              onClick={() => navigate(`/sessions/${id}`)}
+            >
+              セッション詳細に戻る
+            </Button>
+          )}
+        </Box>
       </Box>
     );
   }
 
-  if (!canManage) {
+  if (!hasManagePermission) {
     return (
       <Box sx={{ p: 3 }}>
-        <Alert severity='error'>参加者を管理する権限がありません</Alert>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate(`/sessions/${id}`)}
-          sx={{ mt: 2 }}
-        >
-          セッション詳細に戻る
-        </Button>
+        <Alert severity='error' sx={{ mb: 2 }}>
+          このセッションの参加者を管理する権限がありません。
+          {user?.role === UserRole.EVALUATOR && session && (
+            <Box component="span" sx={{ display: 'block', mt: 1, fontSize: '0.875rem' }}>
+              参加者管理は作成者またはシステム管理者のみが行えます。
+            </Box>
+          )}
+        </Alert>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            variant="contained"
+            startIcon={<ArrowBackIcon />}
+            onClick={() => navigate(`/sessions/${id}`)}
+          >
+            セッション詳細に戻る
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={() => navigate('/sessions')}
+          >
+            セッション一覧に戻る
+          </Button>
+        </Box>
       </Box>
     );
   }

@@ -31,7 +31,7 @@ import { Session, Video, Template } from '../../types';
 const SessionEditPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const { hasAnyRole } = useAuth();
+  const { user, hasAnyRole } = useAuth();
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -39,6 +39,8 @@ const SessionEditPage: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [originalData, setOriginalData] = useState<any>(null);
+  const [hasEditPermission, setHasEditPermission] = useState(false);
+  const [permissionChecked, setPermissionChecked] = useState(false);
 
   // フォームの状態
   const [formData, setFormData] = useState({
@@ -181,6 +183,9 @@ const SessionEditPage: React.FC = () => {
       const sessionData = await sessionService.getSession(sessionId);
       setSession(sessionData);
 
+      // 権限チェック
+      checkEditPermission(sessionData);
+
       // フォームデータの初期化
       const initialFormData = {
         name: sessionData.name,
@@ -196,11 +201,48 @@ const SessionEditPage: React.FC = () => {
       setOriginalData(initialFormData);
       setHasUnsavedChanges(false);
     } catch (error: any) {
+      console.error('Session fetch error:', error);
       
-      setError('セッション情報の取得に失敗しました');
+      // エラーの種類に応じて適切な処理を行う
+      if (error.response?.status === 404) {
+        setError('指定されたセッションが見つかりません。');
+      } else if (error.response?.status === 403) {
+        setError('このセッションにアクセスする権限がありません。');
+      } else if (error.response?.status >= 500) {
+        setError('サーバーエラーが発生しました。しばらく時間をおいてから再度お試しください。');
+      } else if (error.code === 'NETWORK_ERROR' || !error.response) {
+        setError('ネットワークエラーが発生しました。インターネット接続を確認してください。');
+      } else {
+        setError(`セッション情報の取得に失敗しました。${error.message || 'エラーが発生しました。'}`);
+      }
     } finally {
       setIsLoading(false);
+      setPermissionChecked(true);
     }
+  };
+
+  // 編集権限のチェック
+  const checkEditPermission = (sessionData: Session) => {
+    if (!user) {
+      setHasEditPermission(false);
+      return;
+    }
+
+    // ADMINは常に編集可能
+    if (user.role === UserRole.ADMIN) {
+      setHasEditPermission(true);
+      return;
+    }
+
+    // EVALUATORの場合、セッション作成者のみ編集可能
+    if (user.role === UserRole.EVALUATOR) {
+      const isCreator = sessionData.creatorId === user.id;
+      setHasEditPermission(isCreator);
+      return;
+    }
+
+    // その他のロールは編集不可
+    setHasEditPermission(false);
   };
 
   // バリデーション関数
@@ -367,10 +409,7 @@ const SessionEditPage: React.FC = () => {
     setPendingNavigation(null);
   };
 
-  // 編集権限の確認
-  const canEdit = hasAnyRole([UserRole.ADMIN, UserRole.EVALUATOR]);
-
-  if (isLoading) {
+  if (isLoading || !permissionChecked) {
     return (
       <Box sx={{ p: 3 }}>
         <LinearProgress />
@@ -384,29 +423,56 @@ const SessionEditPage: React.FC = () => {
   if (error && !session) {
     return (
       <Box sx={{ p: 3 }}>
-        <Alert severity='error'>{error}</Alert>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate('/sessions')}
-          sx={{ mt: 2 }}
-        >
-          セッション一覧に戻る
-        </Button>
+        <Alert severity='error' sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            variant="contained"
+            startIcon={<ArrowBackIcon />}
+            onClick={() => navigate('/sessions')}
+          >
+            セッション一覧に戻る
+          </Button>
+          {id && (
+            <Button
+              variant="outlined"
+              onClick={() => navigate(`/sessions/${id}`)}
+            >
+              セッション詳細に戻る
+            </Button>
+          )}
+        </Box>
       </Box>
     );
   }
 
-  if (!canEdit) {
+  if (!hasEditPermission) {
     return (
       <Box sx={{ p: 3 }}>
-        <Alert severity='error'>このセッションを編集する権限がありません</Alert>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate(`/sessions/${id}`)}
-          sx={{ mt: 2 }}
-        >
-          セッション詳細に戻る
-        </Button>
+        <Alert severity='error' sx={{ mb: 2 }}>
+          このセッションを編集する権限がありません。
+          {user?.role === UserRole.EVALUATOR && session && (
+            <Box component="span" sx={{ display: 'block', mt: 1, fontSize: '0.875rem' }}>
+              セッションの編集は作成者またはシステム管理者のみが行えます。
+            </Box>
+          )}
+        </Alert>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            variant="contained"
+            startIcon={<ArrowBackIcon />}
+            onClick={() => navigate(`/sessions/${id}`)}
+          >
+            セッション詳細に戻る
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={() => navigate('/sessions')}
+          >
+            セッション一覧に戻る
+          </Button>
+        </Box>
       </Box>
     );
   }
