@@ -16,7 +16,9 @@ jest.mock('../../../services/sessionService');
 jest.mock('../../../contexts/AuthContext', () => ({
   ...jest.requireActual('../../../contexts/AuthContext'),
   useAuth: jest.fn(),
-  AuthProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  AuthProvider: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
 }));
 
 const mockSessionService = sessionService as jest.Mocked<typeof sessionService>;
@@ -91,15 +93,13 @@ const mockUnauthorizedUser = {
   },
 };
 
-const TestWrapper: React.FC<{ 
+const TestWrapper: React.FC<{
   children: React.ReactNode;
   initialEntries?: string[];
 }> = ({ children, initialEntries = ['/'] }) => (
   <Provider store={store}>
     <ThemeProvider theme={theme}>
-      <MemoryRouter initialEntries={initialEntries}>
-        {children}
-      </MemoryRouter>
+      <MemoryRouter initialEntries={initialEntries}>{children}</MemoryRouter>
     </ThemeProvider>
   </Provider>
 );
@@ -107,10 +107,10 @@ const TestWrapper: React.FC<{
 describe('セッション管理フローの統合テスト', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // useAuthのモック設定
     require('../../../contexts/AuthContext').useAuth = mockUseAuth;
-    
+
     // デフォルトのモック設定
     mockSessionService.getSession.mockResolvedValue(mockSession);
     mockSessionService.updateSession.mockResolvedValue(mockSession);
@@ -164,12 +164,16 @@ describe('セッション管理フローの統合テスト', () => {
 
       // セッション情報が読み込まれるまで待機
       await waitFor(() => {
-        expect(screen.getByDisplayValue('テストセッション')).toBeInTheDocument();
+        expect(
+          screen.getByDisplayValue('テストセッション')
+        ).toBeInTheDocument();
       });
 
       // セッション名を変更
       const nameInput = screen.getByDisplayValue('テストセッション');
-      fireEvent.change(nameInput, { target: { value: '更新されたセッション' } });
+      fireEvent.change(nameInput, {
+        target: { value: '更新されたセッション' },
+      });
 
       // 保存ボタンをクリック
       const saveButton = screen.getByRole('button', { name: /変更を保存/i });
@@ -203,7 +207,9 @@ describe('セッション管理フローの統合テスト', () => {
 
       // 権限エラーメッセージが表示されることを確認
       await waitFor(() => {
-        expect(screen.getByText(/このセッションを編集する権限がありません/i)).toBeInTheDocument();
+        expect(
+          screen.getByText(/このセッションを編集する権限がありません/i)
+        ).toBeInTheDocument();
       });
     });
   });
@@ -290,7 +296,9 @@ describe('セッション管理フローの統合テスト', () => {
 
       // バリデーションエラーが表示されることを確認
       await waitFor(() => {
-        expect(screen.getByText(/正しいメールアドレスを入力してください/i)).toBeInTheDocument();
+        expect(
+          screen.getByText(/正しいメールアドレスを入力してください/i)
+        ).toBeInTheDocument();
       });
 
       // APIが呼ばれないことを確認
@@ -327,7 +335,9 @@ describe('セッション管理フローの統合テスト', () => {
       fireEvent.click(participantTab);
 
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /参加者管理/i })).toBeInTheDocument();
+        expect(
+          screen.getByRole('button', { name: /参加者管理/i })
+        ).toBeInTheDocument();
       });
     });
 
@@ -376,7 +386,9 @@ describe('セッション管理フローの統合テスト', () => {
       });
 
       // 編集ボタンが表示されないことを確認
-      expect(screen.queryByRole('button', { name: /編集/i })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /編集/i })
+      ).not.toBeInTheDocument();
     });
 
     test('他人のセッションを編集しようとするEVALUATORユーザーは権限エラーになる', async () => {
@@ -403,7 +415,9 @@ describe('セッション管理フローの統合テスト', () => {
 
       // 権限エラーメッセージが表示されることを確認
       await waitFor(() => {
-        expect(screen.getByText(/このセッションを編集する権限がありません/i)).toBeInTheDocument();
+        expect(
+          screen.getByText(/このセッションを編集する権限がありません/i)
+        ).toBeInTheDocument();
       });
     });
   });

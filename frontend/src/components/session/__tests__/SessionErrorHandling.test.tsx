@@ -16,7 +16,9 @@ jest.mock('../../../services/sessionService');
 jest.mock('../../../contexts/AuthContext', () => ({
   ...jest.requireActual('../../../contexts/AuthContext'),
   useAuth: jest.fn(),
-  AuthProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  AuthProvider: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
 }));
 
 const mockSessionService = sessionService as jest.Mocked<typeof sessionService>;
@@ -34,15 +36,13 @@ const mockAdminUser = {
   },
 };
 
-const TestWrapper: React.FC<{ 
+const TestWrapper: React.FC<{
   children: React.ReactNode;
   initialEntries?: string[];
 }> = ({ children, initialEntries = ['/'] }) => (
   <Provider store={store}>
     <ThemeProvider theme={theme}>
-      <MemoryRouter initialEntries={initialEntries}>
-        {children}
-      </MemoryRouter>
+      <MemoryRouter initialEntries={initialEntries}>{children}</MemoryRouter>
     </ThemeProvider>
   </Provider>
 );
@@ -50,10 +50,10 @@ const TestWrapper: React.FC<{
 describe('セッション管理のエラーハンドリングテスト', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // useAuthのモック設定
     require('../../../contexts/AuthContext').useAuth = mockUseAuth;
-    
+
     // デフォルトでADMINユーザーでログイン
     mockUseAuth.mockReturnValue({
       user: mockAdminUser,
@@ -78,11 +78,15 @@ describe('セッション管理のエラーハンドリングテスト', () => {
 
       // 404エラーメッセージが表示されることを確認
       await waitFor(() => {
-        expect(screen.getByText(/指定されたセッション.*が見つかりません/i)).toBeInTheDocument();
+        expect(
+          screen.getByText(/指定されたセッション.*が見つかりません/i)
+        ).toBeInTheDocument();
       });
 
       // セッション一覧に戻るボタンが表示されることを確認
-      expect(screen.getByRole('button', { name: /セッション一覧に戻る/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /セッション一覧に戻る/i })
+      ).toBeInTheDocument();
     });
 
     test('404エラー時に適切なナビゲーションオプションが表示される', async () => {
@@ -100,12 +104,18 @@ describe('セッション管理のエラーハンドリングテスト', () => {
 
       // エラーメッセージとナビゲーションボタンが表示されることを確認
       await waitFor(() => {
-        expect(screen.getByText(/指定されたセッション.*が見つかりません/i)).toBeInTheDocument();
+        expect(
+          screen.getByText(/指定されたセッション.*が見つかりません/i)
+        ).toBeInTheDocument();
       });
 
       // 複数のナビゲーションオプションが表示されることを確認
-      expect(screen.getByRole('button', { name: /セッション一覧に戻る/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /ダッシュボードに戻る/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /セッション一覧に戻る/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /ダッシュボードに戻る/i })
+      ).toBeInTheDocument();
     });
 
     test('編集ページで存在しないセッションにアクセスした場合のエラー処理', async () => {
@@ -123,11 +133,15 @@ describe('セッション管理のエラーハンドリングテスト', () => {
 
       // エラーメッセージが表示されることを確認
       await waitFor(() => {
-        expect(screen.getByText(/セッション.*取得.*エラー/i)).toBeInTheDocument();
+        expect(
+          screen.getByText(/セッション.*取得.*エラー/i)
+        ).toBeInTheDocument();
       });
 
       // ナビゲーションボタンが表示されることを確認
-      expect(screen.getByRole('button', { name: /セッション一覧に戻る/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /セッション一覧に戻る/i })
+      ).toBeInTheDocument();
     });
   });
 
@@ -147,7 +161,9 @@ describe('セッション管理のエラーハンドリングテスト', () => {
 
       // 403エラーメッセージが表示されることを確認
       await waitFor(() => {
-        expect(screen.getByText(/アクセス権限がありません/i)).toBeInTheDocument();
+        expect(
+          screen.getByText(/アクセス権限がありません/i)
+        ).toBeInTheDocument();
       });
     });
 
@@ -174,7 +190,9 @@ describe('セッション管理のエラーハンドリングテスト', () => {
 
       // 権限エラーメッセージと詳細説明が表示されることを確認
       await waitFor(() => {
-        expect(screen.getByText(/このセッションを編集する権限がありません/i)).toBeInTheDocument();
+        expect(
+          screen.getByText(/このセッションを編集する権限がありません/i)
+        ).toBeInTheDocument();
       });
     });
 
@@ -201,7 +219,9 @@ describe('セッション管理のエラーハンドリングテスト', () => {
 
       // 権限エラーメッセージが表示されることを確認
       await waitFor(() => {
-        expect(screen.getByText(/参加者を管理する権限がありません/i)).toBeInTheDocument();
+        expect(
+          screen.getByText(/参加者を管理する権限がありません/i)
+        ).toBeInTheDocument();
       });
     });
   });
@@ -241,7 +261,9 @@ describe('セッション管理のエラーハンドリングテスト', () => {
 
       // 再試行ボタンが表示されることを確認
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /再試行/i })).toBeInTheDocument();
+        expect(
+          screen.getByRole('button', { name: /再試行/i })
+        ).toBeInTheDocument();
       });
     });
 
@@ -249,7 +271,7 @@ describe('セッション管理のエラーハンドリングテスト', () => {
       // 最初はネットワークエラー、2回目は成功するようにモックを設定
       const networkError = new Error('Network Error');
       (networkError as any).code = 'NETWORK_ERROR';
-      
+
       mockSessionService.getSession
         .mockRejectedValueOnce(networkError)
         .mockResolvedValueOnce({
@@ -280,7 +302,9 @@ describe('セッション管理のエラーハンドリングテスト', () => {
 
       // エラーメッセージと再試行ボタンが表示されることを確認
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /再試行/i })).toBeInTheDocument();
+        expect(
+          screen.getByRole('button', { name: /再試行/i })
+        ).toBeInTheDocument();
       });
 
       // 再試行ボタンをクリック
@@ -332,12 +356,16 @@ describe('セッション管理のエラーハンドリングテスト', () => {
 
       // セッション情報が読み込まれるまで待機
       await waitFor(() => {
-        expect(screen.getByDisplayValue('テストセッション')).toBeInTheDocument();
+        expect(
+          screen.getByDisplayValue('テストセッション')
+        ).toBeInTheDocument();
       });
 
       // セッション名を変更
       const nameInput = screen.getByDisplayValue('テストセッション');
-      fireEvent.change(nameInput, { target: { value: '更新されたセッション' } });
+      fireEvent.change(nameInput, {
+        target: { value: '更新されたセッション' },
+      });
 
       // 保存ボタンをクリック
       const saveButton = screen.getByRole('button', { name: /変更を保存/i });
@@ -385,7 +413,9 @@ describe('セッション管理のエラーハンドリングテスト', () => {
 
       // 詳細なエラーメッセージが表示されることを確認
       await waitFor(() => {
-        expect(screen.getByText(/サーバーで問題が発生しました/i)).toBeInTheDocument();
+        expect(
+          screen.getByText(/サーバーで問題が発生しました/i)
+        ).toBeInTheDocument();
       });
     });
 
@@ -461,7 +491,9 @@ describe('セッション管理のエラーハンドリングテスト', () => {
 
       // データエラーメッセージが表示されることを確認
       await waitFor(() => {
-        expect(screen.getByText(/セッションデータが見つかりません/i)).toBeInTheDocument();
+        expect(
+          screen.getByText(/セッションデータが見つかりません/i)
+        ).toBeInTheDocument();
       });
     });
 
@@ -479,7 +511,9 @@ describe('セッション管理のエラーハンドリングテスト', () => {
 
       // エラーメッセージが表示されることを確認
       await waitFor(() => {
-        expect(screen.getByText(/セッション一覧の取得に失敗しました/i)).toBeInTheDocument();
+        expect(
+          screen.getByText(/セッション一覧の取得に失敗しました/i)
+        ).toBeInTheDocument();
       });
     });
   });

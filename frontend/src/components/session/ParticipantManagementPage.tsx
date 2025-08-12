@@ -470,7 +470,7 @@ const ParticipantManagementPage: React.FC = () => {
       setRoleChangeDialogOpen(false);
       setRoleChangeData(null);
     } catch (error: any) {
-      console.error('Role change error:', error);
+      
 
       // エラーの詳細な処理
       if (error.response?.status === 403) {
