@@ -37,6 +37,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth, UserRole } from '../../contexts/AuthContext';
 import { sessionService } from '../../services/sessionService';
 import { Session, SessionStatus } from '../../types';
+import { handleSessionError, ErrorInfo } from '../../utils/errorHandler';
+import { ErrorDisplay, LoadingDisplay } from '../common';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -103,7 +105,7 @@ const SessionDetailPage: React.FC = () => {
   const { user, hasAnyRole } = useAuth();
   const [session, setSession] = useState<SessionDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<ErrorInfo | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [tabValue, setTabValue] = useState(0);
 
@@ -128,7 +130,7 @@ const SessionDetailPage: React.FC = () => {
   const fetchSessionDetail = async (sessionId: string) => {
     try {
       setIsLoading(true);
-      setError('');
+      setError(null);
       setNotFound(false);
       
       // sessionServiceを使用してセッション詳細を取得
@@ -139,26 +141,22 @@ const SessionDetailPage: React.FC = () => {
         setSession(sessionData as SessionDetail);
       } else {
         setNotFound(true);
-        setError('セッションデータが見つかりません。');
+        setError({
+          message: 'セッションデータが見つかりません。',
+          severity: 'error',
+          details: 'セッションが削除されたか、データが破損している可能性があります。',
+        });
       }
     } catch (error: any) {
+      console.error('Session detail fetch error:', error);
       
-      
-      // エラーの種類に応じて適切な処理を行う
+      // 統一されたエラーハンドリングを使用
       if (error.response?.status === 404) {
         setNotFound(true);
-        setError('指定されたセッションが見つかりません。');
-      } else if (error.response?.status === 403) {
-        setError('このセッションにアクセスする権限がありません。管理者にお問い合わせください。');
-      } else if (error.response?.status === 401) {
-        setError('認証が必要です。再度ログインしてください。');
-      } else if (error.response?.status >= 500) {
-        setError('サーバーエラーが発生しました。しばらく時間をおいてから再度お試しください。');
-      } else if (error.code === 'NETWORK_ERROR' || !error.response) {
-        setError('ネットワークエラーが発生しました。インターネット接続を確認してください。');
-      } else {
-        setError(`セッション詳細の取得に失敗しました。${error.message || 'エラーが発生しました。'}`);
       }
+      
+      const errorInfo = handleSessionError(error, '詳細取得');
+      setError(errorInfo);
     } finally {
       setIsLoading(false);
     }
@@ -222,26 +220,28 @@ const SessionDetailPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <Box sx={{ p: 3 }}>
-        <LinearProgress />
-        <Typography variant="body2" sx={{ mt: 2, textAlign: 'center' }}>
-          セッション詳細を読み込み中...
-        </Typography>
-      </Box>
+      <LoadingDisplay
+        type="linear"
+        message="セッション詳細を読み込み中..."
+      />
     );
   }
 
   // 404エラーの場合は専用の表示を行う
   if (notFound) {
+    const notFoundError: ErrorInfo = {
+      message: `指定されたセッション（ID: ${id}）が見つかりません。`,
+      severity: 'error',
+      details: 'セッションが削除されたか、URLが間違っている可能性があります。',
+    };
+
     return (
       <Box sx={{ p: 3 }}>
-        <Alert severity="error" sx={{ mb: 2 }}>
-          指定されたセッション（ID: {id}）が見つかりません。
-        </Alert>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          セッションが削除されたか、URLが間違っている可能性があります。
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <ErrorDisplay
+          error={notFoundError}
+          showDetails={true}
+        />
+        <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
           <Button
             variant="contained"
             startIcon={<ArrowBackIcon />}
@@ -261,12 +261,20 @@ const SessionDetailPage: React.FC = () => {
   }
 
   if (error || !session) {
+    const displayError = error || {
+      message: 'セッションが見つかりません',
+      severity: 'error' as const,
+      details: 'セッションデータの読み込みに失敗しました。',
+    };
+
     return (
       <Box sx={{ p: 3 }}>
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error || 'セッションが見つかりません'}
-        </Alert>
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+        <ErrorDisplay
+          error={displayError}
+          onRetry={!notFound && id ? () => fetchSessionDetail(id) : undefined}
+          showDetails={true}
+        />
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 3 }}>
           <Button
             variant="contained"
             startIcon={<ArrowBackIcon />}
@@ -274,15 +282,6 @@ const SessionDetailPage: React.FC = () => {
           >
             セッション一覧に戻る
           </Button>
-          {!notFound && (
-            <Button
-              variant="outlined"
-              onClick={() => id && fetchSessionDetail(id)}
-              disabled={isLoading}
-            >
-              再試行
-            </Button>
-          )}
           <Button
             variant="outlined"
             onClick={() => navigate('/dashboard')}

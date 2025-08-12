@@ -40,6 +40,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth, UserRole } from '../../contexts/AuthContext';
 import { sessionService } from '../../services/sessionService';
 import { Session, SessionUserRole } from '../../types';
+import { handleParticipantError, createSuccessMessage, ErrorInfo } from '../../utils/errorHandler';
+import { ErrorDisplay, LoadingDisplay, FeedbackSnackbar } from '../common';
 
 interface SessionParticipant {
   id: string;
@@ -61,8 +63,8 @@ const ParticipantManagementPage: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [participants, setParticipants] = useState<SessionParticipant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+  const [error, setError] = useState<ErrorInfo | null>(null);
+  const [successMessage, setSuccessMessage] = useState<ErrorInfo | null>(null);
   const [hasManagePermission, setHasManagePermission] = useState(false);
   const [permissionChecked, setPermissionChecked] = useState(false);
 
@@ -112,7 +114,7 @@ const ParticipantManagementPage: React.FC = () => {
     }
   }, [fetchSessionData, id]);
 
-  const fetchSessionData = async (sessionId: string) => {
+  const fetchSessionData = useCallback(async (sessionId: string) => {
     try {
       setIsLoading(true);
       setError('');
@@ -179,23 +181,14 @@ const ParticipantManagementPage: React.FC = () => {
     } catch (error: any) {
       console.error('Session fetch error:', error);
 
-      // エラーの詳細な処理
-      if (error.response?.status === 404) {
-        setError('指定されたセッションが見つかりません。');
-      } else if (error.response?.status === 403) {
-        setError('このセッションにアクセスする権限がありません。');
-      } else if (error.response?.status >= 500) {
-        setError('サーバーエラーが発生しました。しばらく時間をおいてから再度お試しください。');
-      } else if (error.code === 'NETWORK_ERROR' || !error.response) {
-        setError('ネットワークエラーが発生しました。インターネット接続を確認してください。');
-      } else {
-        setError(`セッション情報の取得に失敗しました。${error.message || 'エラーが発生しました。'}`);
-      }
+      // 統一されたエラーハンドリングを使用
+      const errorInfo = handleParticipantError(error, '情報取得');
+      setError(errorInfo);
     } finally {
       setIsLoading(false);
       setPermissionChecked(true);
     }
-  };
+  });
 
   // 参加者管理権限のチェック
   const checkManagePermission = (sessionData: Session) => {
@@ -524,22 +517,22 @@ const ParticipantManagementPage: React.FC = () => {
 
   if (isLoading || !permissionChecked) {
     return (
-      <Box sx={{ p: 3 }}>
-        <LinearProgress />
-        <Typography variant='body2' sx={{ mt: 2, textAlign: 'center' }}>
-          参加者情報を読み込み中...
-        </Typography>
-      </Box>
+      <LoadingDisplay
+        type="linear"
+        message="参加者情報を読み込み中..."
+      />
     );
   }
 
   if (error && !session) {
     return (
       <Box sx={{ p: 3 }}>
-        <Alert severity='error' sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <ErrorDisplay
+          error={error}
+          onRetry={id ? () => fetchSessionData(id) : undefined}
+          showDetails={true}
+        />
+        <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
           <Button
             variant="contained"
             startIcon={<ArrowBackIcon />}

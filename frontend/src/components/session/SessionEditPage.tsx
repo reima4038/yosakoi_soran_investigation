@@ -18,6 +18,7 @@ import {
   DialogContent,
   DialogActions,
   Snackbar,
+  CircularProgress,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -27,6 +28,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth, UserRole } from '../../contexts/AuthContext';
 import { sessionService } from '../../services/sessionService';
 import { Session, Video, Template } from '../../types';
+import { handleSessionError, createSuccessMessage, ErrorInfo } from '../../utils/errorHandler';
+import { ErrorDisplay, LoadingDisplay, FeedbackSnackbar } from '../common';
 
 const SessionEditPage: React.FC = () => {
   const navigate = useNavigate();
@@ -35,8 +38,8 @@ const SessionEditPage: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+  const [error, setError] = useState<ErrorInfo | null>(null);
+  const [successMessage, setSuccessMessage] = useState<ErrorInfo | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [originalData, setOriginalData] = useState<any>(null);
   const [hasEditPermission, setHasEditPermission] = useState(false);
@@ -178,7 +181,7 @@ const SessionEditPage: React.FC = () => {
   const fetchSession = async (sessionId: string) => {
     try {
       setIsLoading(true);
-      setError('');
+      setError(null);
 
       const sessionData = await sessionService.getSession(sessionId);
       setSession(sessionData);
@@ -203,18 +206,9 @@ const SessionEditPage: React.FC = () => {
     } catch (error: any) {
       console.error('Session fetch error:', error);
       
-      // エラーの種類に応じて適切な処理を行う
-      if (error.response?.status === 404) {
-        setError('指定されたセッションが見つかりません。');
-      } else if (error.response?.status === 403) {
-        setError('このセッションにアクセスする権限がありません。');
-      } else if (error.response?.status >= 500) {
-        setError('サーバーエラーが発生しました。しばらく時間をおいてから再度お試しください。');
-      } else if (error.code === 'NETWORK_ERROR' || !error.response) {
-        setError('ネットワークエラーが発生しました。インターネット接続を確認してください。');
-      } else {
-        setError(`セッション情報の取得に失敗しました。${error.message || 'エラーが発生しました。'}`);
-      }
+      // 統一されたエラーハンドリングを使用
+      const errorInfo = handleSessionError(error, '情報取得');
+      setError(errorInfo);
     } finally {
       setIsLoading(false);
       setPermissionChecked(true);
@@ -338,14 +332,18 @@ const SessionEditPage: React.FC = () => {
 
     // バリデーションチェック
     if (!validateForm()) {
-      setError('入力内容に問題があります。エラーメッセージを確認してください。');
+      setError({
+        message: '入力内容に問題があります。',
+        severity: 'error',
+        details: 'エラーメッセージを確認して修正してください。',
+      });
       return;
     }
 
     try {
       setIsSaving(true);
-      setError('');
-      setSuccessMessage('');
+      setError(null);
+      setSuccessMessage(null);
 
       const updateData = {
         name: formData.name.trim(),
@@ -358,7 +356,9 @@ const SessionEditPage: React.FC = () => {
       };
 
       await sessionService.updateSession(id, updateData);
-      setSuccessMessage('セッション情報を更新しました');
+      
+      const successInfo = createSuccessMessage('セッション情報の更新');
+      setSuccessMessage(successInfo);
       setHasUnsavedChanges(false);
       setOriginalData(formData);
 
@@ -367,18 +367,11 @@ const SessionEditPage: React.FC = () => {
         navigate(`/sessions/${id}`);
       }, 2000);
     } catch (error: any) {
+      console.error('Session update error:', error);
       
-      
-      // APIエラーの詳細な処理
-      if (error.response?.status === 403) {
-        setError('このセッションを編集する権限がありません');
-      } else if (error.response?.status === 404) {
-        setError('セッションが見つかりません');
-      } else if (error.response?.status === 400) {
-        setError('入力データに問題があります');
-      } else {
-        setError('セッション情報の更新に失敗しました');
-      }
+      // 統一されたエラーハンドリングを使用
+      const errorInfo = handleSessionError(error, '更新');
+      setError(errorInfo);
     } finally {
       setIsSaving(false);
     }
@@ -411,22 +404,22 @@ const SessionEditPage: React.FC = () => {
 
   if (isLoading || !permissionChecked) {
     return (
-      <Box sx={{ p: 3 }}>
-        <LinearProgress />
-        <Typography variant='body2' sx={{ mt: 2, textAlign: 'center' }}>
-          セッション情報を読み込み中...
-        </Typography>
-      </Box>
+      <LoadingDisplay
+        type="linear"
+        message="セッション情報を読み込み中..."
+      />
     );
   }
 
   if (error && !session) {
     return (
       <Box sx={{ p: 3 }}>
-        <Alert severity='error' sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <ErrorDisplay
+          error={error}
+          onRetry={id ? () => fetchSession(id) : undefined}
+          showDetails={true}
+        />
+        <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
           <Button
             variant="contained"
             startIcon={<ArrowBackIcon />}
@@ -488,15 +481,12 @@ const SessionEditPage: React.FC = () => {
       </Box>
 
       {error && (
-        <Alert severity='error' sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-
-      {successMessage && (
-        <Alert severity='success' sx={{ mb: 2 }}>
-          {successMessage}
-        </Alert>
+        <ErrorDisplay
+          error={error}
+          showDetails={true}
+          onDismiss={() => setError(null)}
+          className="mb-2"
+        />
       )}
 
       {/* 編集フォーム */}
@@ -700,7 +690,7 @@ const SessionEditPage: React.FC = () => {
         </Button>
         <Button
           variant='contained'
-          startIcon={<SaveIcon />}
+          startIcon={isSaving ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
           onClick={handleSave}
           disabled={
             isSaving || 
@@ -736,16 +726,12 @@ const SessionEditPage: React.FC = () => {
       </Dialog>
 
       {/* 成功メッセージのSnackbar */}
-      <Snackbar
+      <FeedbackSnackbar
         open={!!successMessage}
+        message={successMessage}
+        onClose={() => setSuccessMessage(null)}
         autoHideDuration={3000}
-        onClose={() => setSuccessMessage('')}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert severity="success" onClose={() => setSuccessMessage('')}>
-          {successMessage}
-        </Alert>
-      </Snackbar>
+      />
     </Box>
   );
 };

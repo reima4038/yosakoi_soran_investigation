@@ -37,6 +37,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuth, UserRole } from '../../contexts/AuthContext';
 import { sessionService } from '../../services/sessionService';
+import { handleSessionError, ErrorInfo } from '../../utils/errorHandler';
+import { ErrorDisplay, LoadingDisplay } from '../common';
 
 // 表示用のセッション型定義
 interface SessionDisplay {
@@ -66,7 +68,7 @@ const SessionList: React.FC = () => {
   const { user, hasAnyRole } = useAuth();
   const [sessions, setSessions] = useState<SessionDisplay[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<ErrorInfo | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<SessionDisplay | null>(null);
@@ -125,7 +127,7 @@ const SessionList: React.FC = () => {
   const fetchSessions = useCallback(async () => {
     try {
       setIsLoading(true);
-      setError('');
+      setError(null);
       
       console.log('Fetching sessions...');
       const response = await sessionService.getSessions();
@@ -136,18 +138,9 @@ const SessionList: React.FC = () => {
     } catch (error: any) {
       console.error('Sessions fetch error:', error);
       
-      // エラーの種類に応じて適切な処理を行う
-      if (error.response?.status === 403) {
-        setError('セッション一覧にアクセスする権限がありません。管理者にお問い合わせください。');
-      } else if (error.response?.status === 401) {
-        setError('認証が必要です。再度ログインしてください。');
-      } else if (error.response?.status >= 500) {
-        setError('サーバーエラーが発生しました。しばらく時間をおいてから再度お試しください。');
-      } else if (error.code === 'NETWORK_ERROR' || !error.response) {
-        setError('ネットワークエラーが発生しました。インターネット接続を確認してください。');
-      } else {
-        setError(`セッション一覧の取得に失敗しました。${error.message || 'エラーが発生しました。'}`);
-      }
+      // 統一されたエラーハンドリングを使用
+      const errorInfo = handleSessionError(error, '一覧取得');
+      setError(errorInfo);
       
       // エラー時はセッションリストを空にする
       setSessions([]);
@@ -281,11 +274,10 @@ const SessionList: React.FC = () => {
           )}
         </Box>
         
-        <LinearProgress sx={{ mb: 2 }} />
-        <Typography variant="body2" sx={{ textAlign: 'center', color: 'text.secondary' }}>
-          セッション一覧を読み込み中...
-          {retryCount > 0 && ` (${retryCount + 1}回目)`}
-        </Typography>
+        <LoadingDisplay
+          type="linear"
+          message={`セッション一覧を読み込み中...${retryCount > 0 ? ` (${retryCount + 1}回目)` : ''}`}
+        />
       </Box>
     );
   }
@@ -307,22 +299,12 @@ const SessionList: React.FC = () => {
       </Box>
 
       {error && (
-        <Alert 
-          severity="error" 
-          sx={{ mb: 2 }}
-          action={
-            <Button 
-              color="inherit" 
-              size="small" 
-              onClick={handleRetry}
-              disabled={isLoading}
-            >
-              再試行
-            </Button>
-          }
-        >
-          {error}
-        </Alert>
+        <ErrorDisplay
+          error={error}
+          onRetry={handleRetry}
+          showDetails={true}
+          className="mb-2"
+        />
       )}
 
       {/* セッション一覧 */}
