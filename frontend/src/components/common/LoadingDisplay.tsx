@@ -37,7 +37,7 @@ const LoadingDisplay: React.FC<LoadingDisplayProps> = ({
 
   const containerSx = fullScreen
     ? {
-        position: 'fixed',
+        position: 'fixed' as const,
         top: 0,
         left: 0,
         right: 0,
@@ -50,7 +50,7 @@ const LoadingDisplay: React.FC<LoadingDisplayProps> = ({
       }
     : {
         display: 'flex',
-        flexDirection: 'column',
+        flexDirection: 'column' as const,
         alignItems: 'center',
         justifyContent: 'center',
         p: 3,

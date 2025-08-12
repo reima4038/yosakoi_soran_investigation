@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -107,13 +107,6 @@ const ParticipantManagementPage: React.FC = () => {
     newRole: SessionUserRole;
   } | null>(null);
 
-  // セッション詳細の取得
-  useEffect(() => {
-    if (id) {
-      fetchSessionData(id);
-    }
-  }, [fetchSessionData, id]);
-
   const fetchSessionData = useCallback(async (sessionId: string) => {
     try {
       setIsLoading(true);
@@ -188,7 +181,14 @@ const ParticipantManagementPage: React.FC = () => {
       setIsLoading(false);
       setPermissionChecked(true);
     }
-  });
+  }, [user]);
+
+  // セッション詳細の取得
+  useEffect(() => {
+    if (id) {
+      fetchSessionData(id);
+    }
+  }, [fetchSessionData, id]);
 
   // 参加者管理権限のチェック
   const checkManagePermission = (sessionData: Session) => {
@@ -304,11 +304,15 @@ const ParticipantManagementPage: React.FC = () => {
 
     try {
       setIsInviting(true);
-      setError('');
+      setError(null);
 
       const emailValidation = validateEmails(inviteEmails);
       if (!emailValidation.isValid || !emailValidation.emails) {
-        setError(emailValidation.error);
+        setError({
+          message: 'メールアドレスの入力に問題があります',
+          severity: 'error',
+          details: emailValidation.error,
+        });
         return;
       }
 
@@ -324,7 +328,11 @@ const ParticipantManagementPage: React.FC = () => {
         inviteData.message
       );
 
-      setSuccessMessage(`${inviteData.emails.length}名の参加者を招待しました`);
+      setSuccessMessage({
+        message: `${inviteData.emails.length}名の参加者を招待しました`,
+        severity: 'info',
+        details: '招待メールが送信されました。',
+      });
       setInviteDialogOpen(false);
       setInviteEmails('');
       setInviteMessage('');
@@ -336,16 +344,9 @@ const ParticipantManagementPage: React.FC = () => {
     } catch (error: any) {
       console.error('Invite error:', error);
 
-      // エラーの詳細な処理
-      if (error.response?.status === 400) {
-        setError('招待データに問題があります');
-      } else if (error.response?.status === 403) {
-        setError('参加者を招待する権限がありません');
-      } else if (error.response?.status === 409) {
-        setError('一部のメールアドレスは既に招待済みです');
-      } else {
-        setError('参加者の招待に失敗しました');
-      }
+      // 統一されたエラーハンドリングを使用
+      const errorInfo = handleParticipantError(error, '招待');
+      setError(errorInfo);
     } finally {
       setIsInviting(false);
     }
