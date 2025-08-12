@@ -35,6 +35,8 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth, UserRole } from '../../contexts/AuthContext';
+import { sessionService } from '../../services/sessionService';
+import { Session, SessionStatus } from '../../types';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -58,29 +60,23 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
-// セッション詳細の型定義
-interface SessionDetail {
-  id: string;
-  name: string;
-  description: string;
-  status: 'draft' | 'active' | 'completed' | 'archived';
-  startDate: string;
-  endDate: string;
-  video: {
+// セッション詳細の拡張型定義（APIレスポンス用）
+interface SessionDetail extends Session {
+  video?: {
     id: string;
     title: string;
     youtubeId: string;
     thumbnailUrl: string;
-    duration: string;
+    duration?: string;
   };
-  template: {
+  template?: {
     id: string;
     name: string;
     description: string;
-    categoryCount: number;
-    criteriaCount: number;
+    categoryCount?: number;
+    criteriaCount?: number;
   };
-  participants: Array<{
+  participantDetails?: Array<{
     id: string;
     name: string;
     email: string;
@@ -91,20 +87,14 @@ interface SessionDetail {
     invitedAt: string;
     joinedAt?: string;
   }>;
-  evaluations: Array<{
+  evaluations?: Array<{
     id: string;
     evaluatorName: string;
     submittedAt: string;
     overallScore: number;
     commentCount: number;
   }>;
-  createdAt: string;
-  creatorName: string;
-  settings: {
-    isAnonymous: boolean;
-    showResultsAfterSubmit: boolean;
-    allowComments: boolean;
-  };
+  creatorName?: string;
 }
 
 const SessionDetailPage: React.FC = () => {
@@ -114,154 +104,76 @@ const SessionDetailPage: React.FC = () => {
   const [session, setSession] = useState<SessionDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [notFound, setNotFound] = useState(false);
   const [tabValue, setTabValue] = useState(0);
 
   // セッション詳細の取得
   useEffect(() => {
-    if (id) {
-      fetchSessionDetail(id);
-    }
+    let isMounted = true;
+
+    const loadSessionDetail = async () => {
+      if (id && isMounted) {
+        await fetchSessionDetail(id);
+      }
+    };
+
+    loadSessionDetail();
+
+    // クリーンアップ関数
+    return () => {
+      isMounted = false;
+    };
   }, [id]);
 
   const fetchSessionDetail = async (sessionId: string) => {
     try {
       setIsLoading(true);
+      setError('');
+      setNotFound(false);
       
-      // 実際のAPI呼び出し
-      const response = await fetch(`/api/sessions/${sessionId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      // sessionServiceを使用してセッション詳細を取得
+      const sessionData = await sessionService.getSession(sessionId);
       
-      if (!response.ok) {
-        throw new Error('セッション詳細の取得に失敗しました');
+      // データが正常に取得できた場合のみ状態を更新
+      if (sessionData) {
+        setSession(sessionData as SessionDetail);
+      } else {
+        setNotFound(true);
+        setError('セッションデータが見つかりません。');
       }
-      
-      const data = await response.json();
-      setSession(data.data);
     } catch (error: any) {
       console.error('Session detail fetch error:', error);
       
-      // エラー時はモックデータを使用（開発用）
-      const mockSession: SessionDetail = {
-        id: sessionId,
-        name: '第45回よさこい祭り 本祭評価',
-        description: '本祭での各チームの演舞を評価します。技術面、表現力、構成などを総合的に評価してください。',
-        status: 'active',
-        startDate: '2024-08-01T09:00:00Z',
-        endDate: '2024-08-15T23:59:59Z',
-        video: {
-          id: 'video1',
-          title: '鳴子踊り - 伝統チーム',
-          youtubeId: 'dQw4w9WgXcQ',
-          thumbnailUrl: 'https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg',
-          duration: '4:32',
-        },
-        template: {
-          id: 'template1',
-          name: '本祭評価テンプレート',
-          description: '本祭での演舞評価用の標準テンプレート',
-          categoryCount: 4,
-          criteriaCount: 12,
-        },
-        participants: [
-          {
-            id: '1',
-            name: '田中審査員',
-            email: 'tanaka@example.com',
-            role: '主審査員',
-            hasSubmitted: true,
-            submittedAt: '2024-08-03T14:30:00Z',
-            invitedAt: '2024-07-25T10:00:00Z',
-            joinedAt: '2024-07-26T09:15:00Z',
-          },
-          {
-            id: '2',
-            name: '佐藤指導者',
-            email: 'sato@example.com',
-            role: '指導者',
-            hasSubmitted: true,
-            submittedAt: '2024-08-04T16:45:00Z',
-            invitedAt: '2024-07-25T10:00:00Z',
-            joinedAt: '2024-07-25T11:30:00Z',
-          },
-          {
-            id: '3',
-            name: '山田評価者',
-            email: 'yamada@example.com',
-            role: '評価者',
-            hasSubmitted: true,
-            submittedAt: '2024-08-05T10:20:00Z',
-            invitedAt: '2024-07-25T10:00:00Z',
-            joinedAt: '2024-07-27T13:45:00Z',
-          },
-          {
-            id: '4',
-            name: '鈴木審査員',
-            email: 'suzuki@example.com',
-            role: '審査員',
-            hasSubmitted: false,
-            invitedAt: '2024-07-25T10:00:00Z',
-            joinedAt: '2024-07-28T08:20:00Z',
-          },
-          {
-            id: '5',
-            name: '高橋指導者',
-            email: 'takahashi@example.com',
-            role: '指導者',
-            hasSubmitted: false,
-            invitedAt: '2024-07-25T10:00:00Z',
-          },
-        ],
-        evaluations: [
-          {
-            id: 'eval1',
-            evaluatorName: '田中審査員',
-            submittedAt: '2024-08-03T14:30:00Z',
-            overallScore: 85,
-            commentCount: 12,
-          },
-          {
-            id: 'eval2',
-            evaluatorName: '佐藤指導者',
-            submittedAt: '2024-08-04T16:45:00Z',
-            overallScore: 78,
-            commentCount: 8,
-          },
-          {
-            id: 'eval3',
-            evaluatorName: '山田評価者',
-            submittedAt: '2024-08-05T10:20:00Z',
-            overallScore: 82,
-            commentCount: 15,
-          },
-        ],
-        createdAt: '2024-07-25T10:00:00Z',
-        creatorName: '管理者',
-        settings: {
-          isAnonymous: false,
-          showResultsAfterSubmit: true,
-          allowComments: true,
-        },
-      };
-      setSession(mockSession);
+      // エラーの種類に応じて適切な処理を行う
+      if (error.response?.status === 404) {
+        setNotFound(true);
+        setError('指定されたセッションが見つかりません。');
+      } else if (error.response?.status === 403) {
+        setError('このセッションにアクセスする権限がありません。管理者にお問い合わせください。');
+      } else if (error.response?.status === 401) {
+        setError('認証が必要です。再度ログインしてください。');
+      } else if (error.response?.status >= 500) {
+        setError('サーバーエラーが発生しました。しばらく時間をおいてから再度お試しください。');
+      } else if (error.code === 'NETWORK_ERROR' || !error.response) {
+        setError('ネットワークエラーが発生しました。インターネット接続を確認してください。');
+      } else {
+        setError(`セッション詳細の取得に失敗しました。${error.message || 'エラーが発生しました。'}`);
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
   // ステータス表示用の設定
-  const getStatusConfig = (status: SessionDetail['status']) => {
+  const getStatusConfig = (status: SessionStatus) => {
     switch (status) {
-      case 'draft':
+      case SessionStatus.DRAFT:
         return { label: '下書き', color: 'default' as const, icon: <EditIcon /> };
-      case 'active':
+      case SessionStatus.ACTIVE:
         return { label: '進行中', color: 'primary' as const, icon: <PlayArrowIcon /> };
-      case 'completed':
+      case SessionStatus.COMPLETED:
         return { label: '完了', color: 'success' as const, icon: <CheckCircleIcon /> };
-      case 'archived':
+      case SessionStatus.ARCHIVED:
         return { label: 'アーカイブ', color: 'secondary' as const, icon: <ScheduleIcon /> };
       default:
         return { label: '不明', color: 'default' as const, icon: <ScheduleIcon /> };
@@ -270,14 +182,16 @@ const SessionDetailPage: React.FC = () => {
 
   // 進捗率の計算
   const getProgressPercentage = (session: SessionDetail) => {
-    const submittedCount = session.participants.filter(p => p.hasSubmitted).length;
-    if (session.participants.length === 0) return 0;
-    return Math.round((submittedCount / session.participants.length) * 100);
+    const participants = session.participantDetails || session.participants || [];
+    const submittedCount = participants.filter((p: any) => p.hasSubmitted).length;
+    if (participants.length === 0) return 0;
+    return Math.round((submittedCount / participants.length) * 100);
   };
 
   // 日付フォーマット
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('ja-JP', {
+  const formatDate = (date: string | Date) => {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    return dateObj.toLocaleDateString('ja-JP', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -305,24 +219,73 @@ const SessionDetailPage: React.FC = () => {
     );
   }
 
+  // 404エラーの場合は専用の表示を行う
+  if (notFound) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error" sx={{ mb: 2 }}>
+          指定されたセッション（ID: {id}）が見つかりません。
+        </Alert>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          セッションが削除されたか、URLが間違っている可能性があります。
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            variant="contained"
+            startIcon={<ArrowBackIcon />}
+            onClick={() => navigate('/sessions')}
+          >
+            セッション一覧に戻る
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={() => navigate('/dashboard')}
+          >
+            ダッシュボードに戻る
+          </Button>
+        </Box>
+      </Box>
+    );
+  }
+
   if (error || !session) {
     return (
       <Box sx={{ p: 3 }}>
-        <Alert severity="error">{error || 'セッションが見つかりません'}</Alert>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate('/sessions')}
-          sx={{ mt: 2 }}
-        >
-          セッション一覧に戻る
-        </Button>
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error || 'セッションが見つかりません'}
+        </Alert>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+          <Button
+            variant="contained"
+            startIcon={<ArrowBackIcon />}
+            onClick={() => navigate('/sessions')}
+          >
+            セッション一覧に戻る
+          </Button>
+          {!notFound && (
+            <Button
+              variant="outlined"
+              onClick={() => id && fetchSessionDetail(id)}
+              disabled={isLoading}
+            >
+              再試行
+            </Button>
+          )}
+          <Button
+            variant="outlined"
+            onClick={() => navigate('/dashboard')}
+          >
+            ダッシュボードに戻る
+          </Button>
+        </Box>
       </Box>
     );
   }
 
   const statusConfig = getStatusConfig(session.status);
   const progressPercentage = getProgressPercentage(session);
-  const submittedCount = session.participants.filter(p => p.hasSubmitted).length;
+  const participants = session.participantDetails || session.participants || [];
+  const submittedCount = participants.filter((p: any) => p.hasSubmitted).length;
 
   return (
     <Box sx={{ p: 3 }}>
@@ -342,7 +305,7 @@ const SessionDetailPage: React.FC = () => {
               color={statusConfig.color}
             />
             <Typography variant="body2" color="text.secondary">
-              作成者: {session.creatorName} | 作成日: {formatDate(session.createdAt)}
+              作成者: {session.creatorName || '不明'} | 作成日: {formatDate(session.createdAt)}
             </Typography>
           </Box>
         </Box>
@@ -385,7 +348,7 @@ const SessionDetailPage: React.FC = () => {
                   提出済み
                 </Typography>
                 <Typography variant="h6" color="primary">
-                  {submittedCount}/{session.participants.length}
+                  {submittedCount}/{participants.length}
                 </Typography>
               </Box>
               <LinearProgress 
@@ -419,29 +382,39 @@ const SessionDetailPage: React.FC = () => {
                   <Typography variant="h6" gutterBottom>
                     評価対象動画
                   </Typography>
-                  <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                    <img
-                      src={session.video.thumbnailUrl}
-                      alt={session.video.title}
-                      style={{ width: 120, height: 68, objectFit: 'cover', borderRadius: 4 }}
-                    />
-                    <Box>
-                      <Typography variant="subtitle1" gutterBottom>
-                        {session.video.title}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        再生時間: {session.video.duration}
-                      </Typography>
-                    </Box>
-                  </Box>
-                  <Button
-                    variant="outlined"
-                    startIcon={<PlayArrowIcon />}
-                    onClick={() => navigate(`/videos/${session.video.id}`)}
-                    fullWidth
-                  >
-                    動画を表示
-                  </Button>
+                  {session.video ? (
+                    <>
+                      <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                        <img
+                          src={session.video.thumbnailUrl}
+                          alt={session.video.title}
+                          style={{ width: 120, height: 68, objectFit: 'cover', borderRadius: 4 }}
+                        />
+                        <Box>
+                          <Typography variant="subtitle1" gutterBottom>
+                            {session.video.title}
+                          </Typography>
+                          {session.video.duration && (
+                            <Typography variant="body2" color="text.secondary">
+                              再生時間: {session.video.duration}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
+                      <Button
+                        variant="outlined"
+                        startIcon={<PlayArrowIcon />}
+                        onClick={() => session.video && navigate(`/videos/${session.video.id}`)}
+                        fullWidth
+                      >
+                        動画を表示
+                      </Button>
+                    </>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      動画情報が設定されていません
+                    </Typography>
+                  )}
                 </CardContent>
               </Card>
             </Grid>
@@ -451,24 +424,36 @@ const SessionDetailPage: React.FC = () => {
                   <Typography variant="h6" gutterBottom>
                     評価テンプレート
                   </Typography>
-                  <Typography variant="subtitle1" gutterBottom>
-                    {session.template.name}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    {session.template.description}
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                    <Chip label={`${session.template.categoryCount} カテゴリ`} size="small" />
-                    <Chip label={`${session.template.criteriaCount} 評価項目`} size="small" />
-                  </Box>
-                  <Button
-                    variant="outlined"
-                    startIcon={<SettingsIcon />}
-                    onClick={() => navigate(`/templates/${session.template.id}`)}
-                    fullWidth
-                  >
-                    テンプレートを表示
-                  </Button>
+                  {session.template ? (
+                    <>
+                      <Typography variant="subtitle1" gutterBottom>
+                        {session.template.name}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        {session.template.description}
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                        {session.template.categoryCount && (
+                          <Chip label={`${session.template.categoryCount} カテゴリ`} size="small" />
+                        )}
+                        {session.template.criteriaCount && (
+                          <Chip label={`${session.template.criteriaCount} 評価項目`} size="small" />
+                        )}
+                      </Box>
+                      <Button
+                        variant="outlined"
+                        startIcon={<SettingsIcon />}
+                        onClick={() => session.template && navigate(`/templates/${session.template.id}`)}
+                        fullWidth
+                      >
+                        テンプレートを表示
+                      </Button>
+                    </>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      テンプレート情報が設定されていません
+                    </Typography>
+                  )}
                 </CardContent>
               </Card>
             </Grid>
@@ -479,7 +464,7 @@ const SessionDetailPage: React.FC = () => {
         <TabPanel value={tabValue} index={1}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h6">
-              参加者一覧 ({session.participants.length}名)
+              参加者一覧 ({participants.length}名)
             </Typography>
             {canEdit && (
               <Button
@@ -491,48 +476,54 @@ const SessionDetailPage: React.FC = () => {
               </Button>
             )}
           </Box>
-          <List>
-            {session.participants.map((participant, index) => (
-              <React.Fragment key={participant.id}>
-                <ListItem>
-                  <ListItemAvatar>
-                    <Avatar src={participant.avatar}>
-                      {participant.name[0]}
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={participant.name}
-                    secondary={
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">
-                          {participant.email} | {participant.role}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          招待日: {formatDate(participant.invitedAt)}
-                          {participant.joinedAt && ` | 参加日: ${formatDate(participant.joinedAt)}`}
-                        </Typography>
-                      </Box>
-                    }
-                  />
-                  <ListItemSecondaryAction>
-                    <Chip
-                      label={participant.hasSubmitted ? '提出済み' : '未提出'}
-                      color={participant.hasSubmitted ? 'success' : 'default'}
-                      size="small"
+          {participants.length > 0 ? (
+            <List>
+              {participants.map((participant: any, index: number) => (
+                <React.Fragment key={participant.id || participant.userId || index}>
+                  <ListItem>
+                    <ListItemAvatar>
+                      <Avatar src={participant.avatar}>
+                        {participant.name?.[0] || '?'}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={participant.name || '名前未設定'}
+                      secondary={
+                        <Box>
+                          <Typography variant="body2" color="text.secondary">
+                            {participant.email || 'メール未設定'} | {participant.role || '役割未設定'}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            招待日: {formatDate(participant.invitedAt)}
+                            {participant.joinedAt && ` | 参加日: ${formatDate(participant.joinedAt)}`}
+                          </Typography>
+                        </Box>
+                      }
                     />
-                  </ListItemSecondaryAction>
-                </ListItem>
-                {index < session.participants.length - 1 && <Divider />}
-              </React.Fragment>
-            ))}
-          </List>
+                    <ListItemSecondaryAction>
+                      <Chip
+                        label={participant.hasSubmitted ? '提出済み' : '未提出'}
+                        color={participant.hasSubmitted ? 'success' : 'default'}
+                        size="small"
+                      />
+                    </ListItemSecondaryAction>
+                  </ListItem>
+                  {index < participants.length - 1 && <Divider />}
+                </React.Fragment>
+              ))}
+            </List>
+          ) : (
+            <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
+              参加者がいません
+            </Typography>
+          )}
         </TabPanel>
 
         {/* 評価結果タブ */}
         <TabPanel value={tabValue} index={2}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h6">
-              評価結果 ({session.evaluations.length}件)
+              評価結果 ({session.evaluations?.length || 0}件)
             </Typography>
             <Button
               variant="outlined"
@@ -542,7 +533,7 @@ const SessionDetailPage: React.FC = () => {
               詳細分析を表示
             </Button>
           </Box>
-          {session.evaluations.length > 0 ? (
+          {session.evaluations && session.evaluations.length > 0 ? (
             <List>
               {session.evaluations.map((evaluation, index) => (
                 <React.Fragment key={evaluation.id}>
@@ -568,7 +559,7 @@ const SessionDetailPage: React.FC = () => {
                       />
                     </ListItemSecondaryAction>
                   </ListItem>
-                  {index < session.evaluations.length - 1 && <Divider />}
+                  {session.evaluations && index < session.evaluations.length - 1 && <Divider />}
                 </React.Fragment>
               ))}
             </List>
