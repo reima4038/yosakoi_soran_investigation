@@ -66,6 +66,7 @@ const SessionList: React.FC = () => {
   const [sessions, setSessions] = useState<SessionDisplay[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [retryCount, setRetryCount] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<SessionDisplay | null>(null);
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
@@ -73,25 +74,44 @@ const SessionList: React.FC = () => {
 
   // APIデータを表示用に変換
   const convertToDisplaySession = (session: any): SessionDisplay => {
+    // 参加者データの処理
+    const participants = session.participants || session.evaluators || [];
+    const participantList = participants.map((participant: any) => ({
+      id: participant._id || participant.id || participant.userId || 'unknown',
+      name: participant.name || 
+            participant.profile?.displayName || 
+            participant.username || 
+            'Unknown User',
+      avatar: participant.avatar || participant.profile?.avatar,
+      hasSubmitted: participant.hasSubmitted || false,
+    }));
+
+    // 提出数の計算
+    const submittedCount = participantList.filter(p => p.hasSubmitted).length;
+
     return {
-      id: session._id || session.id,
+      id: session._id || session.id || 'unknown',
       name: session.name || 'Untitled Session',
       description: session.description || '',
       status: session.status || 'draft',
       startDate: session.startDate || new Date().toISOString(),
       endDate: session.endDate || new Date().toISOString(),
-      videoTitle: session.videoId?.title || 'Unknown Video',
-      templateName: session.templateId?.name || 'Unknown Template',
-      participantCount: session.evaluators?.length || 0,
-      submittedCount: 0, // TODO: 実際の提出数を計算
-      participants: session.evaluators?.map((evaluator: any) => ({
-        id: evaluator._id || evaluator.id,
-        name: evaluator.profile?.displayName || evaluator.username || 'Unknown',
-        avatar: evaluator.profile?.avatar,
-        hasSubmitted: false, // TODO: 実際の提出状況を確認
-      })) || [],
-      createdAt: session.createdAt,
-      creatorName: session.creatorId?.profile?.displayName || session.creatorId?.username || 'Unknown',
+      videoTitle: session.video?.title || 
+                  session.videoId?.title || 
+                  'Unknown Video',
+      templateName: session.template?.name || 
+                    session.templateId?.name || 
+                    'Unknown Template',
+      participantCount: participantList.length,
+      submittedCount: submittedCount,
+      participants: participantList,
+      createdAt: session.createdAt || new Date().toISOString(),
+      creatorName: session.creator?.name ||
+                   session.creator?.profile?.displayName ||
+                   session.creator?.username ||
+                   session.creatorId?.profile?.displayName || 
+                   session.creatorId?.username || 
+                   'Unknown Creator',
     };
   };
 
@@ -108,72 +128,22 @@ const SessionList: React.FC = () => {
       setSessions(displaySessions);
     } catch (error: any) {
       console.error('Sessions fetch error:', error);
-      setError('セッション一覧の取得に失敗しました');
       
-      // エラー時はモックデータを使用（開発用）
-      const mockSessions: SessionDisplay[] = [
-        {
-          id: '1',
-          name: '第45回よさこい祭り 本祭評価',
-          description: '本祭での各チームの演舞を評価します',
-          status: 'active',
-          startDate: '2024-08-01T09:00:00Z',
-          endDate: '2024-08-15T23:59:59Z',
-          videoTitle: '鳴子踊り - 伝統チーム',
-          templateName: '本祭評価テンプレート',
-          participantCount: 5,
-          submittedCount: 3,
-          participants: [
-            { id: '1', name: '田中審査員', hasSubmitted: true },
-            { id: '2', name: '佐藤指導者', hasSubmitted: true },
-            { id: '3', name: '山田評価者', hasSubmitted: true },
-            { id: '4', name: '鈴木審査員', hasSubmitted: false },
-            { id: '5', name: '高橋指導者', hasSubmitted: false },
-          ],
-          createdAt: '2024-07-25T10:00:00Z',
-          creatorName: '管理者',
-        },
-        {
-          id: '2',
-          name: '地方車演舞評価セッション',
-          description: '地方車での演舞パフォーマンスを評価',
-          status: 'completed',
-          startDate: '2024-07-15T09:00:00Z',
-          endDate: '2024-07-30T23:59:59Z',
-          videoTitle: '地方車演舞 - 青春チーム',
-          templateName: '地方車評価テンプレート',
-          participantCount: 3,
-          submittedCount: 3,
-          participants: [
-            { id: '1', name: '田中審査員', hasSubmitted: true },
-            { id: '2', name: '佐藤指導者', hasSubmitted: true },
-            { id: '3', name: '山田評価者', hasSubmitted: true },
-          ],
-          createdAt: '2024-07-10T14:00:00Z',
-          creatorName: '管理者',
-        },
-        {
-          id: '3',
-          name: '新人チーム評価',
-          description: '新人チームの演舞技術向上のための評価',
-          status: 'draft',
-          startDate: '2024-08-20T09:00:00Z',
-          endDate: '2024-09-05T23:59:59Z',
-          videoTitle: '新人演舞 - フレッシュチーム',
-          templateName: '新人評価テンプレート',
-          participantCount: 4,
-          submittedCount: 0,
-          participants: [
-            { id: '1', name: '田中審査員', hasSubmitted: false },
-            { id: '2', name: '佐藤指導者', hasSubmitted: false },
-            { id: '3', name: '山田評価者', hasSubmitted: false },
-            { id: '4', name: '鈴木審査員', hasSubmitted: false },
-          ],
-          createdAt: '2024-08-01T16:00:00Z',
-          creatorName: '管理者',
-        },
-      ];
-      setSessions(mockSessions);
+      // エラーの種類に応じて適切な処理を行う
+      if (error.response?.status === 403) {
+        setError('セッション一覧にアクセスする権限がありません。管理者にお問い合わせください。');
+      } else if (error.response?.status === 401) {
+        setError('認証が必要です。再度ログインしてください。');
+      } else if (error.response?.status >= 500) {
+        setError('サーバーエラーが発生しました。しばらく時間をおいてから再度お試しください。');
+      } else if (error.code === 'NETWORK_ERROR' || !error.response) {
+        setError('ネットワークエラーが発生しました。インターネット接続を確認してください。');
+      } else {
+        setError(`セッション一覧の取得に失敗しました。${error.message || 'エラーが発生しました。'}`);
+      }
+      
+      // エラー時はセッションリストを空にする
+      setSessions([]);
     } finally {
       setIsLoading(false);
     }
@@ -182,7 +152,13 @@ const SessionList: React.FC = () => {
   // セッション一覧の取得
   useEffect(() => {
     fetchSessions();
-  }, []);
+  }, [fetchSessions]);
+
+  // リトライ機能
+  const handleRetry = useCallback(() => {
+    setRetryCount(prev => prev + 1);
+    fetchSessions();
+  }, [fetchSessions]);
 
   // ステータス表示用の設定
   const getStatusConfig = (status: SessionDisplay['status']) => {
@@ -234,8 +210,21 @@ const SessionList: React.FC = () => {
       setDeleteDialogOpen(false);
       setSessionToDelete(null);
     } catch (error: any) {
+      console.error('Session delete error:', error);
       
-      setError('セッションの削除に失敗しました');
+      // エラーの種類に応じて適切なメッセージを表示
+      if (error.response?.status === 403) {
+        setError('このセッションを削除する権限がありません。');
+      } else if (error.response?.status === 404) {
+        setError('削除しようとしたセッションが見つかりません。');
+      } else if (error.response?.status >= 500) {
+        setError('サーバーエラーが発生しました。セッションの削除に失敗しました。');
+      } else {
+        setError(`セッションの削除に失敗しました。${error.message || 'エラーが発生しました。'}`);
+      }
+      
+      setDeleteDialogOpen(false);
+      setSessionToDelete(null);
     }
   };
 
@@ -253,12 +242,27 @@ const SessionList: React.FC = () => {
   // セッション作成権限の確認
   const canCreateSession = hasAnyRole([UserRole.ADMIN, UserRole.EVALUATOR]);
 
-  if (isLoading) {
+  if (isLoading && sessions.length === 0) {
     return (
       <Box sx={{ p: 3 }}>
-        <LinearProgress />
-        <Typography variant="body2" sx={{ mt: 2, textAlign: 'center' }}>
+        {/* ヘッダー */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Typography variant="h4">評価セッション管理</Typography>
+          {canCreateSession && (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => navigate('/sessions/create')}
+            >
+              新規セッション作成
+            </Button>
+          )}
+        </Box>
+        
+        <LinearProgress sx={{ mb: 2 }} />
+        <Typography variant="body2" sx={{ textAlign: 'center', color: 'text.secondary' }}>
           セッション一覧を読み込み中...
+          {retryCount > 0 && ` (${retryCount + 1}回目)`}
         </Typography>
       </Box>
     );
@@ -281,7 +285,20 @@ const SessionList: React.FC = () => {
       </Box>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert 
+          severity="error" 
+          sx={{ mb: 2 }}
+          action={
+            <Button 
+              color="inherit" 
+              size="small" 
+              onClick={handleRetry}
+              disabled={isLoading}
+            >
+              再試行
+            </Button>
+          }
+        >
           {error}
         </Alert>
       )}
@@ -385,7 +402,7 @@ const SessionList: React.FC = () => {
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <AvatarGroup max={4} sx={{ '& .MuiAvatar-root': { width: 24, height: 24, fontSize: '0.75rem' } }}>
                       {session.participants.map((participant) => (
-                        <Tooltip key={participant.id} title={participant.name}>
+                        <Tooltip title={participant.name} key={participant.id}>
                           <Avatar
                             src={participant.avatar}
                             sx={{
@@ -410,7 +427,7 @@ const SessionList: React.FC = () => {
         })}
       </Grid>
 
-      {sessions.length === 0 && !isLoading && (
+      {sessions.length === 0 && !isLoading && !error && (
         <Box sx={{ textAlign: 'center', py: 8 }}>
           <AssessmentIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
           <Typography variant="h6" color="text.secondary" gutterBottom>
@@ -428,6 +445,25 @@ const SessionList: React.FC = () => {
               最初のセッションを作成
             </Button>
           )}
+        </Box>
+      )}
+
+      {sessions.length === 0 && !isLoading && error && (
+        <Box sx={{ textAlign: 'center', py: 8 }}>
+          <CancelIcon sx={{ fontSize: 64, color: 'error.main', mb: 2 }} />
+          <Typography variant="h6" color="text.secondary" gutterBottom>
+            セッション一覧を読み込めませんでした
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            ネットワーク接続を確認するか、しばらく時間をおいてから再度お試しください。
+          </Typography>
+          <Button
+            variant="outlined"
+            onClick={handleRetry}
+            disabled={isLoading}
+          >
+            再読み込み
+          </Button>
         </Box>
       )}
 
