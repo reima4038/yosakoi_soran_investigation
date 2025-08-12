@@ -12,9 +12,15 @@ router.get('/', authenticateToken, async (_req: Request, res: Response) => {
       .populate('creatorId', 'username email')
       .sort({ createdAt: -1 });
 
+    // IDフィールドを正規化
+    const normalizedTemplates = templates.map(template => ({
+      ...template.toObject(),
+      id: (template._id as mongoose.Types.ObjectId).toString()
+    }));
+
     res.json({
       status: 'success',
-      data: templates
+      data: normalizedTemplates
     });
   } catch (error: any) {
     console.error('Template list error:', error);
@@ -49,9 +55,15 @@ router.get('/:id', authenticateToken, async (req: Request, res: Response): Promi
       return;
     }
 
+    // IDフィールドを正規化
+    const normalizedTemplate = {
+      ...template.toObject(),
+      id: (template._id as mongoose.Types.ObjectId).toString()
+    };
+
     res.json({
       status: 'success',
-      data: template
+      data: normalizedTemplate
     });
   } catch (error: any) {
     console.error('Template detail error:', error);
@@ -149,9 +161,15 @@ router.post('/', authenticateToken, async (req: Request, res: Response): Promise
     const populatedTemplate = await Template.findById(template._id)
       .populate('creatorId', 'username email');
 
+    // IDフィールドを正規化
+    const normalizedTemplate = {
+      ...populatedTemplate!.toObject(),
+      id: (populatedTemplate!._id as mongoose.Types.ObjectId).toString()
+    };
+
     res.status(201).json({
       status: 'success',
-      data: populatedTemplate,
+      data: normalizedTemplate,
       message: 'テンプレートが正常に作成されました'
     });
   } catch (error: any) {
@@ -243,9 +261,15 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response): Promi
     const populatedTemplate = await Template.findById(template._id)
       .populate('creatorId', 'username email');
 
+    // IDフィールドを正規化
+    const normalizedTemplate = {
+      ...populatedTemplate!.toObject(),
+      id: (populatedTemplate!._id as mongoose.Types.ObjectId).toString()
+    };
+
     res.json({
       status: 'success',
-      data: populatedTemplate,
+      data: normalizedTemplate,
       message: 'テンプレートが正常に更新されました'
     });
   } catch (error: any) {
@@ -348,9 +372,15 @@ router.post('/:id/duplicate', authenticateToken, async (req: Request, res: Respo
     const populatedTemplate = await Template.findById(duplicatedTemplate._id)
       .populate('creatorId', 'username email');
 
+    // IDフィールドを正規化
+    const normalizedTemplate = {
+      ...populatedTemplate!.toObject(),
+      id: (populatedTemplate!._id as mongoose.Types.ObjectId).toString()
+    };
+
     res.status(201).json({
       status: 'success',
-      data: populatedTemplate,
+      data: normalizedTemplate,
       message: 'テンプレートが正常に複製されました'
     });
   } catch (error: any) {

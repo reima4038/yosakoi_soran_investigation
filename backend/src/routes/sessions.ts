@@ -155,8 +155,8 @@ router.get('/:id', authenticateToken, async (req: Request, res: Response) => {
     }
 
     const session = await Session.findById(id)
-      .populate('videoId')
-      .populate('templateId')
+      .populate('videoId', 'title youtubeId thumbnailUrl metadata')
+      .populate('templateId', 'name description categories')
       .populate('creatorId', 'username email profile')
       .populate('evaluators', 'username email profile');
 

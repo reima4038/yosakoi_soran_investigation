@@ -426,10 +426,16 @@ router.get('/', [
     // 総数を取得
     const total = await Video.countDocuments(filter);
 
+    // IDフィールドを正規化
+    const normalizedVideos = videos.map(video => ({
+      ...video.toObject(),
+      id: (video._id as mongoose.Types.ObjectId).toString()
+    }));
+
     res.json({
       status: 'success',
       data: {
-        videos,
+        videos: normalizedVideos,
         pagination: {
           page: pageNum,
           limit: limitNum,
@@ -473,9 +479,15 @@ router.get('/:id', [
       });
     }
 
+    // IDフィールドを正規化
+    const normalizedVideo = {
+      ...video.toObject(),
+      id: (video._id as mongoose.Types.ObjectId).toString()
+    };
+
     res.json({
       status: 'success',
-      data: video
+      data: normalizedVideo
     });
 
   } catch (error) {

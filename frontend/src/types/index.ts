@@ -80,8 +80,8 @@ export interface Session {
   startDate: Date | string;
   endDate: Date | string;
   status: SessionStatus;
-  videoId: string;
-  templateId: string;
+  videoId: string | Video;
+  templateId: string | Template;
   creatorId: string;
   participants: SessionUser[];
   createdAt: Date | string;

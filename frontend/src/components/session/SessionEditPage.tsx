@@ -8,7 +8,6 @@ import {
   TextField,
   Grid,
   Alert,
-  LinearProgress,
   IconButton,
   FormControlLabel,
   Switch,
@@ -17,7 +16,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Snackbar,
   CircularProgress,
 } from '@mui/material';
 import {
@@ -28,7 +26,11 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth, UserRole } from '../../contexts/AuthContext';
 import { sessionService } from '../../services/sessionService';
 import { Session, Video, Template } from '../../types';
-import { handleSessionError, createSuccessMessage, ErrorInfo } from '../../utils/errorHandler';
+import {
+  handleSessionError,
+  createSuccessMessage,
+  ErrorInfo,
+} from '../../utils/errorHandler';
 import { ErrorDisplay, LoadingDisplay, FeedbackSnackbar } from '../common';
 
 const SessionEditPage: React.FC = () => {
@@ -67,7 +69,9 @@ const SessionEditPage: React.FC = () => {
 
   // 確認ダイアログの状態
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
-  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(
+    null
+  );
 
   // バリデーションエラーの状態
   const [validationErrors, setValidationErrors] = useState({
@@ -81,10 +85,54 @@ const SessionEditPage: React.FC = () => {
   // セッション詳細の取得
   useEffect(() => {
     if (id) {
-      fetchSession(id);
-      fetchOptions();
+      const loadData = async () => {
+        try {
+          // 選択肢とセッション情報を並行して取得
+          const [, sessionResult] = await Promise.allSettled([
+            fetchOptions(),
+            sessionService.getSession(id),
+          ]);
+
+          // セッション情報の処理
+          if (sessionResult.status === 'fulfilled') {
+            const sessionData = sessionResult.value;
+            setSession(sessionData);
+            checkEditPermission(sessionData);
+
+            // フォームデータの初期化は、テンプレートとビデオのデータが読み込まれた後に行う
+            // useEffectで処理される
+          } else {
+            const errorInfo = handleSessionError(
+              sessionResult.reason,
+              '情報取得'
+            );
+            setError(errorInfo);
+          }
+        } catch (error) {
+          console.error('Data loading error:', error);
+          const errorInfo = handleSessionError(error, '情報取得');
+          setError(errorInfo);
+        } finally {
+          setIsLoading(false);
+          setPermissionChecked(true);
+        }
+      };
+      loadData();
     }
   }, [id]);
+
+  // テンプレート・動画一覧が更新されたときにフォームデータを再初期化
+  useEffect(() => {
+    if (session && (templates.length > 0 || videos.length > 0)) {
+      console.log('Reinitializing form data:', {
+        sessionExists: !!session,
+        templatesCount: templates.length,
+        videosCount: videos.length,
+        currentFormData: formData,
+      });
+      initializeFormData(session);
+    }
+  }, [templates, videos, session]);
 
   // ページ離脱時の確認
   useEffect(() => {
@@ -103,17 +151,38 @@ const SessionEditPage: React.FC = () => {
   const fetchOptions = async () => {
     try {
       setIsLoadingOptions(true);
-      
+
       // 実際のAPIから動画とテンプレートの一覧を取得
       const [videosData, templatesData] = await Promise.allSettled([
-        import('../../services/videoService').then(module => module.videoService.getVideos()),
-        import('../../services/templateService').then(module => module.templateService.getTemplates())
+        import('../../services/videoService').then(module =>
+          module.videoService.getVideos()
+        ),
+        import('../../services/templateService').then(module =>
+          module.templateService.getTemplates()
+        ),
       ]);
 
       // 動画データの処理
       if (videosData.status === 'fulfilled') {
-        const videoList = Array.isArray(videosData.value) ? videosData.value : videosData.value.videos || [];
+        const rawVideoList = Array.isArray(videosData.value)
+          ? videosData.value
+          : videosData.value?.data || videosData.value?.videos || [];
+
+        // IDフィールドを正規化
+        const videoList = rawVideoList.map((video: any) => ({
+          ...video,
+          id: video.id || video._id,
+        }));
+
         setVideos(videoList);
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log(
+            'Videos loaded:',
+            videoList.length,
+            videoList.map(v => ({ id: v.id, title: v.title }))
+          );
+        }
       } else {
         console.warn('動画一覧の取得に失敗しました:', videosData.reason);
         setVideos([]);
@@ -121,10 +190,36 @@ const SessionEditPage: React.FC = () => {
 
       // テンプレートデータの処理
       if (templatesData.status === 'fulfilled') {
-        const templateList = Array.isArray(templatesData.value) ? templatesData.value : [];
+        const rawTemplateList = Array.isArray(templatesData.value)
+          ? templatesData.value
+          : templatesData.value?.data || [];
+
+        // IDフィールドを正規化
+        const templateList = rawTemplateList.map((template: any) => ({
+          ...template,
+          id: template.id || template._id,
+        }));
+
         setTemplates(templateList);
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log(
+            'Templates loaded:',
+            templateList.length,
+            templateList.map(t => ({
+              id: t.id || t._id,
+              name: t.name,
+              hasId: !!t.id,
+              hasUnderscore: !!t._id,
+              fullObject: t,
+            }))
+          );
+        }
       } else {
-        console.warn('テンプレート一覧の取得に失敗しました:', templatesData.reason);
+        console.warn(
+          'テンプレート一覧の取得に失敗しました:',
+          templatesData.reason
+        );
         setTemplates([]);
       }
     } catch (error) {
@@ -137,64 +232,49 @@ const SessionEditPage: React.FC = () => {
     }
   };
 
-  const fetchSession = async (sessionId: string) => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      const sessionData = await sessionService.getSession(sessionId);
-      setSession(sessionData);
-
-      // 権限チェック
-      checkEditPermission(sessionData);
-
-      // 日付の安全な変換
-      const formatDateForInput = (date: string | Date | undefined | null) => {
-        if (!date) return '';
-        try {
-          const dateObj = typeof date === 'string' ? new Date(date) : date;
-          if (isNaN(dateObj.getTime())) return '';
-          return dateObj.toISOString().slice(0, 16);
-        } catch (error) {
-          console.warn('Date formatting error:', error);
-          return '';
-        }
-      };
-
-      // videoIdとtemplateIdの安全な取得
-      const getIdFromValue = (value: any) => {
-        if (typeof value === 'string') return value;
-        if (typeof value === 'object' && value?.id) return value.id;
+  // フォームデータの初期化
+  const initializeFormData = (sessionData: Session) => {
+    // 日付の安全な変換
+    const formatDateForInput = (date: string | Date | undefined | null) => {
+      if (!date) return '';
+      try {
+        const dateObj = typeof date === 'string' ? new Date(date) : date;
+        if (isNaN(dateObj.getTime())) return '';
+        return dateObj.toISOString().slice(0, 16);
+      } catch (error) {
         return '';
-      };
+      }
+    };
 
-      // フォームデータの初期化
-      const initialFormData = {
-        name: sessionData.name || '',
-        description: sessionData.description || '',
-        startDate: formatDateForInput(sessionData.startDate),
-        endDate: formatDateForInput(sessionData.endDate),
-        videoId: getIdFromValue(sessionData.videoId),
-        templateId: getIdFromValue(sessionData.templateId),
-        settings: sessionData.settings || {
-          isAnonymous: false,
-          showResultsAfterSubmit: true,
-          allowComments: true,
-        },
-      };
-      
-      setFormData(initialFormData);
-      setOriginalData(initialFormData);
-      setHasUnsavedChanges(false);
-    } catch (error: any) {
-      console.error('Session fetch error:', error);
-      
-      // 統一されたエラーハンドリングを使用
-      const errorInfo = handleSessionError(error, '情報取得');
-      setError(errorInfo);
-    } finally {
-      setIsLoading(false);
-      setPermissionChecked(true);
+    // videoIdとtemplateIdの安全な取得
+    const getIdFromValue = (value: any) => {
+      if (typeof value === 'string') return value;
+      if (typeof value === 'object' && value?.id) return value.id;
+      if (typeof value === 'object' && value?._id) return value._id;
+      return '';
+    };
+
+    // フォームデータの初期化
+    const initialFormData = {
+      name: sessionData.name || '',
+      description: sessionData.description || '',
+      startDate: formatDateForInput(sessionData.startDate),
+      endDate: formatDateForInput(sessionData.endDate),
+      videoId: getIdFromValue(sessionData.videoId),
+      templateId: getIdFromValue(sessionData.templateId),
+      settings: sessionData.settings || {
+        isAnonymous: false,
+        showResultsAfterSubmit: true,
+        allowComments: true,
+      },
+    };
+
+    setFormData(initialFormData);
+    setOriginalData(initialFormData);
+    setHasUnsavedChanges(false);
+
+    // 開発環境でのデバッグ情報
+    if (process.env.NODE_ENV === 'development') {
     }
   };
 
@@ -251,7 +331,7 @@ const SessionEditPage: React.FC = () => {
     if (formData.startDate && formData.endDate) {
       const startDate = new Date(formData.startDate);
       const endDate = new Date(formData.endDate);
-      
+
       if (startDate >= endDate) {
         errors.endDate = '終了日時は開始日時より後に設定してください';
       }
@@ -273,7 +353,7 @@ const SessionEditPage: React.FC = () => {
   // 変更検知
   const checkForChanges = (newFormData: any) => {
     if (!originalData) return false;
-    
+
     return JSON.stringify(newFormData) !== JSON.stringify(originalData);
   };
 
@@ -283,7 +363,7 @@ const SessionEditPage: React.FC = () => {
       ...formData,
       [field]: value,
     };
-    
+
     setFormData(newFormData);
     setHasUnsavedChanges(checkForChanges(newFormData));
 
@@ -304,7 +384,7 @@ const SessionEditPage: React.FC = () => {
         [field]: value,
       },
     };
-    
+
     setFormData(newFormData);
     setHasUnsavedChanges(checkForChanges(newFormData));
   };
@@ -348,11 +428,16 @@ const SessionEditPage: React.FC = () => {
         endDate: parseDate(formData.endDate),
         videoId: formData.videoId,
         templateId: formData.templateId,
-        settings: formData.settings,
+        settings: {
+          // UpdateSessionRequestの設定プロパティ名に合わせる
+          allowAnonymous: formData.settings.isAnonymous,
+          requireComments: !formData.settings.allowComments, // 逆の意味なので反転
+          showRealTimeResults: formData.settings.showResultsAfterSubmit,
+        },
       };
 
       await sessionService.updateSession(id, updateData);
-      
+
       const successInfo = createSuccessMessage('セッション情報の更新');
       setSuccessMessage(successInfo);
       setHasUnsavedChanges(false);
@@ -362,11 +447,9 @@ const SessionEditPage: React.FC = () => {
       setTimeout(() => {
         navigate(`/sessions/${id}`);
       }, 2000);
-    } catch (error: any) {
-      console.error('Session update error:', error);
-      
+    } catch (error: unknown) {
       // 統一されたエラーハンドリングを使用
-      const errorInfo = handleSessionError(error, '更新');
+      const errorInfo = handleSessionError(error as any, '更新');
       setError(errorInfo);
     } finally {
       setIsSaving(false);
@@ -400,10 +483,7 @@ const SessionEditPage: React.FC = () => {
 
   if (isLoading || !permissionChecked) {
     return (
-      <LoadingDisplay
-        type="linear"
-        message="セッション情報を読み込み中..."
-      />
+      <LoadingDisplay type='linear' message='セッション情報を読み込み中...' />
     );
   }
 
@@ -412,12 +492,12 @@ const SessionEditPage: React.FC = () => {
       <Box sx={{ p: 3 }}>
         <ErrorDisplay
           error={error}
-          onRetry={id ? () => fetchSession(id) : undefined}
+          onRetry={id ? () => window.location.reload() : undefined}
           showDetails={true}
         />
         <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
           <Button
-            variant="contained"
+            variant='contained'
             startIcon={<ArrowBackIcon />}
             onClick={() => navigate('/sessions')}
           >
@@ -425,7 +505,7 @@ const SessionEditPage: React.FC = () => {
           </Button>
           {id && (
             <Button
-              variant="outlined"
+              variant='outlined'
               onClick={() => navigate(`/sessions/${id}`)}
             >
               セッション詳細に戻る
@@ -442,23 +522,23 @@ const SessionEditPage: React.FC = () => {
         <Alert severity='error' sx={{ mb: 2 }}>
           このセッションを編集する権限がありません。
           {user?.role === UserRole.EVALUATOR && session && (
-            <Box component="span" sx={{ display: 'block', mt: 1, fontSize: '0.875rem' }}>
+            <Box
+              component='span'
+              sx={{ display: 'block', mt: 1, fontSize: '0.875rem' }}
+            >
               セッションの編集は作成者またはシステム管理者のみが行えます。
             </Box>
           )}
         </Alert>
         <Box sx={{ display: 'flex', gap: 2 }}>
           <Button
-            variant="contained"
+            variant='contained'
             startIcon={<ArrowBackIcon />}
             onClick={() => navigate(`/sessions/${id}`)}
           >
             セッション詳細に戻る
           </Button>
-          <Button
-            variant="outlined"
-            onClick={() => navigate('/sessions')}
-          >
+          <Button variant='outlined' onClick={() => navigate('/sessions')}>
             セッション一覧に戻る
           </Button>
         </Box>
@@ -481,7 +561,7 @@ const SessionEditPage: React.FC = () => {
           error={error}
           showDetails={true}
           onDismiss={() => setError(null)}
-          className="mb-2"
+          className='mb-2'
         />
       )}
 
@@ -552,72 +632,180 @@ const SessionEditPage: React.FC = () => {
               <Grid container spacing={2} sx={{ mt: 2 }}>
                 <Grid item xs={12}>
                   <Autocomplete
+                    key={`video-${videos.length}-${formData.videoId}`}
                     options={videos}
-                    getOptionLabel={(option) => option.title}
-                    value={videos.find(v => v.id === formData.videoId) || null}
-                    onChange={(event, newValue) => {
-                      handleInputChange('videoId', newValue?.id || '');
+                    getOptionLabel={option => option.title}
+                    isOptionEqualToValue={(option, value) =>
+                      option.id === value.id
+                    }
+                    value={
+                      formData.videoId && videos.length > 0
+                        ? videos.find(v => v.id === formData.videoId) || null
+                        : null
+                    }
+                    onChange={(_event, newValue) => {
+                      const newVideoId = newValue?.id || '';
+                      handleInputChange('videoId', newVideoId);
+
+                      if (process.env.NODE_ENV === 'development') {
+                        console.log('Video selected:', {
+                          newVideoId,
+                          videoTitle: newValue?.title,
+                          formDataBefore: formData.videoId,
+                        });
+                      }
                     }}
                     loading={isLoadingOptions}
-                    renderInput={(params) => (
+                    renderInput={params => (
                       <TextField
                         {...params}
-                        label="評価対象動画"
+                        label='評価対象動画'
                         required
                         error={!!validationErrors.videoId}
-                        helperText={validationErrors.videoId}
+                        helperText={
+                          validationErrors.videoId ||
+                          (process.env.NODE_ENV === 'development'
+                            ? `選択中: ${formData.videoId || 'なし'} / 利用可能: ${videos.length}件 / 見つかった: ${videos.find(v => v.id === formData.videoId) ? 'Yes' : 'No'} / Value: ${videos.find(v => v.id === formData.videoId)?.title || 'null'}`
+                            : '')
+                        }
                       />
                     )}
                     renderOption={(props, option) => (
-                      <Box component="li" {...props}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Box component='li' {...props}>
+                        <Box
+                          sx={{ display: 'flex', alignItems: 'center', gap: 2 }}
+                        >
                           <img
                             src={option.thumbnailUrl}
                             alt={option.title}
-                            style={{ width: 60, height: 34, objectFit: 'cover', borderRadius: 4 }}
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = '/placeholder-video.png';
+                            style={{
+                              width: 60,
+                              height: 34,
+                              objectFit: 'cover',
+                              borderRadius: 4,
+                            }}
+                            onError={e => {
+                              (e.target as HTMLImageElement).src =
+                                '/placeholder-video.png';
                             }}
                           />
                           <Box>
-                            <Typography variant="body2">{option.title}</Typography>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant='body2'>
+                              {option.title}
+                            </Typography>
+                            <Typography
+                              variant='caption'
+                              color='text.secondary'
+                            >
                               {option.metadata?.teamName || 'チーム名未設定'}
                             </Typography>
+                            {process.env.NODE_ENV === 'development' && (
+                              <Typography
+                                variant='caption'
+                                color='primary'
+                                sx={{ display: 'block' }}
+                              >
+                                ID: {option.id}
+                              </Typography>
+                            )}
                           </Box>
                         </Box>
                       </Box>
                     )}
+                    noOptionsText={
+                      isLoadingOptions
+                        ? '読み込み中...'
+                        : '動画が見つかりません'
+                    }
                   />
                 </Grid>
                 <Grid item xs={12}>
                   <Autocomplete
+                    key={`template-${templates.length}-${formData.templateId}`}
                     options={templates}
-                    getOptionLabel={(option) => option.name}
-                    value={templates.find(t => t.id === formData.templateId) || null}
-                    onChange={(event, newValue) => {
-                      handleInputChange('templateId', newValue?.id || '');
+                    getOptionLabel={option => option.name}
+                    isOptionEqualToValue={(option, value) =>
+                      option.id === value.id
+                    }
+                    value={(() => {
+                      const foundTemplate =
+                        formData.templateId && templates.length > 0
+                          ? templates.find(t => t.id === formData.templateId)
+                          : null;
+
+                      if (process.env.NODE_ENV === 'development') {
+                        console.log(
+                          'Template Autocomplete value calculation:',
+                          {
+                            formDataTemplateId: formData.templateId,
+                            templatesLength: templates.length,
+                            foundTemplate: foundTemplate
+                              ? {
+                                  id: foundTemplate.id,
+                                  name: foundTemplate.name,
+                                }
+                              : null,
+                            allTemplateIds: templates.map(t => t.id),
+                            exactMatch: templates.some(
+                              t => t.id === formData.templateId
+                            ),
+                          }
+                        );
+                      }
+
+                      return foundTemplate || null;
+                    })()}
+                    onChange={(_event, newValue) => {
+                      const newTemplateId = newValue?.id || '';
+                      handleInputChange('templateId', newTemplateId);
+
+                      if (process.env.NODE_ENV === 'development') {
+                        console.log('Template selected:', {
+                          newTemplateId,
+                          templateName: newValue?.name,
+                          formDataBefore: formData.templateId,
+                        });
+                      }
                     }}
                     loading={isLoadingOptions}
-                    renderInput={(params) => (
+                    renderInput={params => (
                       <TextField
                         {...params}
-                        label="評価テンプレート"
+                        label='評価テンプレート'
                         required
                         error={!!validationErrors.templateId}
-                        helperText={validationErrors.templateId}
+                        helperText={
+                          validationErrors.templateId ||
+                          (process.env.NODE_ENV === 'development'
+                            ? `選択中: ${formData.templateId || 'なし'} / 利用可能: ${templates.length}件 / 見つかった: ${templates.find(t => t.id === formData.templateId) ? 'Yes' : 'No'} / Value: ${templates.find(t => t.id === formData.templateId)?.name || 'null'}`
+                            : '')
+                        }
                       />
                     )}
                     renderOption={(props, option) => (
-                      <Box component="li" {...props}>
+                      <Box component='li' {...props}>
                         <Box>
-                          <Typography variant="body2">{option.name}</Typography>
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant='body2'>{option.name}</Typography>
+                          <Typography variant='caption' color='text.secondary'>
                             {option.description}
                           </Typography>
+                          {process.env.NODE_ENV === 'development' && (
+                            <Typography
+                              variant='caption'
+                              color='primary'
+                              sx={{ display: 'block' }}
+                            >
+                              ID: {option.id}
+                            </Typography>
+                          )}
                         </Box>
                       </Box>
                     )}
+                    noOptionsText={
+                      isLoadingOptions
+                        ? '読み込み中...'
+                        : 'テンプレートが見つかりません'
+                    }
                   />
                 </Grid>
               </Grid>
@@ -680,28 +868,34 @@ const SessionEditPage: React.FC = () => {
 
       {/* 保存・キャンセルボタン */}
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
-        <Button
-          variant='outlined'
-          onClick={handleCancel}
-          disabled={isSaving}
-        >
+        <Button variant='outlined' onClick={handleCancel} disabled={isSaving}>
           キャンセル
         </Button>
         <Button
           variant='contained'
-          startIcon={isSaving ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
+          startIcon={
+            isSaving ? (
+              <CircularProgress size={20} color='inherit' />
+            ) : (
+              <SaveIcon />
+            )
+          }
           onClick={handleSave}
           disabled={
-            isSaving || 
+            isSaving ||
             !hasUnsavedChanges ||
-            !formData.name.trim() || 
-            !formData.startDate || 
-            !formData.endDate || 
-            !formData.videoId || 
+            !formData.name.trim() ||
+            !formData.startDate ||
+            !formData.endDate ||
+            !formData.videoId ||
             !formData.templateId
           }
         >
-          {isSaving ? '保存中...' : hasUnsavedChanges ? '変更を保存' : '保存済み'}
+          {isSaving
+            ? '保存中...'
+            : hasUnsavedChanges
+              ? '変更を保存'
+              : '保存済み'}
         </Button>
       </Box>
 
@@ -715,10 +909,12 @@ const SessionEditPage: React.FC = () => {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCancelNavigation}>
-            キャンセル
-          </Button>
-          <Button onClick={handleConfirmNavigation} color="error" variant="contained">
+          <Button onClick={handleCancelNavigation}>キャンセル</Button>
+          <Button
+            onClick={handleConfirmNavigation}
+            color='error'
+            variant='contained'
+          >
             離れる
           </Button>
         </DialogActions>
