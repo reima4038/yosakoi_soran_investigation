@@ -34,7 +34,7 @@ import { ErrorDisplay, LoadingDisplay, FeedbackSnackbar } from '../common';
 const SessionEditPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const { user, hasAnyRole } = useAuth();
+  const { user } = useAuth();
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -104,75 +104,34 @@ const SessionEditPage: React.FC = () => {
     try {
       setIsLoadingOptions(true);
       
-      // 実際のAPIエンドポイントに置き換える必要があります
-      // const [videosResponse, templatesResponse] = await Promise.all([
-      //   fetch('/api/videos'),
-      //   fetch('/api/templates')
-      // ]);
-      
-      // モックデータ（実際のAPIに置き換える）
-      const mockVideos: Video[] = [
-        {
-          id: 'video1',
-          youtubeId: 'dQw4w9WgXcQ',
-          title: '鳴子踊り - 伝統チーム',
-          channelName: 'よさこいチャンネル',
-          uploadDate: '2024-07-01',
-          description: '伝統的な鳴子踊りの演舞',
-          metadata: {
-            teamName: '伝統チーム',
-            performanceName: '鳴子踊り',
-            eventName: 'よさこい祭り',
-            year: 2024,
-          },
-          tags: ['よさこい', '鳴子踊り'],
-          thumbnailUrl: 'https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg',
-          createdAt: '2024-07-01T00:00:00Z',
-          createdBy: 'admin',
-        },
-        {
-          id: 'video2',
-          youtubeId: 'abc123def',
-          title: '現代風よさこい - 青春チーム',
-          channelName: 'よさこいチャンネル',
-          uploadDate: '2024-07-02',
-          description: '現代風アレンジのよさこい演舞',
-          metadata: {
-            teamName: '青春チーム',
-            performanceName: '現代風よさこい',
-            eventName: 'よさこい祭り',
-            year: 2024,
-          },
-          tags: ['よさこい', '現代風'],
-          thumbnailUrl: 'https://img.youtube.com/vi/abc123def/maxresdefault.jpg',
-          createdAt: '2024-07-02T00:00:00Z',
-          createdBy: 'admin',
-        },
-      ];
+      // 実際のAPIから動画とテンプレートの一覧を取得
+      const [videosData, templatesData] = await Promise.allSettled([
+        import('../../services/videoService').then(module => module.videoService.getVideos()),
+        import('../../services/templateService').then(module => module.templateService.getTemplates())
+      ]);
 
-      const mockTemplates: Template[] = [
-        {
-          id: 'template1',
-          name: '本祭評価テンプレート',
-          description: '本祭での演舞評価用の標準テンプレート',
-          createdAt: '2024-06-01T00:00:00Z',
-          creatorId: 'admin',
-          categories: [],
-        },
-        {
-          id: 'template2',
-          name: '地方車評価テンプレート',
-          description: '地方車での演舞評価用テンプレート',
-          createdAt: '2024-06-02T00:00:00Z',
-          creatorId: 'admin',
-          categories: [],
-        },
-      ];
+      // 動画データの処理
+      if (videosData.status === 'fulfilled') {
+        const videoList = Array.isArray(videosData.value) ? videosData.value : videosData.value.videos || [];
+        setVideos(videoList);
+      } else {
+        console.warn('動画一覧の取得に失敗しました:', videosData.reason);
+        setVideos([]);
+      }
 
-      setVideos(mockVideos);
-      setTemplates(mockTemplates);
+      // テンプレートデータの処理
+      if (templatesData.status === 'fulfilled') {
+        const templateList = Array.isArray(templatesData.value) ? templatesData.value : [];
+        setTemplates(templateList);
+      } else {
+        console.warn('テンプレート一覧の取得に失敗しました:', templatesData.reason);
+        setTemplates([]);
+      }
     } catch (error) {
-      
+      console.error('選択肢の取得に失敗しました:', error);
+      // エラーが発生してもフォームは表示する
+      setVideos([]);
+      setTemplates([]);
     } finally {
       setIsLoadingOptions(false);
     }
@@ -189,15 +148,39 @@ const SessionEditPage: React.FC = () => {
       // 権限チェック
       checkEditPermission(sessionData);
 
+      // 日付の安全な変換
+      const formatDateForInput = (date: string | Date | undefined | null) => {
+        if (!date) return '';
+        try {
+          const dateObj = typeof date === 'string' ? new Date(date) : date;
+          if (isNaN(dateObj.getTime())) return '';
+          return dateObj.toISOString().slice(0, 16);
+        } catch (error) {
+          console.warn('Date formatting error:', error);
+          return '';
+        }
+      };
+
+      // videoIdとtemplateIdの安全な取得
+      const getIdFromValue = (value: any) => {
+        if (typeof value === 'string') return value;
+        if (typeof value === 'object' && value?.id) return value.id;
+        return '';
+      };
+
       // フォームデータの初期化
       const initialFormData = {
-        name: sessionData.name,
-        description: sessionData.description,
-        startDate: new Date(sessionData.startDate).toISOString().slice(0, 16),
-        endDate: new Date(sessionData.endDate).toISOString().slice(0, 16),
-        videoId: sessionData.videoId,
-        templateId: sessionData.templateId,
-        settings: sessionData.settings,
+        name: sessionData.name || '',
+        description: sessionData.description || '',
+        startDate: formatDateForInput(sessionData.startDate),
+        endDate: formatDateForInput(sessionData.endDate),
+        videoId: getIdFromValue(sessionData.videoId),
+        templateId: getIdFromValue(sessionData.templateId),
+        settings: sessionData.settings || {
+          isAnonymous: false,
+          showResultsAfterSubmit: true,
+          allowComments: true,
+        },
       };
       
       setFormData(initialFormData);
@@ -345,11 +328,24 @@ const SessionEditPage: React.FC = () => {
       setError(null);
       setSuccessMessage(null);
 
+      // 日付の安全な変換
+      const parseDate = (dateString: string) => {
+        try {
+          const date = new Date(dateString);
+          if (isNaN(date.getTime())) {
+            throw new Error('Invalid date');
+          }
+          return date;
+        } catch (error) {
+          throw new Error(`日付の形式が正しくありません: ${dateString}`);
+        }
+      };
+
       const updateData = {
         name: formData.name.trim(),
         description: formData.description.trim(),
-        startDate: new Date(formData.startDate),
-        endDate: new Date(formData.endDate),
+        startDate: parseDate(formData.startDate),
+        endDate: parseDate(formData.endDate),
         videoId: formData.videoId,
         templateId: formData.templateId,
         settings: formData.settings,
@@ -579,11 +575,14 @@ const SessionEditPage: React.FC = () => {
                             src={option.thumbnailUrl}
                             alt={option.title}
                             style={{ width: 60, height: 34, objectFit: 'cover', borderRadius: 4 }}
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = '/placeholder-video.png';
+                            }}
                           />
                           <Box>
                             <Typography variant="body2">{option.title}</Typography>
                             <Typography variant="caption" color="text.secondary">
-                              {option.metadata.teamName}
+                              {option.metadata?.teamName || 'チーム名未設定'}
                             </Typography>
                           </Box>
                         </Box>
