@@ -199,6 +199,12 @@ router.get('/:id', authenticateToken, async (req: Request, res: Response) => {
       id: (session._id as mongoose.Types.ObjectId).toString()
     };
 
+    console.log('Session detail response:', {
+      sessionId: id,
+      settings: normalizedSession.settings,
+      hasSettings: !!normalizedSession.settings
+    });
+
     return res.json({
       status: 'success',
       data: normalizedSession

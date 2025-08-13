@@ -137,6 +137,11 @@ const SessionDetailPage: React.FC = () => {
       // まず基本的なセッション詳細を取得
       const sessionData = await sessionService.getSession(sessionId, true);
 
+      if (process.env.NODE_ENV === 'development') {
+        console.log('SessionDetailPage: Raw session data:', sessionData);
+        console.log('SessionDetailPage: Settings data:', sessionData?.settings);
+      }
+
       if (!sessionData) {
         setNotFound(true);
         setError({
@@ -167,11 +172,11 @@ const SessionDetailPage: React.FC = () => {
                 sessionData.templateId?.id
               ? sessionData.templateId.id
               : sessionData.templateId,
-        // 設定のデフォルト値を確保
-        settings: sessionData.settings || {
-          isAnonymous: false,
-          showResultsAfterSubmit: true,
-          allowComments: true,
+        // 設定のデフォルト値を確保（バックエンドとフロントエンドのフィールド名をマッピング）
+        settings: {
+          isAnonymous: sessionData.settings?.allowAnonymous || false,
+          showResultsAfterSubmit: sessionData.settings?.showRealTimeResults !== false,
+          allowComments: !sessionData.settings?.requireComments,
         },
         video: undefined,
         template: undefined,
@@ -329,6 +334,8 @@ const SessionDetailPage: React.FC = () => {
             typeof sessionData.templateId === 'string'
               ? sessionData.templateId
               : 'object',
+          rawSettings: sessionData.settings,
+          mappedSettings: sessionDetail.settings,
         });
       }
 
