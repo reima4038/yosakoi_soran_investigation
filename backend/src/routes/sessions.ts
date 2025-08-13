@@ -74,9 +74,15 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       .populate('templateId', 'name description')
       .populate('creatorId', 'username email profile.displayName');
 
+    // IDフィールドを正規化
+    const normalizedSession = {
+      ...populatedSession!.toObject(),
+      id: (populatedSession!._id as mongoose.Types.ObjectId).toString()
+    };
+
     return res.status(201).json({
       status: 'success',
-      data: populatedSession
+      data: normalizedSession
     });
 
   } catch (error) {
@@ -120,10 +126,16 @@ router.get('/', authenticateToken, async (req: Request, res: Response) => {
       Session.countDocuments(filter)
     ]);
 
+    // IDフィールドを正規化
+    const normalizedSessions = sessions.map(session => ({
+      ...session.toObject(),
+      id: (session._id as mongoose.Types.ObjectId).toString()
+    }));
+
     return res.json({
       status: 'success',
       data: {
-        sessions,
+        sessions: normalizedSessions,
         pagination: {
           page: Number(page),
           limit: Number(limit),
@@ -146,8 +158,10 @@ router.get('/', authenticateToken, async (req: Request, res: Response) => {
 router.get('/:id', authenticateToken, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    console.log('Session detail request:', { id, query: req.query });
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
+      console.log('Invalid session ID:', id);
       return res.status(400).json({
         status: 'error',
         message: '無効なセッションIDです'
@@ -179,9 +193,15 @@ router.get('/:id', authenticateToken, async (req: Request, res: Response) => {
       });
     }
 
+    // IDフィールドを正規化
+    const normalizedSession = {
+      ...session.toObject(),
+      id: (session._id as mongoose.Types.ObjectId).toString()
+    };
+
     return res.json({
       status: 'success',
-      data: session
+      data: normalizedSession
     });
 
   } catch (error) {
@@ -246,9 +266,15 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response) => {
       .populate('creatorId', 'username profile.displayName')
       .populate('evaluators', 'username profile.displayName');
 
+    // IDフィールドを正規化
+    const normalizedSession = {
+      ...updatedSession!.toObject(),
+      id: (updatedSession!._id as mongoose.Types.ObjectId).toString()
+    };
+
     return res.json({
       status: 'success',
-      data: updatedSession
+      data: normalizedSession
     });
 
   } catch (error) {
@@ -544,9 +570,15 @@ router.patch('/:id/status', authenticateToken, async (req: Request, res: Respons
       .populate('creatorId', 'username profile.displayName')
       .populate('evaluators', 'username profile.displayName');
 
+    // IDフィールドを正規化
+    const normalizedSession = {
+      ...updatedSession!.toObject(),
+      id: (updatedSession!._id as mongoose.Types.ObjectId).toString()
+    };
+
     return res.json({
       status: 'success',
-      data: updatedSession
+      data: normalizedSession
     });
 
   } catch (error) {

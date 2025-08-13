@@ -151,6 +151,8 @@ const SessionDetailPage: React.FC = () => {
       // セッション詳細オブジェクトを構築
       const sessionDetail: SessionDetail = {
         ...sessionData,
+        // IDフィールドを正規化
+        id: sessionData.id || sessionData._id,
         // videoIdとtemplateIdが文字列でない場合は文字列に変換
         videoId:
           typeof sessionData.videoId === 'string'

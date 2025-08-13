@@ -85,23 +85,27 @@ const SessionEditPage: React.FC = () => {
   // セッション詳細の取得
   useEffect(() => {
     if (id) {
+      console.log('SessionEditPage: Session ID from URL:', id);
       const loadData = async () => {
         try {
           // 選択肢とセッション情報を並行して取得
+          console.log('Attempting to fetch session with ID:', id);
           const [, sessionResult] = await Promise.allSettled([
             fetchOptions(),
-            sessionService.getSession(id),
+            sessionService.getSession(id, false), // includeDetailsをfalseに設定
           ]);
 
           // セッション情報の処理
           if (sessionResult.status === 'fulfilled') {
             const sessionData = sessionResult.value;
+            console.log('Session data loaded:', sessionData);
             setSession(sessionData);
             checkEditPermission(sessionData);
 
             // フォームデータの初期化は、テンプレートとビデオのデータが読み込まれた後に行う
             // useEffectで処理される
           } else {
+            console.error('Session loading failed:', sessionResult.reason);
             const errorInfo = handleSessionError(
               sessionResult.reason,
               '情報取得'
@@ -110,6 +114,10 @@ const SessionEditPage: React.FC = () => {
           }
         } catch (error) {
           console.error('Data loading error:', error);
+          if (error && typeof error === 'object' && 'response' in error) {
+            console.error('Error response:', (error as any).response?.data);
+            console.error('Error status:', (error as any).response?.status);
+          }
           const errorInfo = handleSessionError(error, '情報取得');
           setError(errorInfo);
         } finally {
@@ -129,8 +137,18 @@ const SessionEditPage: React.FC = () => {
         templatesCount: templates.length,
         videosCount: videos.length,
         currentFormData: formData,
+        sessionData: session
       });
-      initializeFormData(session);
+      try {
+        initializeFormData(session);
+      } catch (error) {
+        console.error('Error initializing form data:', error);
+        setError({
+          message: 'フォームデータの初期化に失敗しました。',
+          severity: 'error',
+          details: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
     }
   }, [templates, videos, session]);
 
@@ -234,17 +252,21 @@ const SessionEditPage: React.FC = () => {
 
   // フォームデータの初期化
   const initializeFormData = (sessionData: Session) => {
-    // 日付の安全な変換
-    const formatDateForInput = (date: string | Date | undefined | null) => {
-      if (!date) return '';
-      try {
-        const dateObj = typeof date === 'string' ? new Date(date) : date;
-        if (isNaN(dateObj.getTime())) return '';
-        return dateObj.toISOString().slice(0, 16);
-      } catch (error) {
-        return '';
-      }
-    };
+    try {
+      console.log('initializeFormData called with:', sessionData);
+      
+      // 日付の安全な変換
+      const formatDateForInput = (date: string | Date | undefined | null) => {
+        if (!date) return '';
+        try {
+          const dateObj = typeof date === 'string' ? new Date(date) : date;
+          if (isNaN(dateObj.getTime())) return '';
+          return dateObj.toISOString().slice(0, 16);
+        } catch (error) {
+          console.warn('Date formatting error:', error, 'for date:', date);
+          return '';
+        }
+      };
 
     // videoIdとtemplateIdの安全な取得
     const getIdFromValue = (value: any) => {
@@ -262,10 +284,10 @@ const SessionEditPage: React.FC = () => {
       endDate: formatDateForInput(sessionData.endDate),
       videoId: getIdFromValue(sessionData.videoId),
       templateId: getIdFromValue(sessionData.templateId),
-      settings: sessionData.settings || {
-        isAnonymous: false,
-        showResultsAfterSubmit: true,
-        allowComments: true,
+      settings: {
+        isAnonymous: sessionData.settings?.allowAnonymous || false,
+        showResultsAfterSubmit: sessionData.settings?.showRealTimeResults !== false,
+        allowComments: !sessionData.settings?.requireComments,
       },
     };
 
@@ -279,6 +301,37 @@ const SessionEditPage: React.FC = () => {
 
     // 開発環境でのデバッグ情報
     if (process.env.NODE_ENV === 'development') {
+      console.log('Form data initialized successfully:', {
+        sessionName: sessionData.name,
+        rawTemplateId: sessionData.templateId,
+        rawVideoId: sessionData.videoId,
+        extractedTemplateId: initialFormData.templateId,
+        extractedVideoId: initialFormData.videoId,
+        availableTemplates: templates.length,
+        availableVideos: videos.length,
+        templateFound: templates.find(t => t.id === initialFormData.templateId)
+          ? 'Yes'
+          : 'No',
+        videoFound: videos.find(v => v.id === initialFormData.videoId)
+          ? 'Yes'
+          : 'No',
+        templateStructure:
+          typeof sessionData.templateId === 'object'
+            ? Object.keys(sessionData.templateId)
+            : 'string',
+        videoStructure:
+          typeof sessionData.videoId === 'object'
+            ? Object.keys(sessionData.videoId)
+            : 'string',
+        templateIds: templates.map(t => t.id),
+        videoIds: videos.map(v => v.id),
+        templateMatch: templates.find(t => t.id === initialFormData.templateId),
+        videoMatch: videos.find(v => v.id === initialFormData.videoId),
+      });
+    }
+    } catch (error) {
+      console.error('Error in initializeFormData:', error);
+      throw error;
     }
   };
 

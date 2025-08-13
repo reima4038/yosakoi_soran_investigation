@@ -106,10 +106,16 @@ class SessionService {
         ? `${this.baseUrl}/${sessionId}?${queryParams.toString()}`
         : `${this.baseUrl}/${sessionId}`;
 
+      console.log('SessionService.getSession:', { sessionId, includeDetails, url });
       const response = await apiClient.get<{ status: string; data: Session }>(url);
+      console.log('SessionService.getSession response:', response.data);
       return response.data.data;
     } catch (error) {
       console.error('セッション詳細取得エラー:', error);
+      if (error && typeof error === 'object' && 'response' in error) {
+        console.error('Error response data:', (error as any).response?.data);
+        console.error('Error response status:', (error as any).response?.status);
+      }
       throw error;
     }
   }
