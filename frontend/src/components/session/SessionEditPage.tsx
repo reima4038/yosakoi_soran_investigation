@@ -31,6 +31,7 @@ import {
   createSuccessMessage,
   ErrorInfo,
 } from '../../utils/errorHandler';
+import { formatDateForInput, parseDateFromInput } from '../../utils/dateUtils';
 import { ErrorDisplay, LoadingDisplay, FeedbackSnackbar } from '../common';
 
 const SessionEditPage: React.FC = () => {
@@ -255,18 +256,7 @@ const SessionEditPage: React.FC = () => {
     try {
       console.log('initializeFormData called with:', sessionData);
       
-      // 日付の安全な変換
-      const formatDateForInput = (date: string | Date | undefined | null) => {
-        if (!date) return '';
-        try {
-          const dateObj = typeof date === 'string' ? new Date(date) : date;
-          if (isNaN(dateObj.getTime())) return '';
-          return dateObj.toISOString().slice(0, 16);
-        } catch (error) {
-          console.warn('Date formatting error:', error, 'for date:', date);
-          return '';
-        }
-      };
+      // 日付の安全な変換（JST基準）- ユーティリティ関数を使用
 
     // videoIdとtemplateIdの安全な取得
     const getIdFromValue = (value: any) => {
@@ -485,18 +475,9 @@ const SessionEditPage: React.FC = () => {
       setError(null);
       setSuccessMessage(null);
 
-      // 日付の安全な変換（空の場合はundefinedを返す）
+      // 日付の安全な変換（空の場合はundefinedを返す、JST基準）- ユーティリティ関数を使用
       const parseDate = (dateString: string) => {
-        if (!dateString) return undefined;
-        try {
-          const date = new Date(dateString);
-          if (isNaN(date.getTime())) {
-            throw new Error('Invalid date');
-          }
-          return date;
-        } catch (error) {
-          throw new Error(`日付の形式が正しくありません: ${dateString}`);
-        }
+        return parseDateFromInput(dateString);
       };
 
       const updateData = {

@@ -132,6 +132,11 @@ router.get('/', authenticateToken, async (req: Request, res: Response) => {
       id: (session._id as mongoose.Types.ObjectId).toString()
     }));
 
+    console.log('Session list response:', {
+      sessionCount: normalizedSessions.length,
+      sessionStatuses: normalizedSessions.map(s => ({ id: s.id, status: s.status }))
+    });
+
     return res.json({
       status: 'success',
       data: {

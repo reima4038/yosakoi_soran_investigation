@@ -30,6 +30,7 @@ import {
   sessionService,
   CreateSessionRequest,
 } from '../../services/sessionService';
+import { parseDateFromInput } from '../../utils/dateUtils';
 
 interface SessionCreationFormProps {
   onSessionCreated?: (session: Session) => void;
@@ -43,8 +44,8 @@ interface FormData {
   description: string;
   videoId: string;
   templateId: string;
-  startDate: Date | null;
-  endDate: Date | null;
+  startDate: string;
+  endDate: string;
   settings: {
     allowAnonymous: boolean;
     requireComments: boolean;
@@ -64,8 +65,8 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
     description: '',
     videoId: initialVideoId,
     templateId: initialTemplateId,
-    startDate: null,
-    endDate: null,
+    startDate: '',
+    endDate: '',
     settings: {
       allowAnonymous: false,
       requireComments: false,
@@ -217,12 +218,12 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
     if (!formData.templateId) {
       return '評価テンプレートを選択してください';
     }
-    if (
-      formData.startDate &&
-      formData.endDate &&
-      formData.startDate >= formData.endDate
-    ) {
-      return '終了日時は開始日時より後に設定してください';
+    if (formData.startDate && formData.endDate) {
+      const startDate = parseDateFromInput(formData.startDate);
+      const endDate = parseDateFromInput(formData.endDate);
+      if (startDate && endDate && startDate >= endDate) {
+        return '終了日時は開始日時より後に設定してください';
+      }
     }
     if (
       formData.settings.maxEvaluationsPerUser < 1 ||
@@ -251,8 +252,8 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
         description: formData.description.trim(),
         videoId: formData.videoId,
         templateId: formData.templateId,
-        startDate: formData.startDate || undefined,
-        endDate: formData.endDate || undefined,
+        startDate: parseDateFromInput(formData.startDate),
+        endDate: parseDateFromInput(formData.endDate),
         settings: formData.settings,
       };
 
@@ -480,16 +481,9 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
                 fullWidth
                 label='開始日時'
                 type='datetime-local'
-                value={
-                  formData.startDate
-                    ? formData.startDate.toISOString().slice(0, 16)
-                    : ''
-                }
+                value={formData.startDate}
                 onChange={e =>
-                  handleInputChange(
-                    'startDate',
-                    e.target.value ? new Date(e.target.value) : null
-                  )
+                  handleInputChange('startDate', e.target.value)
                 }
                 helperText='未設定の場合は即座に開始されます'
                 InputLabelProps={{
@@ -503,16 +497,9 @@ const SessionCreationForm: React.FC<SessionCreationFormProps> = ({
                 fullWidth
                 label='終了日時'
                 type='datetime-local'
-                value={
-                  formData.endDate
-                    ? formData.endDate.toISOString().slice(0, 16)
-                    : ''
-                }
+                value={formData.endDate}
                 onChange={e =>
-                  handleInputChange(
-                    'endDate',
-                    e.target.value ? new Date(e.target.value) : null
-                  )
+                  handleInputChange('endDate', e.target.value)
                 }
                 helperText='未設定の場合は手動で終了します'
                 InputLabelProps={{

@@ -39,6 +39,7 @@ import { videoService } from '../../services/videoService';
 import { templateService } from '../../services/templateService';
 import { Session, SessionStatus } from '../../types';
 import { handleSessionError, ErrorInfo } from '../../utils/errorHandler';
+import { formatDateForDisplay } from '../../utils/dateUtils';
 import { ErrorDisplay, LoadingDisplay } from '../common';
 
 interface TabPanelProps {
@@ -175,7 +176,8 @@ const SessionDetailPage: React.FC = () => {
         // 設定のデフォルト値を確保（バックエンドとフロントエンドのフィールド名をマッピング）
         settings: {
           isAnonymous: sessionData.settings?.allowAnonymous || false,
-          showResultsAfterSubmit: sessionData.settings?.showRealTimeResults !== false,
+          showResultsAfterSubmit:
+            sessionData.settings?.showRealTimeResults !== false,
           allowComments: !sessionData.settings?.requireComments,
         },
         video: undefined,
@@ -197,7 +199,7 @@ const SessionDetailPage: React.FC = () => {
         console.log('Video ID extraction:', {
           rawVideoId: sessionData.videoId,
           extractedVideoId: videoId,
-          videoIdType: typeof sessionData.videoId
+          videoIdType: typeof sessionData.videoId,
         });
       }
 
@@ -410,28 +412,9 @@ const SessionDetailPage: React.FC = () => {
     return Math.round((submittedCount / participants.length) * 100);
   };
 
-  // 日付フォーマット
+  // 日付フォーマット - ユーティリティ関数を使用
   const formatDate = (date: string | Date | undefined | null) => {
-    if (!date) return '未設定';
-
-    try {
-      const dateObj = typeof date === 'string' ? new Date(date) : date;
-
-      // 無効な日付の場合
-      if (isNaN(dateObj.getTime())) {
-        return '無効な日付';
-      }
-
-      return dateObj.toLocaleDateString('ja-JP', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch (error) {
-      return '日付エラー';
-    }
+    return formatDateForDisplay(date, true);
   };
 
   // タブ変更
@@ -453,6 +436,76 @@ const SessionDetailPage: React.FC = () => {
 
     return false;
   }, [user, session]);
+
+  // 状態変更ハンドラー
+  const handleStatusChange = async (newStatus: SessionStatus) => {
+    if (!session) return;
+
+    try {
+      setIsLoading(true);
+      await sessionService.updateSessionStatus(session.id, newStatus);
+
+      // セッション詳細を再取得
+      await fetchSessionDetail(session.id);
+
+      // 成功メッセージを表示（必要に応じて）
+      console.log(`セッション状態を${newStatus}に変更しました`);
+    } catch (error) {
+      console.error('Status update error:', error);
+      setError({
+        message: 'セッション状態の変更に失敗しました。',
+        severity: 'error',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 状態に応じたアクションボタンを取得
+  const getStatusActionButton = () => {
+    if (!canEdit || !session) return null;
+
+    switch (session.status) {
+      case SessionStatus.DRAFT:
+        return (
+          <Button
+            variant='contained'
+            color='primary'
+            startIcon={<PlayArrowIcon />}
+            onClick={() => handleStatusChange(SessionStatus.ACTIVE)}
+            disabled={isLoading}
+          >
+            セッション開始
+          </Button>
+        );
+      case SessionStatus.ACTIVE:
+        return (
+          <Button
+            variant='contained'
+            color='success'
+            startIcon={<CheckCircleIcon />}
+            onClick={() => handleStatusChange(SessionStatus.COMPLETED)}
+            disabled={isLoading}
+          >
+            セッション完了
+          </Button>
+        );
+      case SessionStatus.COMPLETED:
+        return (
+          <Button
+            variant='outlined'
+            startIcon={<SettingsIcon />}
+            onClick={() => handleStatusChange(SessionStatus.ARCHIVED)}
+            disabled={isLoading}
+          >
+            アーカイブ
+          </Button>
+        );
+      default:
+        return null;
+    }
+  };
 
   if (isLoading) {
     return (
@@ -545,15 +598,18 @@ const SessionDetailPage: React.FC = () => {
             </Typography>
           </Box>
         </Box>
-        {canEdit && (
-          <Button
-            variant='outlined'
-            startIcon={<EditIcon />}
-            onClick={() => navigate(`/sessions/${session.id}/edit`)}
-          >
-            編集
-          </Button>
-        )}
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          {getStatusActionButton()}
+          {canEdit && (
+            <Button
+              variant='outlined'
+              startIcon={<EditIcon />}
+              onClick={() => navigate(`/sessions/${session.id}/edit`)}
+            >
+              編集
+            </Button>
+          )}
+        </Box>
       </Box>
 
       {/* 基本情報カード */}
@@ -682,13 +738,8 @@ const SessionDetailPage: React.FC = () => {
                         onClick={() => {
                           const videoId = session.video?.id || session.videoId;
                           if (videoId) {
-                            console.log('Navigating to video:', videoId);
                             navigate(`/videos/${videoId}`);
                           } else {
-                            console.error('Video ID not found:', {
-                              sessionVideo: session.video,
-                              sessionVideoId: session.videoId
-                            });
                           }
                         }}
                         fullWidth

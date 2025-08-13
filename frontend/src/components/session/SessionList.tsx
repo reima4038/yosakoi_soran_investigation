@@ -92,6 +92,15 @@ const SessionList: React.FC = () => {
     // 提出数の計算
     const submittedCount = participantList.filter(p => p.hasSubmitted).length;
 
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Session data conversion:', {
+        sessionId: session._id || session.id,
+        sessionName: session.name,
+        rawStatus: session.status,
+        statusType: typeof session.status
+      });
+    }
+
     return {
       id: session._id || session.id || 'unknown',
       name: session.name || 'Untitled Session',
