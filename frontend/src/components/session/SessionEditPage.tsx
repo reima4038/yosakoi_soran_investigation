@@ -272,6 +272,10 @@ const SessionEditPage: React.FC = () => {
     setFormData(initialFormData);
     setOriginalData(initialFormData);
     setHasUnsavedChanges(false);
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('originalData set to:', initialFormData);
+    }
 
     // 開発環境でのデバッグ情報
     if (process.env.NODE_ENV === 'development') {
@@ -319,15 +323,7 @@ const SessionEditPage: React.FC = () => {
       errors.name = 'セッション名は3文字以上で入力してください';
     }
 
-    // 日付の検証
-    if (!formData.startDate) {
-      errors.startDate = '開始日時は必須です';
-    }
-
-    if (!formData.endDate) {
-      errors.endDate = '終了日時は必須です';
-    }
-
+    // 日付の検証（両方が入力されている場合のみチェック）
     if (formData.startDate && formData.endDate) {
       const startDate = new Date(formData.startDate);
       const endDate = new Date(formData.endDate);
@@ -352,9 +348,26 @@ const SessionEditPage: React.FC = () => {
 
   // 変更検知
   const checkForChanges = (newFormData: any) => {
-    if (!originalData) return false;
+    if (!originalData) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('checkForChanges: originalData is null');
+      }
+      return false;
+    }
 
-    return JSON.stringify(newFormData) !== JSON.stringify(originalData);
+    const hasChanges = JSON.stringify(newFormData) !== JSON.stringify(originalData);
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('checkForChanges:', {
+        hasChanges,
+        newFormData,
+        originalData,
+        newFormDataStr: JSON.stringify(newFormData),
+        originalDataStr: JSON.stringify(originalData)
+      });
+    }
+
+    return hasChanges;
   };
 
   // フォーム入力の処理
@@ -365,7 +378,18 @@ const SessionEditPage: React.FC = () => {
     };
 
     setFormData(newFormData);
-    setHasUnsavedChanges(checkForChanges(newFormData));
+    const hasChanges = checkForChanges(newFormData);
+    setHasUnsavedChanges(hasChanges);
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('handleInputChange:', {
+        field,
+        value,
+        hasChanges,
+        newFormData,
+        originalData
+      });
+    }
 
     // リアルタイムバリデーション
     if (validationErrors[field as keyof typeof validationErrors]) {
@@ -408,8 +432,9 @@ const SessionEditPage: React.FC = () => {
       setError(null);
       setSuccessMessage(null);
 
-      // 日付の安全な変換
+      // 日付の安全な変換（空の場合はundefinedを返す）
       const parseDate = (dateString: string) => {
+        if (!dateString) return undefined;
         try {
           const date = new Date(dateString);
           if (isNaN(date.getTime())) {
@@ -599,7 +624,7 @@ const SessionEditPage: React.FC = () => {
                 <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
-                    label='開始日時'
+                    label='開始日時（任意）'
                     type='datetime-local'
                     value={formData.startDate}
                     onChange={e =>
@@ -609,13 +634,13 @@ const SessionEditPage: React.FC = () => {
                       shrink: true,
                     }}
                     error={!!validationErrors.startDate}
-                    helperText={validationErrors.startDate}
+                    helperText={validationErrors.startDate || '評価期間の開始日時を設定できます'}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
-                    label='終了日時'
+                    label='終了日時（任意）'
                     type='datetime-local'
                     value={formData.endDate}
                     onChange={e => handleInputChange('endDate', e.target.value)}
@@ -623,7 +648,7 @@ const SessionEditPage: React.FC = () => {
                       shrink: true,
                     }}
                     error={!!validationErrors.endDate}
-                    helperText={validationErrors.endDate}
+                    helperText={validationErrors.endDate || '評価期間の終了日時を設定できます'}
                   />
                 </Grid>
               </Grid>
@@ -881,15 +906,40 @@ const SessionEditPage: React.FC = () => {
             )
           }
           onClick={handleSave}
-          disabled={
-            isSaving ||
-            !hasUnsavedChanges ||
-            !formData.name.trim() ||
-            !formData.startDate ||
-            !formData.endDate ||
-            !formData.videoId ||
-            !formData.templateId
-          }
+          disabled={(() => {
+            const conditions = {
+              isSaving,
+              hasUnsavedChanges,
+              hasName: !!formData.name.trim(),
+              hasVideoId: !!formData.videoId,
+              hasTemplateId: !!formData.templateId,
+              // 日付は任意項目
+              hasStartDate: !!formData.startDate,
+              hasEndDate: !!formData.endDate
+            };
+            
+            const isDisabled = isSaving ||
+              !hasUnsavedChanges ||
+              !formData.name.trim() ||
+              !formData.videoId ||
+              !formData.templateId;
+            
+            if (process.env.NODE_ENV === 'development') {
+              console.log('Save button state:', {
+                ...conditions,
+                isDisabled,
+                formData: {
+                  name: formData.name,
+                  startDate: formData.startDate,
+                  endDate: formData.endDate,
+                  videoId: formData.videoId,
+                  templateId: formData.templateId
+                }
+              });
+            }
+            
+            return isDisabled;
+          })()}
         >
           {isSaving
             ? '保存中...'
