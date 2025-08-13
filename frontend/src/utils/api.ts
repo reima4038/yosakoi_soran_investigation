@@ -15,7 +15,15 @@ export const apiClient = axios.create({
 apiClient.interceptors.request.use(
   config => {
     const token = localStorage.getItem('authToken');
-    console.log('API Request:', config.method?.toUpperCase(), config.url, 'Token:', token ? 'exists' : 'none');
+    console.log('API Request Details:', {
+      method: config.method?.toUpperCase(),
+      url: config.url,
+      baseURL: config.baseURL,
+      fullURL: `${config.baseURL}${config.url}`,
+      data: config.data,
+      headers: config.headers,
+      hasToken: !!token
+    });
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -30,11 +38,27 @@ apiClient.interceptors.request.use(
 // Response interceptor for error handling
 apiClient.interceptors.response.use(
   response => {
-    console.log('API Response:', response.status, response.config.url);
+    console.log('API Response Success:', {
+      status: response.status,
+      url: response.config.url,
+      method: response.config.method?.toUpperCase(),
+      data: response.data
+    });
     return response;
   },
   error => {
-    console.error('API Response Error:', error.response?.status, error.response?.data, error.config?.url);
+    console.error('API Response Error Details:', {
+      message: error.message,
+      code: error.code,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      url: error.config?.url,
+      method: error.config?.method?.toUpperCase(),
+      baseURL: error.config?.baseURL,
+      fullURL: error.config ? `${error.config.baseURL}${error.config.url}` : 'unknown'
+    });
+    
     if (error.response?.status === 401) {
       // Handle unauthorized access
       localStorage.removeItem('authToken');

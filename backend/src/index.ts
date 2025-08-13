@@ -13,7 +13,8 @@ const PORT = config.port;
 
 // Database connection (skip in test environment)
 if (process.env.NODE_ENV !== 'test') {
-  mongoose.connect(config.mongoUri)
+  mongoose
+    .connect(config.mongoUri)
     .then(() => {
       console.log('Connected to MongoDB');
     })
@@ -45,17 +46,34 @@ if (process.env.NODE_ENV !== 'test') {
     //   next();
     // });
   } catch (error) {
-    console.warn('Security configuration not loaded:', error instanceof Error ? error.message : String(error));
+    console.warn(
+      'Security configuration not loaded:',
+      error instanceof Error ? error.message : String(error)
+    );
   }
 }
 
 // CORS configuration
-app.use(cors({
-  origin: process.env.NODE_ENV === 'development' ? true : config.frontendUrl,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
+app.use(
+  cors({
+    origin: process.env.NODE_ENV === 'development' ? true : config.frontendUrl,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+);
+
+// Request logging middleware
+app.use((req, _res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`, {
+    body: req.body,
+    headers: {
+      authorization: req.headers.authorization ? 'Bearer [token]' : 'none',
+      'content-type': req.headers['content-type'],
+    },
+  });
+  next();
+});
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
@@ -70,20 +88,27 @@ app.get('/health', (_req, res) => {
 app.use('/api', routes);
 
 // Error handling middleware
-app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error(err.stack);
-  res.status(500).json({ 
-    status: 'error',
-    message: 'Internal server error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
-});
+app.use(
+  (
+    err: Error,
+    _req: express.Request,
+    res: express.Response,
+    _next: express.NextFunction
+  ) => {
+    console.error(err.stack);
+    res.status(500).json({
+      status: 'error',
+      message: 'Internal server error',
+      ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+    });
+  }
+);
 
 // 404 handler
 app.use('*', (_req, res) => {
-  res.status(404).json({ 
+  res.status(404).json({
     status: 'error',
-    message: 'Route not found' 
+    message: 'Route not found',
   });
 });
 

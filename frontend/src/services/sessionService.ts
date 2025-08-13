@@ -174,9 +174,29 @@ class SessionService {
     status: SessionStatus
   ): Promise<Session> {
     try {
-      return await this.updateSession(sessionId, { status } as any);
+      const url = `${this.baseUrl}/${sessionId}/status`;
+      const payload = { status };
+      
+      console.log('SessionService.updateSessionStatus:', {
+        url,
+        payload,
+        sessionId,
+        status
+      });
+      
+      const response = await apiClient.patch<{ status: string; data: Session }>(
+        url,
+        payload
+      );
+      
+      console.log('SessionService.updateSessionStatus response:', response.data);
+      return response.data.data;
     } catch (error) {
       console.error('セッションステータス更新エラー:', error);
+      if (error && typeof error === 'object' && 'response' in error) {
+        console.error('Error response:', (error as any).response?.data);
+        console.error('Error status:', (error as any).response?.status);
+      }
       throw error;
     }
   }

@@ -525,6 +525,12 @@ router.patch('/:id/status', authenticateToken, async (req: Request, res: Respons
   try {
     const { id } = req.params;
     const { status } = req.body;
+    
+    console.log('Session status update request:', {
+      sessionId: id,
+      newStatus: status,
+      userId: req.user?.userId
+    });
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
@@ -573,15 +579,21 @@ router.patch('/:id/status', authenticateToken, async (req: Request, res: Respons
 
     // アクティブにする場合の追加チェック
     if (status === SessionStatus.ACTIVE) {
-      if (!session.startDate) {
-        session.startDate = new Date(Date.now() + 1000); // 1秒後に設定
+      const now = new Date();
+      
+      // 開始日時が設定されていない、または過去の場合は現在時刻に設定
+      if (!session.startDate || session.startDate < now) {
+        session.startDate = new Date(now.getTime() + 1000); // 1秒後に設定
+        console.log(`セッション ${id} の開始日時を現在時刻に更新しました:`, session.startDate);
       }
-      if (session.evaluators.length === 0) {
-        return res.status(400).json({
-          status: 'error',
-          message: 'アクティブにするには少なくとも1人の評価者が必要です'
-        });
-      }
+      
+      // 評価者のチェックは一旦コメントアウト（必要に応じて後で有効化）
+      // if (session.evaluators.length === 0) {
+      //   return res.status(400).json({
+      //     status: 'error',
+      //     message: 'アクティブにするには少なくとも1人の評価者が必要です'
+      //   });
+      // }
     }
 
     // 完了にする場合の処理
@@ -590,7 +602,24 @@ router.patch('/:id/status', authenticateToken, async (req: Request, res: Respons
     }
 
     session.status = status;
-    await session.save();
+    
+    try {
+      await session.save();
+    } catch (saveError: any) {
+      console.error('セッション保存エラー:', saveError);
+      
+      // バリデーションエラーの場合
+      if (saveError.name === 'ValidationError') {
+        const validationErrors = Object.values(saveError.errors).map((err: any) => err.message);
+        return res.status(400).json({
+          status: 'error',
+          message: 'セッションの保存に失敗しました',
+          details: validationErrors.join(', ')
+        });
+      }
+      
+      throw saveError; // その他のエラーは上位に投げる
+    }
 
     const updatedSession = await Session.findById(id)
       .populate('videoId', 'title youtubeId thumbnailUrl')
@@ -611,9 +640,15 @@ router.patch('/:id/status', authenticateToken, async (req: Request, res: Respons
 
   } catch (error) {
     console.error('セッションステータス更新エラー:', error);
+    console.error('Error details:', {
+      name: (error as any)?.name,
+      message: (error as any)?.message,
+      stack: (error as any)?.stack
+    });
     return res.status(500).json({
       status: 'error',
-      message: 'セッションステータスの更新に失敗しました'
+      message: 'セッションステータスの更新に失敗しました',
+      details: (error as any)?.message || 'Unknown error'
     });
   }
 });

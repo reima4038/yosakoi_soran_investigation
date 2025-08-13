@@ -11,15 +11,19 @@ const JST_OFFSET_MINUTES = 9 * 60;
  * @param date UTC日付（Date | string | null | undefined）
  * @returns datetime-local形式の文字列（YYYY-MM-DDTHH:mm）
  */
-export const formatDateForInput = (date: string | Date | undefined | null): string => {
+export const formatDateForInput = (
+  date: string | Date | undefined | null
+): string => {
   if (!date) return '';
-  
+
   try {
     const dateObj = typeof date === 'string' ? new Date(date) : date;
     if (isNaN(dateObj.getTime())) return '';
-    
+
     // UTC時間をJSTに変換
-    const jstDate = new Date(dateObj.getTime() + JST_OFFSET_MINUTES * 60 * 1000);
+    const jstDate = new Date(
+      dateObj.getTime() + JST_OFFSET_MINUTES * 60 * 1000
+    );
     return jstDate.toISOString().slice(0, 16);
   } catch (error) {
     console.warn('Date formatting error:', error, 'for date:', date);
@@ -34,16 +38,18 @@ export const formatDateForInput = (date: string | Date | undefined | null): stri
  */
 export const parseDateFromInput = (dateString: string): Date | undefined => {
   if (!dateString) return undefined;
-  
+
   try {
     // datetime-local入力はローカル時間として解釈される
     const localDate = new Date(dateString);
     if (isNaN(localDate.getTime())) {
       throw new Error('Invalid date');
     }
-    
+
     // JSTからUTCに変換
-    const utcDate = new Date(localDate.getTime() - JST_OFFSET_MINUTES * 60 * 1000);
+    const utcDate = new Date(
+      localDate.getTime() - JST_OFFSET_MINUTES * 60 * 1000
+    );
     return utcDate;
   } catch (error) {
     throw new Error(`日付の形式が正しくありません: ${dateString}`);

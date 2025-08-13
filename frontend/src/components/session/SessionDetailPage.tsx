@@ -441,21 +441,42 @@ const SessionDetailPage: React.FC = () => {
   const handleStatusChange = async (newStatus: SessionStatus) => {
     if (!session) return;
 
+    console.log('Status change requested:', {
+      sessionId: session.id,
+      currentStatus: session.status,
+      newStatus: newStatus
+    });
+
     try {
       setIsLoading(true);
-      await sessionService.updateSessionStatus(session.id, newStatus);
+      console.log('Calling sessionService.updateSessionStatus...');
+      const updatedSession = await sessionService.updateSessionStatus(session.id, newStatus);
+      console.log('Status update successful:', updatedSession);
 
       // セッション詳細を再取得
+      console.log('Refetching session details...');
       await fetchSessionDetail(session.id);
 
       // 成功メッセージを表示（必要に応じて）
       console.log(`セッション状態を${newStatus}に変更しました`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Status update error:', error);
+      
+      
+      let errorMessage = 'セッション状態の変更に失敗しました。';
+      let errorDetails = 'Unknown error';
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+        errorDetails = error.response.data.details || error.response.data.message;
+      } else if (error.message) {
+        errorDetails = error.message;
+      }
+      
       setError({
-        message: 'セッション状態の変更に失敗しました。',
+        message: errorMessage,
         severity: 'error',
-        details: error instanceof Error ? error.message : 'Unknown error',
+        details: errorDetails,
       });
     } finally {
       setIsLoading(false);
