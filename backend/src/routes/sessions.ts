@@ -193,16 +193,33 @@ router.get('/:id', authenticateToken, async (req: Request, res: Response) => {
       });
     }
 
-    // IDフィールドを正規化
+    // IDフィールドを正規化（populateされたオブジェクトも含む）
+    const sessionObj = session.toObject();
     const normalizedSession = {
-      ...session.toObject(),
-      id: (session._id as mongoose.Types.ObjectId).toString()
+      ...sessionObj,
+      id: (session._id as mongoose.Types.ObjectId).toString(),
+      // populateされた動画オブジェクトのIDも正規化
+      videoId: sessionObj.videoId && typeof sessionObj.videoId === 'object' 
+        ? {
+            ...sessionObj.videoId,
+            id: sessionObj.videoId._id?.toString() || sessionObj.videoId.id
+          }
+        : sessionObj.videoId,
+      // populateされたテンプレートオブジェクトのIDも正規化
+      templateId: sessionObj.templateId && typeof sessionObj.templateId === 'object'
+        ? {
+            ...sessionObj.templateId,
+            id: sessionObj.templateId._id?.toString() || sessionObj.templateId.id
+          }
+        : sessionObj.templateId
     };
 
     console.log('Session detail response:', {
       sessionId: id,
       settings: normalizedSession.settings,
-      hasSettings: !!normalizedSession.settings
+      hasSettings: !!normalizedSession.settings,
+      videoId: normalizedSession.videoId,
+      templateId: normalizedSession.templateId
     });
 
     return res.json({

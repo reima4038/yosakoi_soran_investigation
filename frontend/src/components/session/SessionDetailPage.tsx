@@ -189,16 +189,24 @@ const SessionDetailPage: React.FC = () => {
       const videoId =
         typeof sessionData.videoId === 'string'
           ? sessionData.videoId
-          : typeof sessionData.videoId === 'object' && sessionData.videoId?.id
-            ? sessionData.videoId.id
+          : typeof sessionData.videoId === 'object' && sessionData.videoId
+            ? sessionData.videoId.id || sessionData.videoId._id
             : null;
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Video ID extraction:', {
+          rawVideoId: sessionData.videoId,
+          extractedVideoId: videoId,
+          videoIdType: typeof sessionData.videoId
+        });
+      }
 
       if (videoId) {
         try {
           const videoData = await videoService.getVideo(videoId);
           if (videoData) {
             sessionDetail.video = {
-              id: videoData.id,
+              id: videoData.id || videoData._id,
               title: videoData.title,
               youtubeId: videoData.youtubeId,
               thumbnailUrl: videoData.thumbnailUrl,
@@ -216,7 +224,7 @@ const SessionDetailPage: React.FC = () => {
         // videoIdがオブジェクトの場合、直接動画情報として使用
         const videoObj = sessionData.videoId as any;
         sessionDetail.video = {
-          id: videoObj.id,
+          id: videoObj.id || videoObj._id,
           title: videoObj.title,
           youtubeId: videoObj.youtubeId,
           thumbnailUrl: videoObj.thumbnailUrl,
@@ -671,10 +679,18 @@ const SessionDetailPage: React.FC = () => {
                       <Button
                         variant='outlined'
                         startIcon={<PlayArrowIcon />}
-                        onClick={() =>
-                          session.video &&
-                          navigate(`/videos/${session.video.id}`)
-                        }
+                        onClick={() => {
+                          const videoId = session.video?.id || session.videoId;
+                          if (videoId) {
+                            console.log('Navigating to video:', videoId);
+                            navigate(`/videos/${videoId}`);
+                          } else {
+                            console.error('Video ID not found:', {
+                              sessionVideo: session.video,
+                              sessionVideoId: session.videoId
+                            });
+                          }
+                        }}
                         fullWidth
                       >
                         動画を表示
