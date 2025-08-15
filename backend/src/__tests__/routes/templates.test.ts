@@ -259,4 +259,150 @@ describe('Template Routes', () => {
       expect(response.body.message).toContain('無効');
     });
   });
+
+  describe('POST /api/templates/:id/duplicate', () => {
+    let templateId: string;
+
+    beforeEach(async () => {
+      // テスト用テンプレートを作成
+      const template = new Template({
+        name: 'オリジナルテンプレート',
+        description: '複製テスト用のテンプレートです',
+        creatorId: userId,
+        isPublic: true,
+        categories: [
+          {
+            id: 'cat1',
+            name: 'カテゴリ1',
+            description: 'カテゴリ1の説明',
+            weight: 1.0,
+            criteria: [
+              {
+                id: 'crit1',
+                name: '評価基準1',
+                description: '評価基準1の説明',
+                type: 'scale',
+                minValue: 1,
+                maxValue: 5,
+                weight: 1.0,
+              },
+            ],
+          },
+        ],
+      });
+      const savedTemplate = await template.save();
+      templateId = String(savedTemplate._id);
+    });
+
+    it('should duplicate template successfully', async () => {
+      const response = await request(app)
+        .post(`/api/templates/${templateId}/duplicate`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(201);
+
+      expect(response.body.status).toBe('success');
+      expect(response.body.data.name).toBe('オリジナルテンプレート (コピー)');
+      expect(response.body.data.description).toBe('複製テスト用のテンプレートです');
+      expect(response.body.data.creatorId._id).toBe(userId);
+      expect(response.body.data._id).not.toBe(templateId);
+      expect(response.body.message).toContain('複製されました');
+
+      // データベースに実際に保存されているか確認
+      const duplicatedTemplate = await Template.findById(response.body.data._id);
+      expect(duplicatedTemplate).toBeTruthy();
+      expect(duplicatedTemplate!.name).toBe('オリジナルテンプレート (コピー)');
+    });
+
+    it('should handle duplicate names correctly', async () => {
+      // 最初の複製
+      await request(app)
+        .post(`/api/templates/${templateId}/duplicate`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(201);
+
+      // 2回目の複製
+      const response = await request(app)
+        .post(`/api/templates/${templateId}/duplicate`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(201);
+
+      expect(response.body.data.name).toBe('オリジナルテンプレート (コピー2)');
+    });
+
+    it('should return 404 for non-existent template', async () => {
+      const nonExistentId = new mongoose.Types.ObjectId().toString();
+      const response = await request(app)
+        .post(`/api/templates/${nonExistentId}/duplicate`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(404);
+
+      expect(response.body.status).toBe('error');
+      expect(response.body.message).toContain('見つかりません');
+    });
+
+    it('should return 400 for invalid template id', async () => {
+      const response = await request(app)
+        .post('/api/templates/invalid-id/duplicate')
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(400);
+
+      expect(response.body.status).toBe('error');
+      expect(response.body.message).toContain('無効');
+    });
+
+    it('should return 401 without authentication', async () => {
+      const response = await request(app)
+        .post(`/api/templates/${templateId}/duplicate`)
+        .expect(401);
+
+      expect(response.body.status).toBe('error');
+    });
+
+    it('should return 403 for private template of another user', async () => {
+      // 別のユーザーを作成
+      const otherUser = new User({
+        username: 'otheruser',
+        email: 'other@example.com',
+        passwordHash: 'hashedpassword',
+        role: 'user',
+      });
+      const savedOtherUser = await otherUser.save();
+
+      // 非公開テンプレートを作成
+      const privateTemplate = new Template({
+        name: '非公開テンプレート',
+        description: '非公開テスト用のテンプレートです',
+        creatorId: savedOtherUser._id,
+        isPublic: false,
+        categories: [
+          {
+            id: 'cat1',
+            name: 'カテゴリ1',
+            description: 'カテゴリ1の説明',
+            weight: 1.0,
+            criteria: [
+              {
+                id: 'crit1',
+                name: '評価基準1',
+                description: '評価基準1の説明',
+                type: 'scale',
+                minValue: 1,
+                maxValue: 5,
+                weight: 1.0,
+              },
+            ],
+          },
+        ],
+      });
+      const savedPrivateTemplate = await privateTemplate.save();
+
+      const response = await request(app)
+        .post(`/api/templates/${savedPrivateTemplate._id}/duplicate`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(403);
+
+      expect(response.body.status).toBe('error');
+      expect(response.body.message).toContain('権限がありません');
+    });
+  });
 });

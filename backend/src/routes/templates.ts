@@ -463,8 +463,18 @@ router.post('/:id/duplicate', authenticateToken, async (req: Request, res: Respo
       return;
     }
 
+    // 複製時の名前変更ロジック - 既存の複製名との重複を避ける
+    let duplicatedName = `${originalTemplate.name} (コピー)`;
+    let counter = 1;
+    
+    // 同じ名前のテンプレートが既に存在するかチェック
+    while (await Template.findOne({ name: duplicatedName, creatorId: userId })) {
+      counter++;
+      duplicatedName = `${originalTemplate.name} (コピー${counter})`;
+    }
+
     const duplicatedTemplate = new Template({
-      name: `${originalTemplate.name} (コピー)`,
+      name: duplicatedName,
       description: originalTemplate.description,
       creatorId: userId,
       categories: originalTemplate.categories,
@@ -472,6 +482,7 @@ router.post('/:id/duplicate', authenticateToken, async (req: Request, res: Respo
       isPublic: originalTemplate.isPublic
     });
 
+    // 永続化処理の実行
     await duplicatedTemplate.save();
 
     const populatedTemplate = await Template.findById(duplicatedTemplate._id)
@@ -490,6 +501,36 @@ router.post('/:id/duplicate', authenticateToken, async (req: Request, res: Respo
     });
   } catch (error: any) {
     console.error('Template duplication error:', error);
+    
+    // Mongooseバリデーションエラーの場合
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map((err: unknown) => err.message);
+      res.status(400).json({
+        status: 'error',
+        message: '複製されたテンプレートのデータが無効です',
+        errors: validationErrors
+      });
+      return;
+    }
+    
+    // 重複エラーの場合
+    if (error.code === 11000) {
+      res.status(409).json({
+        status: 'error',
+        message: 'テンプレート名が重複しています。再試行してください。'
+      });
+      return;
+    }
+    
+    // データベース接続エラーの場合
+    if (error.name === 'MongoNetworkError' || error.name === 'MongoTimeoutError') {
+      res.status(503).json({
+        status: 'error',
+        message: 'データベース接続エラーが発生しました。しばらく待ってから再試行してください。'
+      });
+      return;
+    }
+    
     res.status(500).json({
       status: 'error',
       message: 'テンプレートの複製に失敗しました'
