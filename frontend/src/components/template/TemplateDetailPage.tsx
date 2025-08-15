@@ -39,9 +39,12 @@ import {
   Visibility as VisibilityIcon,
   Save as SaveIcon,
   Cancel as CancelIcon,
+  Public as PublicIcon,
+  Lock as LockIcon,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth, UserRole } from '../../contexts/AuthContext';
+import { templateService, Template } from '../../services/templateService';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -114,8 +117,7 @@ const TemplateDetailPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [tabValue, setTabValue] = useState(0);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedTemplate, setEditedTemplate] = useState<TemplateDetail | null>(null);
+
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
 
   // テンプレート詳細の取得
@@ -128,157 +130,51 @@ const TemplateDetailPage: React.FC = () => {
   const fetchTemplateDetail = async (templateId: string) => {
     try {
       setIsLoading(true);
-      // TODO: API呼び出し
-      // const response = await apiClient.get(`/api/templates/${templateId}`);
-      // setTemplate(response.data);
-
-      // モックデータ
-      const mockTemplate: TemplateDetail = {
-        id: templateId,
-        name: '本祭評価テンプレート',
-        description: '本祭での演舞評価用の標準テンプレート。技術面、表現力、構成などを総合的に評価します。',
-        isDefault: true,
-        isPublic: true,
-        categories: [
-          {
-            id: 'cat1',
-            name: '技術面',
-            description: '演舞の技術的な完成度を評価',
-            weight: 30,
-            criteria: [
-              {
-                id: 'crit1',
-                name: '基本動作の正確性',
-                description: 'よさこいの基本動作が正確に実行されているか',
-                weight: 40,
-                minScore: 1,
-                maxScore: 5,
-                isRequired: true,
-              },
-              {
-                id: 'crit2',
-                name: '鳴子の扱い',
-                description: '鳴子を効果的に使用できているか',
-                weight: 30,
-                minScore: 1,
-                maxScore: 5,
-                isRequired: true,
-              },
-              {
-                id: 'crit3',
-                name: '隊形変化',
-                description: '隊形変化がスムーズで効果的か',
-                weight: 30,
-                minScore: 1,
-                maxScore: 5,
-                isRequired: false,
-              },
-            ],
-          },
-          {
-            id: 'cat2',
-            name: '表現力',
-            description: '演舞の表現力と感情の伝達を評価',
-            weight: 25,
-            criteria: [
-              {
-                id: 'crit4',
-                name: '表情・感情表現',
-                description: '豊かな表情で感情を表現できているか',
-                weight: 50,
-                minScore: 1,
-                maxScore: 5,
-                isRequired: true,
-              },
-              {
-                id: 'crit5',
-                name: '観客との一体感',
-                description: '観客を巻き込む力があるか',
-                weight: 50,
-                minScore: 1,
-                maxScore: 5,
-                isRequired: false,
-              },
-            ],
-          },
-          {
-            id: 'cat3',
-            name: '構成・演出',
-            description: '演舞の構成と演出の完成度を評価',
-            weight: 25,
-            criteria: [
-              {
-                id: 'crit6',
-                name: '楽曲との調和',
-                description: '楽曲と演舞が調和しているか',
-                weight: 40,
-                minScore: 1,
-                maxScore: 5,
-                isRequired: true,
-              },
-              {
-                id: 'crit7',
-                name: '衣装・小道具',
-                description: '衣装や小道具が効果的に使用されているか',
-                weight: 30,
-                minScore: 1,
-                maxScore: 5,
-                isRequired: false,
-              },
-              {
-                id: 'crit8',
-                name: 'ストーリー性',
-                description: '演舞にストーリー性があるか',
-                weight: 30,
-                minScore: 1,
-                maxScore: 5,
-                isRequired: false,
-              },
-            ],
-          },
-          {
-            id: 'cat4',
-            name: '総合評価',
-            description: '全体的な印象と完成度を評価',
-            weight: 20,
-            criteria: [
-              {
-                id: 'crit9',
-                name: '全体の完成度',
-                description: '演舞全体の完成度はどうか',
-                weight: 60,
-                minScore: 1,
-                maxScore: 5,
-                isRequired: true,
-              },
-              {
-                id: 'crit10',
-                name: '独創性',
-                description: '独創的で印象に残る演舞か',
-                weight: 40,
-                minScore: 1,
-                maxScore: 5,
-                isRequired: false,
-              },
-            ],
-          },
-        ],
+      setError('');
+      
+      console.log('Fetching template detail:', templateId);
+      const apiTemplate = await templateService.getTemplate(templateId);
+      console.log('Template detail loaded:', apiTemplate);
+      
+      // APIデータを表示用に変換
+      const templateDetail: TemplateDetail = {
+        id: apiTemplate.id,
+        name: apiTemplate.name,
+        description: apiTemplate.description,
+        isDefault: false, // APIから取得する場合はデフォルトテンプレートの概念はない
+        isPublic: apiTemplate.isPublic,
+        categories: apiTemplate.categories.map(cat => ({
+          id: cat.id,
+          name: cat.name,
+          description: cat.description,
+          weight: Math.round(cat.weight * 100), // 小数点を%表記に変換
+          criteria: cat.criteria.map(crit => ({
+            id: crit.id,
+            name: crit.name,
+            description: crit.description,
+            weight: Math.round(crit.weight * 100), // 小数点を%表記に変換
+            minScore: crit.minValue,
+            maxScore: crit.maxValue,
+            isRequired: crit.allowComments || false, // 適切にマッピング
+          })),
+        })),
         settings: {
-          allowComments: true,
+          allowComments: apiTemplate.allowGeneralComments || false,
           requireAllCriteria: false,
           showWeights: true,
           anonymousEvaluation: false,
         },
-        usageCount: 25,
-        createdAt: '2024-01-15T10:00:00Z',
-        updatedAt: '2024-07-20T14:30:00Z',
-        creatorName: 'システム管理者',
-        tags: ['本祭', '標準', '総合評価'],
+        usageCount: 0, // 使用回数はAPIから取得していない
+        createdAt: apiTemplate.createdAt,
+        updatedAt: apiTemplate.updatedAt || apiTemplate.createdAt,
+        creatorName: typeof apiTemplate.creatorId === 'string' ? 'Unknown' : ((apiTemplate.creatorId as any)?.username || 'Unknown'),
+        tags: [], // タグはAPIから取得していない
       };
-      setTemplate(mockTemplate);
-      setEditedTemplate(mockTemplate);
+      
+      setTemplate(templateDetail);
     } catch (error: any) {
-      setError('テンプレート詳細の取得に失敗しました');
+      
+      setError(error.message || 'テンプレート詳細の取得に失敗しました');
     } finally {
       setIsLoading(false);
     }
@@ -289,137 +185,7 @@ const TemplateDetailPage: React.FC = () => {
     setTabValue(newValue);
   };
 
-  // 編集モード切り替え
-  const handleEditToggle = () => {
-    if (isEditing) {
-      setEditedTemplate(template);
-    }
-    setIsEditing(!isEditing);
-  };
 
-  // 保存処理
-  const handleSave = async () => {
-    if (!editedTemplate) return;
-
-    try {
-      // TODO: API呼び出し
-      // await apiClient.put(`/api/templates/${editedTemplate.id}`, editedTemplate);
-      setTemplate(editedTemplate);
-      setIsEditing(false);
-    } catch (error: any) {
-      setError('テンプレートの保存に失敗しました');
-    }
-  };
-
-  // 基本情報の更新
-  const handleBasicInfoChange = (field: string, value: any) => {
-    if (!editedTemplate) return;
-    setEditedTemplate({
-      ...editedTemplate,
-      [field]: value,
-    });
-  };
-
-  // 設定の更新
-  const handleSettingChange = (field: string, value: boolean) => {
-    if (!editedTemplate) return;
-    setEditedTemplate({
-      ...editedTemplate,
-      settings: {
-        ...editedTemplate.settings,
-        [field]: value,
-      },
-    });
-  };
-
-  // カテゴリの追加
-  const handleAddCategory = () => {
-    if (!editedTemplate) return;
-    const newCategory: EvaluationCategory = {
-      id: `cat_${Date.now()}`,
-      name: '新しいカテゴリ',
-      description: '',
-      weight: 10,
-      criteria: [],
-    };
-    setEditedTemplate({
-      ...editedTemplate,
-      categories: [...editedTemplate.categories, newCategory],
-    });
-  };
-
-  // カテゴリの更新
-  const handleCategoryChange = (categoryId: string, field: string, value: any) => {
-    if (!editedTemplate) return;
-    setEditedTemplate({
-      ...editedTemplate,
-      categories: editedTemplate.categories.map(cat =>
-        cat.id === categoryId ? { ...cat, [field]: value } : cat
-      ),
-    });
-  };
-
-  // カテゴリの削除
-  const handleDeleteCategory = (categoryId: string) => {
-    if (!editedTemplate) return;
-    setEditedTemplate({
-      ...editedTemplate,
-      categories: editedTemplate.categories.filter(cat => cat.id !== categoryId),
-    });
-  };
-
-  // 評価項目の追加
-  const handleAddCriterion = (categoryId: string) => {
-    if (!editedTemplate) return;
-    const newCriterion: EvaluationCriterion = {
-      id: `crit_${Date.now()}`,
-      name: '新しい評価項目',
-      description: '',
-      weight: 10,
-      minScore: 1,
-      maxScore: 5,
-      isRequired: false,
-    };
-    setEditedTemplate({
-      ...editedTemplate,
-      categories: editedTemplate.categories.map(cat =>
-        cat.id === categoryId
-          ? { ...cat, criteria: [...cat.criteria, newCriterion] }
-          : cat
-      ),
-    });
-  };
-
-  // 評価項目の更新
-  const handleCriterionChange = (categoryId: string, criterionId: string, field: string, value: any) => {
-    if (!editedTemplate) return;
-    setEditedTemplate({
-      ...editedTemplate,
-      categories: editedTemplate.categories.map(cat =>
-        cat.id === categoryId
-          ? {
-              ...cat,
-              criteria: cat.criteria.map(crit =>
-                crit.id === criterionId ? { ...crit, [field]: value } : crit
-              ),
-            }
-          : cat
-      ),
-    });
-  };
-
-  // 評価項目の削除
-  const handleDeleteCriterion = (categoryId: string, criterionId: string) => {
-    if (!editedTemplate) return;
-    setEditedTemplate({
-      ...editedTemplate,
-      categories: editedTemplate.categories.map(cat =>
-        cat.id === categoryId
-          ? { ...cat, criteria: cat.criteria.filter(crit => crit.id !== criterionId) }
-          : cat
-      ),
-    });
-  };
 
   // 日付フォーマット
   const formatDate = (dateString: string) => {
@@ -447,14 +213,37 @@ const TemplateDetailPage: React.FC = () => {
     );
   }
 
-  if (error || !template || !editedTemplate) {
+  if (error || !template) {
     return (
       <Box sx={{ p: 3 }}>
-        <Alert severity="error">{error || 'テンプレートが見つかりません'}</Alert>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+          <IconButton onClick={() => navigate('/templates')} sx={{ mr: 2 }}>
+            <ArrowBackIcon />
+          </IconButton>
+          <Typography variant="h4">テンプレート詳細</Typography>
+        </Box>
+        
+        <Alert 
+          severity="error" 
+          sx={{ mb: 2 }}
+          action={
+            <Button 
+              color="inherit" 
+              size="small" 
+              onClick={() => id && fetchTemplateDetail(id)}
+              disabled={isLoading}
+            >
+              再試行
+            </Button>
+          }
+        >
+          {error || 'テンプレートが見つかりません'}
+        </Alert>
+        
         <Button
+          variant="contained"
           startIcon={<ArrowBackIcon />}
           onClick={() => navigate('/templates')}
-          sx={{ mt: 2 }}
         >
           テンプレート一覧に戻る
         </Button>
@@ -477,9 +266,11 @@ const TemplateDetailPage: React.FC = () => {
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Chip
+              icon={template.isPublic ? <PublicIcon /> : <LockIcon />}
               label={template.isPublic ? '公開' : '非公開'}
               color={template.isPublic ? 'success' : 'default'}
               size="small"
+              variant={template.isPublic ? 'filled' : 'outlined'}
             />
             {template.isDefault && (
               <Chip label="デフォルト" color="warning" size="small" />
@@ -499,32 +290,13 @@ const TemplateDetailPage: React.FC = () => {
           </Button>
           {canEdit && (
             <>
-              {!isEditing ? (
-                <Button
-                  variant="outlined"
-                  startIcon={<EditIcon />}
-                  onClick={handleEditToggle}
-                >
-                  編集
-                </Button>
-              ) : (
-                <>
-                  <Button
-                    variant="contained"
-                    startIcon={<SaveIcon />}
-                    onClick={handleSave}
-                  >
-                    保存
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    startIcon={<CancelIcon />}
-                    onClick={handleEditToggle}
-                  >
-                    キャンセル
-                  </Button>
-                </>
-              )}
+              <Button
+                variant="outlined"
+                startIcon={<EditIcon />}
+                onClick={() => navigate(`/templates/${template.id}/edit`)}
+              >
+                編集
+              </Button>
             </>
           )}
         </Box>
@@ -538,33 +310,12 @@ const TemplateDetailPage: React.FC = () => {
               <Typography variant="h6" gutterBottom>
                 テンプレート概要
               </Typography>
-              {isEditing ? (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <TextField
-                    label="テンプレート名"
-                    value={editedTemplate.name}
-                    onChange={(e) => handleBasicInfoChange('name', e.target.value)}
-                    fullWidth
-                  />
-                  <TextField
-                    label="説明"
-                    value={editedTemplate.description}
-                    onChange={(e) => handleBasicInfoChange('description', e.target.value)}
-                    multiline
-                    rows={3}
-                    fullWidth
-                  />
-                </Box>
-              ) : (
-                <>
-                  <Typography variant="body1" sx={{ mb: 2 }}>
-                    {template.description}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    使用回数: {template.usageCount}回
-                  </Typography>
-                </>
-              )}
+              <Typography variant="body1" sx={{ mb: 2 }}>
+                {template.description}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                使用回数: {template.usageCount}回
+              </Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -604,197 +355,50 @@ const TemplateDetailPage: React.FC = () => {
 
         {/* 評価項目タブ */}
         <TabPanel value={tabValue} index={0}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h6">
-              評価カテゴリと項目
-            </Typography>
-            {isEditing && (
-              <Button
-                variant="outlined"
-                startIcon={<AddIcon />}
-                onClick={handleAddCategory}
-              >
-                カテゴリ追加
-              </Button>
-            )}
-          </Box>
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            評価カテゴリと項目
+          </Typography>
 
-          {editedTemplate.categories.map((category, categoryIndex) => (
+          {template.categories.map((category, categoryIndex) => (
             <Accordion key={category.id} defaultExpanded>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
-                  {isEditing && <DragIndicatorIcon sx={{ color: 'text.secondary' }} />}
-                  <Box sx={{ flexGrow: 1 }}>
-                    <Typography variant="h6">{category.name}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      重み: {category.weight}% | 項目数: {category.criteria.length}
-                    </Typography>
-                  </Box>
-                  {isEditing && (
-                    <IconButton
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteCategory(category.id);
-                      }}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  )}
+                <Box sx={{ flexGrow: 1 }}>
+                  <Typography variant="h6">{category.name}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    重み: {category.weight}% | 項目数: {category.criteria.length}
+                  </Typography>
                 </Box>
               </AccordionSummary>
               <AccordionDetails>
-                {isEditing ? (
-                  <Box sx={{ mb: 2 }}>
-                    <Grid container spacing={2}>
-                      <Grid item xs={12} md={6}>
-                        <TextField
-                          label="カテゴリ名"
-                          value={category.name}
-                          onChange={(e) => handleCategoryChange(category.id, 'name', e.target.value)}
-                          fullWidth
-                          size="small"
-                        />
-                      </Grid>
-                      <Grid item xs={12} md={3}>
-                        <TextField
-                          label="重み (%)"
-                          type="number"
-                          value={category.weight}
-                          onChange={(e) => handleCategoryChange(category.id, 'weight', parseInt(e.target.value))}
-                          fullWidth
-                          size="small"
-                        />
-                      </Grid>
-                      <Grid item xs={12}>
-                        <TextField
-                          label="説明"
-                          value={category.description}
-                          onChange={(e) => handleCategoryChange(category.id, 'description', e.target.value)}
-                          fullWidth
-                          size="small"
-                        />
-                      </Grid>
-                    </Grid>
-                  </Box>
-                ) : (
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    {category.description}
-                  </Typography>
-                )}
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {category.description}
+                </Typography>
 
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                  <Typography variant="subtitle1">評価項目</Typography>
-                  {isEditing && (
-                    <Button
-                      size="small"
-                      startIcon={<AddIcon />}
-                      onClick={() => handleAddCriterion(category.id)}
-                    >
-                      項目追加
-                    </Button>
-                  )}
-                </Box>
+                <Typography variant="subtitle1" sx={{ mb: 1 }}>評価項目</Typography>
 
                 <List dense>
                   {category.criteria.map((criterion, criterionIndex) => (
                     <ListItem key={criterion.id} divider>
                       <ListItemText
                         primary={
-                          isEditing ? (
-                            <TextField
-                              value={criterion.name}
-                              onChange={(e) => handleCriterionChange(category.id, criterion.id, 'name', e.target.value)}
-                              size="small"
-                              fullWidth
-                            />
-                          ) : (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Typography variant="body1">{criterion.name}</Typography>
-                              {criterion.isRequired && (
-                                <Chip label="必須" size="small" color="error" />
-                              )}
-                            </Box>
-                          )
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="body1">{criterion.name}</Typography>
+                            {criterion.isRequired && (
+                              <Chip label="必須" size="small" color="error" />
+                            )}
+                          </Box>
                         }
                         secondary={
-                          isEditing ? (
-                            <Box sx={{ mt: 1 }}>
-                              <TextField
-                                label="説明"
-                                value={criterion.description}
-                                onChange={(e) => handleCriterionChange(category.id, criterion.id, 'description', e.target.value)}
-                                size="small"
-                                fullWidth
-                                sx={{ mb: 1 }}
-                              />
-                              <Grid container spacing={1}>
-                                <Grid item xs={3}>
-                                  <TextField
-                                    label="重み (%)"
-                                    type="number"
-                                    value={criterion.weight}
-                                    onChange={(e) => handleCriterionChange(category.id, criterion.id, 'weight', parseInt(e.target.value))}
-                                    size="small"
-                                    fullWidth
-                                  />
-                                </Grid>
-                                <Grid item xs={3}>
-                                  <TextField
-                                    label="最小値"
-                                    type="number"
-                                    value={criterion.minScore}
-                                    onChange={(e) => handleCriterionChange(category.id, criterion.id, 'minScore', parseInt(e.target.value))}
-                                    size="small"
-                                    fullWidth
-                                  />
-                                </Grid>
-                                <Grid item xs={3}>
-                                  <TextField
-                                    label="最大値"
-                                    type="number"
-                                    value={criterion.maxScore}
-                                    onChange={(e) => handleCriterionChange(category.id, criterion.id, 'maxScore', parseInt(e.target.value))}
-                                    size="small"
-                                    fullWidth
-                                  />
-                                </Grid>
-                                <Grid item xs={3}>
-                                  <FormControlLabel
-                                    control={
-                                      <Switch
-                                        checked={criterion.isRequired}
-                                        onChange={(e) => handleCriterionChange(category.id, criterion.id, 'isRequired', e.target.checked)}
-                                        size="small"
-                                      />
-                                    }
-                                    label="必須"
-                                  />
-                                </Grid>
-                              </Grid>
-                            </Box>
-                          ) : (
-                            <Box>
-                              <Typography variant="body2" color="text.secondary">
-                                {criterion.description}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                重み: {criterion.weight}% | 範囲: {criterion.minScore}-{criterion.maxScore}
-                              </Typography>
-                            </Box>
-                          )
+                          <Box>
+                            <Typography variant="body2" color="text.secondary">
+                              {criterion.description}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              重み: {criterion.weight}% | 範囲: {criterion.minScore}-{criterion.maxScore}
+                            </Typography>
+                          </Box>
                         }
                       />
-                      {isEditing && (
-                        <ListItemSecondaryAction>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleDeleteCriterion(category.id, criterion.id)}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </ListItemSecondaryAction>
-                      )}
                     </ListItem>
                   ))}
                 </List>
@@ -815,18 +419,11 @@ const TemplateDetailPage: React.FC = () => {
                 secondary="評価時にタイムライン連動コメントを許可する"
               />
               <ListItemSecondaryAction>
-                {isEditing ? (
-                  <Switch
-                    checked={editedTemplate.settings.allowComments}
-                    onChange={(e) => handleSettingChange('allowComments', e.target.checked)}
-                  />
-                ) : (
-                  <Chip
-                    label={template.settings.allowComments ? '有効' : '無効'}
-                    color={template.settings.allowComments ? 'success' : 'default'}
-                    size="small"
-                  />
-                )}
+                <Chip
+                  label={template.settings.allowComments ? '有効' : '無効'}
+                  color={template.settings.allowComments ? 'success' : 'default'}
+                  size="small"
+                />
               </ListItemSecondaryAction>
             </ListItem>
             <Divider />
@@ -836,18 +433,11 @@ const TemplateDetailPage: React.FC = () => {
                 secondary="すべての評価項目の入力を必須とする"
               />
               <ListItemSecondaryAction>
-                {isEditing ? (
-                  <Switch
-                    checked={editedTemplate.settings.requireAllCriteria}
-                    onChange={(e) => handleSettingChange('requireAllCriteria', e.target.checked)}
-                  />
-                ) : (
-                  <Chip
-                    label={template.settings.requireAllCriteria ? '有効' : '無効'}
-                    color={template.settings.requireAllCriteria ? 'success' : 'default'}
-                    size="small"
-                  />
-                )}
+                <Chip
+                  label={template.settings.requireAllCriteria ? '有効' : '無効'}
+                  color={template.settings.requireAllCriteria ? 'success' : 'default'}
+                  size="small"
+                />
               </ListItemSecondaryAction>
             </ListItem>
             <Divider />
@@ -857,18 +447,11 @@ const TemplateDetailPage: React.FC = () => {
                 secondary="評価者に各項目の重みを表示する"
               />
               <ListItemSecondaryAction>
-                {isEditing ? (
-                  <Switch
-                    checked={editedTemplate.settings.showWeights}
-                    onChange={(e) => handleSettingChange('showWeights', e.target.checked)}
-                  />
-                ) : (
-                  <Chip
-                    label={template.settings.showWeights ? '有効' : '無効'}
-                    color={template.settings.showWeights ? 'success' : 'default'}
-                    size="small"
-                  />
-                )}
+                <Chip
+                  label={template.settings.showWeights ? '有効' : '無効'}
+                  color={template.settings.showWeights ? 'success' : 'default'}
+                  size="small"
+                />
               </ListItemSecondaryAction>
             </ListItem>
             <Divider />
@@ -878,18 +461,11 @@ const TemplateDetailPage: React.FC = () => {
                 secondary="評価者の名前を他の参加者に表示しない"
               />
               <ListItemSecondaryAction>
-                {isEditing ? (
-                  <Switch
-                    checked={editedTemplate.settings.anonymousEvaluation}
-                    onChange={(e) => handleSettingChange('anonymousEvaluation', e.target.checked)}
-                  />
-                ) : (
-                  <Chip
-                    label={template.settings.anonymousEvaluation ? '有効' : '無効'}
-                    color={template.settings.anonymousEvaluation ? 'success' : 'default'}
-                    size="small"
-                  />
-                )}
+                <Chip
+                  label={template.settings.anonymousEvaluation ? '有効' : '無効'}
+                  color={template.settings.anonymousEvaluation ? 'success' : 'default'}
+                  size="small"
+                />
               </ListItemSecondaryAction>
             </ListItem>
           </List>
