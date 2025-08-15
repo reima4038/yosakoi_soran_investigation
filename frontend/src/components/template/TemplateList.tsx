@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -63,11 +63,13 @@ const TemplateList: React.FC = () => {
   const { user, hasAnyRole } = useAuth();
   const [templates, setTemplates] = useState<TemplateDisplay[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [templateToDelete, setTemplateToDelete] = useState<TemplateDisplay | null>(null);
+  const [templateToDelete, setTemplateToDelete] =
+    useState<TemplateDisplay | null>(null);
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState<TemplateDisplay | null>(null);
+  const [selectedTemplate, setSelectedTemplate] =
+    useState<TemplateDisplay | null>(null);
   const [isToggling, setIsToggling] = useState<string | null>(null);
-  
+
   const {
     operationState,
     clearMessages,
@@ -80,8 +82,12 @@ const TemplateList: React.FC = () => {
   // APIデータを表示用に変換
   const convertToDisplayTemplate = (template: Template): TemplateDisplay => {
     const categoryCount = template.categories?.length || 0;
-    const criteriaCount = template.categories?.reduce((total: number, cat: any) => total + (cat.criteria?.length || 0), 0) || 0;
-    
+    const criteriaCount =
+      template.categories?.reduce(
+        (total: number, cat: any) => total + (cat.criteria?.length || 0),
+        0
+      ) || 0;
+
     return {
       id: template.id,
       name: template.name || 'Untitled',
@@ -93,25 +99,34 @@ const TemplateList: React.FC = () => {
       usageCount: 0, // 使用回数はAPIから取得していない
       createdAt: template.createdAt,
       updatedAt: template.updatedAt || template.createdAt,
-      creatorName: typeof template.creatorId === 'string' ? 'Unknown' : ((template.creatorId as any)?.username || 'Unknown'),
-      creatorAvatar: typeof template.creatorId === 'string' ? undefined : (template.creatorId as any)?.avatar,
+      creatorName:
+        typeof template.creatorId === 'string'
+          ? 'Unknown'
+          : (template.creatorId as any)?.username || 'Unknown',
+      creatorAvatar:
+        typeof template.creatorId === 'string'
+          ? undefined
+          : (template.creatorId as any)?.avatar,
       tags: [], // タグはAPIから取得していない
     };
   };
 
   // テンプレート一覧の取得
+  const fetchTemplates = useCallback(async () => {
+    const apiTemplates = await getTemplates();
+    const displayTemplates = apiTemplates.map(convertToDisplayTemplate);
+    setTemplates(displayTemplates);
+  }, [getTemplates]);
+
   useEffect(() => {
     fetchTemplates();
   }, [fetchTemplates]);
 
-  const fetchTemplates = async () => {
-    const apiTemplates = await getTemplates();
-    const displayTemplates = apiTemplates.map(convertToDisplayTemplate);
-    setTemplates(displayTemplates);
-  };
-
   // メニューの制御
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, template: TemplateDisplay) => {
+  const handleMenuOpen = (
+    event: React.MouseEvent<HTMLElement>,
+    template: TemplateDisplay
+  ) => {
     event.stopPropagation();
     setMenuAnchorEl(event.currentTarget);
     setSelectedTemplate(template);
@@ -154,14 +169,19 @@ const TemplateList: React.FC = () => {
   // 可視性切り替え
   const handleToggleVisibility = async (template: TemplateDisplay) => {
     setIsToggling(template.id);
-    
-    const updatedTemplate = await toggleVisibility(template.id, !template.isPublic);
+
+    const updatedTemplate = await toggleVisibility(
+      template.id,
+      !template.isPublic
+    );
     if (updatedTemplate) {
       const updatedDisplayTemplate = convertToDisplayTemplate(updatedTemplate);
-      setTemplates(prev => prev.map(t => t.id === template.id ? updatedDisplayTemplate : t));
+      setTemplates(prev =>
+        prev.map(t => (t.id === template.id ? updatedDisplayTemplate : t))
+      );
       handleMenuClose();
     }
-    
+
     setIsToggling(null);
   };
 
@@ -180,20 +200,26 @@ const TemplateList: React.FC = () => {
   if (operationState.isLoading && templates.length === 0) {
     return (
       <Box sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h4">評価テンプレート管理</Typography>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            mb: 3,
+          }}
+        >
+          <Typography variant='h4'>評価テンプレート管理</Typography>
           {canCreateTemplate && (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              disabled
-            >
+            <Button variant='contained' startIcon={<AddIcon />} disabled>
               新規テンプレート作成
             </Button>
           )}
         </Box>
         <LinearProgress sx={{ mb: 2 }} />
-        <Typography variant="body2" sx={{ textAlign: 'center', color: 'text.secondary' }}>
+        <Typography
+          variant='body2'
+          sx={{ textAlign: 'center', color: 'text.secondary' }}
+        >
           テンプレート一覧を読み込み中...
         </Typography>
       </Box>
@@ -203,11 +229,18 @@ const TemplateList: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       {/* ヘッダー */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4">評価テンプレート管理</Typography>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          mb: 3,
+        }}
+      >
+        <Typography variant='h4'>評価テンプレート管理</Typography>
         {canCreateTemplate && (
           <Button
-            variant="contained"
+            variant='contained'
             startIcon={<AddIcon />}
             onClick={() => navigate('/templates/create')}
           >
@@ -222,16 +255,16 @@ const TemplateList: React.FC = () => {
         success={operationState.success}
         onRetry={fetchTemplates}
         onClearMessages={clearMessages}
-        loadingMessage="処理中..."
+        loadingMessage='処理中...'
         showAsSnackbar={true}
       />
 
       {/* テンプレート一覧 */}
       <Grid container spacing={3}>
-        {templates.map((template) => (
+        {templates.map(template => (
           <Grid item xs={12} md={6} lg={4} key={template.id}>
-            <Card 
-              sx={{ 
+            <Card
+              sx={{
                 height: '100%',
                 display: 'flex',
                 flexDirection: 'column',
@@ -253,7 +286,7 @@ const TemplateList: React.FC = () => {
                     zIndex: 1,
                   }}
                 >
-                  <Tooltip title="デフォルトテンプレート">
+                  <Tooltip title='デフォルトテンプレート'>
                     <StarIcon sx={{ color: 'warning.main' }} />
                   </Tooltip>
                 </Box>
@@ -261,20 +294,27 @@ const TemplateList: React.FC = () => {
 
               <CardContent sx={{ flexGrow: 1, p: 3 }}>
                 {/* ヘッダー */}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    mb: 2,
+                  }}
+                >
                   <Box sx={{ display: 'flex', gap: 1 }}>
                     <Chip
                       icon={template.isPublic ? <PublicIcon /> : <LockIcon />}
                       label={template.isPublic ? '公開' : '非公開'}
                       color={template.isPublic ? 'success' : 'default'}
-                      size="small"
+                      size='small'
                       variant={template.isPublic ? 'filled' : 'outlined'}
                     />
                   </Box>
                   {canCreateTemplate && (
                     <IconButton
-                      size="small"
-                      onClick={(e) => handleMenuOpen(e, template)}
+                      size='small'
+                      onClick={e => handleMenuOpen(e, template)}
                       disabled={isToggling === template.id}
                     >
                       <MoreVertIcon />
@@ -283,13 +323,13 @@ const TemplateList: React.FC = () => {
                 </Box>
 
                 {/* テンプレート名と説明 */}
-                <Typography variant="h6" gutterBottom noWrap>
+                <Typography variant='h6' gutterBottom noWrap>
                   {template.name}
                 </Typography>
-                <Typography 
-                  variant="body2" 
-                  color="text.secondary" 
-                  sx={{ 
+                <Typography
+                  variant='body2'
+                  color='text.secondary'
+                  sx={{
                     mb: 2,
                     display: '-webkit-box',
                     WebkitLineClamp: 3,
@@ -304,26 +344,26 @@ const TemplateList: React.FC = () => {
                 {/* 統計情報 */}
                 <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
                   <Box sx={{ textAlign: 'center' }}>
-                    <Typography variant="h6" color="primary">
+                    <Typography variant='h6' color='primary'>
                       {template.categoryCount}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant='caption' color='text.secondary'>
                       カテゴリ
                     </Typography>
                   </Box>
                   <Box sx={{ textAlign: 'center' }}>
-                    <Typography variant="h6" color="primary">
+                    <Typography variant='h6' color='primary'>
                       {template.criteriaCount}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant='caption' color='text.secondary'>
                       評価項目
                     </Typography>
                   </Box>
                   <Box sx={{ textAlign: 'center' }}>
-                    <Typography variant="h6" color="primary">
+                    <Typography variant='h6' color='primary'>
                       {template.usageCount}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant='caption' color='text.secondary'>
                       使用回数
                     </Typography>
                   </Box>
@@ -331,21 +371,23 @@ const TemplateList: React.FC = () => {
 
                 {/* タグ */}
                 {template.tags.length > 0 && (
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 2 }}>
+                  <Box
+                    sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 2 }}
+                  >
                     {template.tags.slice(0, 3).map((tag, index) => (
                       <Chip
                         key={index}
                         label={tag}
-                        size="small"
-                        variant="outlined"
+                        size='small'
+                        variant='outlined'
                         sx={{ fontSize: '0.7rem' }}
                       />
                     ))}
                     {template.tags.length > 3 && (
                       <Chip
                         label={`+${template.tags.length - 3}`}
-                        size="small"
-                        variant="outlined"
+                        size='small'
+                        variant='outlined'
                         sx={{ fontSize: '0.7rem' }}
                       />
                     )}
@@ -353,7 +395,13 @@ const TemplateList: React.FC = () => {
                 )}
 
                 {/* 作成者と日付 */}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Avatar
                       src={template.creatorAvatar}
@@ -361,11 +409,11 @@ const TemplateList: React.FC = () => {
                     >
                       {template.creatorName[0]}
                     </Avatar>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant='caption' color='text.secondary'>
                       {template.creatorName}
                     </Typography>
                   </Box>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant='caption' color='text.secondary'>
                     {formatDate(template.updatedAt)}
                   </Typography>
                 </Box>
@@ -375,18 +423,18 @@ const TemplateList: React.FC = () => {
         ))}
       </Grid>
 
-      {templates.length === 0 && !isLoading && (
+      {templates.length === 0 && !operationState.isLoading && (
         <Box sx={{ textAlign: 'center', py: 8 }}>
           <SettingsIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-          <Typography variant="h6" color="text.secondary" gutterBottom>
+          <Typography variant='h6' color='text.secondary' gutterBottom>
             評価テンプレートがありません
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          <Typography variant='body2' color='text.secondary' sx={{ mb: 3 }}>
             新しい評価テンプレートを作成して、評価基準を設定しましょう。
           </Typography>
           {canCreateTemplate && (
             <Button
-              variant="contained"
+              variant='contained'
               startIcon={<AddIcon />}
               onClick={() => navigate('/templates/create')}
             >
@@ -402,47 +450,63 @@ const TemplateList: React.FC = () => {
         open={Boolean(menuAnchorEl)}
         onClose={handleMenuClose}
       >
-        <MenuItem onClick={() => {
-          navigate(`/templates/${selectedTemplate?.id}`);
-          handleMenuClose();
-        }}>
+        <MenuItem
+          onClick={() => {
+            navigate(`/templates/${selectedTemplate?.id}`);
+            handleMenuClose();
+          }}
+        >
           <ListItemIcon>
             <VisibilityIcon />
           </ListItemIcon>
-          <ListItemText primary="詳細表示" />
+          <ListItemText primary='詳細表示' />
         </MenuItem>
-        <MenuItem onClick={() => {
-          navigate(`/templates/${selectedTemplate?.id}/edit`);
-          handleMenuClose();
-        }}>
+        <MenuItem
+          onClick={() => {
+            navigate(`/templates/${selectedTemplate?.id}/edit`);
+            handleMenuClose();
+          }}
+        >
           <ListItemIcon>
             <EditIcon />
           </ListItemIcon>
-          <ListItemText primary="編集" />
+          <ListItemText primary='編集' />
         </MenuItem>
-        <MenuItem onClick={() => selectedTemplate && handleDuplicate(selectedTemplate)}>
+        <MenuItem
+          onClick={() => selectedTemplate && handleDuplicate(selectedTemplate)}
+        >
           <ListItemIcon>
             <CopyIcon />
           </ListItemIcon>
-          <ListItemText primary="複製" />
+          <ListItemText primary='複製' />
         </MenuItem>
-        <MenuItem 
-          onClick={() => selectedTemplate && handleToggleVisibility(selectedTemplate)}
+        <MenuItem
+          onClick={() =>
+            selectedTemplate && handleToggleVisibility(selectedTemplate)
+          }
           disabled={isToggling === selectedTemplate?.id}
         >
           <ListItemIcon>
-            {selectedTemplate?.isPublic ? <VisibilityOffIcon /> : <VisibilityIcon />}
+            {selectedTemplate?.isPublic ? (
+              <VisibilityOffIcon />
+            ) : (
+              <VisibilityIcon />
+            )}
           </ListItemIcon>
-          <ListItemText 
-            primary={selectedTemplate?.isPublic ? '非公開にする' : '公開する'} 
+          <ListItemText
+            primary={selectedTemplate?.isPublic ? '非公開にする' : '公開する'}
           />
         </MenuItem>
         {selectedTemplate && !selectedTemplate.isDefault && (
-          <MenuItem onClick={() => selectedTemplate && handleDeleteClick(selectedTemplate)}>
+          <MenuItem
+            onClick={() =>
+              selectedTemplate && handleDeleteClick(selectedTemplate)
+            }
+          >
             <ListItemIcon>
               <DeleteIcon />
             </ListItemIcon>
-            <ListItemText primary="削除" />
+            <ListItemText primary='削除' />
           </MenuItem>
         )}
       </Menu>
@@ -459,17 +523,20 @@ const TemplateList: React.FC = () => {
             この操作は取り消すことができません。
           </Typography>
           {templateToDelete && templateToDelete.usageCount > 0 && (
-            <Alert severity="warning" sx={{ mt: 2 }}>
-              このテンプレートは{templateToDelete.usageCount}回使用されています。
+            <Alert severity='warning' sx={{ mt: 2 }}>
+              このテンプレートは{templateToDelete.usageCount}
+              回使用されています。
               削除すると関連するセッションに影響する可能性があります。
             </Alert>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>
-            キャンセル
-          </Button>
-          <Button onClick={handleDeleteConfirm} color="error" variant="contained">
+          <Button onClick={() => setDeleteDialogOpen(false)}>キャンセル</Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            color='error'
+            variant='contained'
+          >
             削除
           </Button>
         </DialogActions>
