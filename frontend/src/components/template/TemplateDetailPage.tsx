@@ -59,7 +59,7 @@ function TabPanel(props: TabPanelProps) {
 
   return (
     <div
-      role="tabpanel"
+      role='tabpanel'
       hidden={value !== index}
       id={`template-tabpanel-${index}`}
       aria-labelledby={`template-tab-${index}`}
@@ -116,12 +116,9 @@ const TemplateDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { user, hasAnyRole } = useAuth();
   const [template, setTemplate] = useState<TemplateDetail | null>(null);
-  
-  const {
-    operationState,
-    clearMessages,
-    getTemplate,
-  } = useTemplateOperations();
+
+  const { operationState, clearMessages, getTemplate } =
+    useTemplateOperations();
   const [tabValue, setTabValue] = useState(0);
 
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
@@ -135,13 +132,13 @@ const TemplateDetailPage: React.FC = () => {
 
   const fetchTemplateDetail = async (templateId: string) => {
     try {
-      setIsLoading(true);
-      setError('');
-      
       console.log('Fetching template detail:', templateId);
-      const apiTemplate = await templateService.getTemplate(templateId);
-      
-      
+      const apiTemplate = await getTemplate(templateId);
+
+      if (!apiTemplate) {
+        return;
+      }
+
       // APIデータを表示用に変換
       const templateDetail: TemplateDetail = {
         id: apiTemplate.id,
@@ -173,16 +170,17 @@ const TemplateDetailPage: React.FC = () => {
         usageCount: 0, // 使用回数はAPIから取得していない
         createdAt: apiTemplate.createdAt,
         updatedAt: apiTemplate.updatedAt || apiTemplate.createdAt,
-        creatorName: typeof apiTemplate.creatorId === 'string' ? 'Unknown' : ((apiTemplate.creatorId as any)?.username || 'Unknown'),
+        creatorName:
+          typeof apiTemplate.creatorId === 'string'
+            ? 'Unknown'
+            : (apiTemplate.creatorId as any)?.username || 'Unknown',
         tags: [], // タグはAPIから取得していない
       };
-      
+
       setTemplate(templateDetail);
     } catch (error: any) {
-      
-      setError(error.message || 'テンプレート詳細の取得に失敗しました');
-    } finally {
-      setIsLoading(false);
+      console.error('Failed to fetch template detail:', error);
+      // エラーはuseTemplateOperationsで管理される
     }
   };
 
@@ -190,8 +188,6 @@ const TemplateDetailPage: React.FC = () => {
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
-
-
 
   // 日付フォーマット
   const formatDate = (dateString: string) => {
@@ -205,49 +201,50 @@ const TemplateDetailPage: React.FC = () => {
   };
 
   // 編集権限の確認
-  const canEdit = hasAnyRole([UserRole.ADMIN, UserRole.EVALUATOR]) && 
+  const canEdit =
+    hasAnyRole([UserRole.ADMIN, UserRole.EVALUATOR]) &&
     (template?.isDefault === false || hasAnyRole([UserRole.ADMIN]));
 
-  if (isLoading) {
+  if (operationState.isLoading) {
     return (
       <Box sx={{ p: 3 }}>
         <LinearProgress />
-        <Typography variant="body2" sx={{ mt: 2, textAlign: 'center' }}>
+        <Typography variant='body2' sx={{ mt: 2, textAlign: 'center' }}>
           テンプレート詳細を読み込み中...
         </Typography>
       </Box>
     );
   }
 
-  if (error || !template) {
+  if (operationState.error || !template) {
     return (
       <Box sx={{ p: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
           <IconButton onClick={() => navigate('/templates')} sx={{ mr: 2 }}>
             <ArrowBackIcon />
           </IconButton>
-          <Typography variant="h4">テンプレート詳細</Typography>
+          <Typography variant='h4'>テンプレート詳細</Typography>
         </Box>
-        
-        <Alert 
-          severity="error" 
+
+        <Alert
+          severity='error'
           sx={{ mb: 2 }}
           action={
-            <Button 
-              color="inherit" 
-              size="small" 
+            <Button
+              color='inherit'
+              size='small'
               onClick={() => id && fetchTemplateDetail(id)}
-              disabled={isLoading}
+              disabled={operationState.isLoading}
             >
               再試行
             </Button>
           }
         >
-          {error || 'テンプレートが見つかりません'}
+          {operationState.error || 'テンプレートが見つかりません'}
         </Alert>
-        
+
         <Button
-          variant="contained"
+          variant='contained'
           startIcon={<ArrowBackIcon />}
           onClick={() => navigate('/templates')}
         >
@@ -257,7 +254,10 @@ const TemplateDetailPage: React.FC = () => {
     );
   }
 
-  const totalCriteria = template.categories.reduce((sum, cat) => sum + cat.criteria.length, 0);
+  const totalCriteria = template.categories.reduce(
+    (sum, cat) => sum + cat.criteria.length,
+    0
+  );
 
   return (
     <Box sx={{ p: 3 }}>
@@ -267,7 +267,7 @@ const TemplateDetailPage: React.FC = () => {
           <ArrowBackIcon />
         </IconButton>
         <Box sx={{ flexGrow: 1 }}>
-          <Typography variant="h4" gutterBottom>
+          <Typography variant='h4' gutterBottom>
             {template.name}
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -275,20 +275,21 @@ const TemplateDetailPage: React.FC = () => {
               icon={template.isPublic ? <PublicIcon /> : <LockIcon />}
               label={template.isPublic ? '公開' : '非公開'}
               color={template.isPublic ? 'success' : 'default'}
-              size="small"
+              size='small'
               variant={template.isPublic ? 'filled' : 'outlined'}
             />
             {template.isDefault && (
-              <Chip label="デフォルト" color="warning" size="small" />
+              <Chip label='デフォルト' color='warning' size='small' />
             )}
-            <Typography variant="body2" color="text.secondary">
-              作成者: {template.creatorName} | 更新日: {formatDate(template.updatedAt)}
+            <Typography variant='body2' color='text.secondary'>
+              作成者: {template.creatorName} | 更新日:{' '}
+              {formatDate(template.updatedAt)}
             </Typography>
           </Box>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
-            variant="outlined"
+            variant='outlined'
             startIcon={<VisibilityIcon />}
             onClick={() => setPreviewDialogOpen(true)}
           >
@@ -297,7 +298,7 @@ const TemplateDetailPage: React.FC = () => {
           {canEdit && (
             <>
               <Button
-                variant="outlined"
+                variant='outlined'
                 startIcon={<EditIcon />}
                 onClick={() => navigate(`/templates/${template.id}/edit`)}
               >
@@ -308,18 +309,28 @@ const TemplateDetailPage: React.FC = () => {
         </Box>
       </Box>
 
+      <OperationFeedback
+        isLoading={operationState.isLoading}
+        error={operationState.error}
+        success={operationState.success}
+        onRetry={() => id && fetchTemplateDetail(id)}
+        onClearMessages={clearMessages}
+        loadingMessage='テンプレート詳細を読み込み中...'
+        showAsSnackbar={true}
+      />
+
       {/* 基本情報カード */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid item xs={12} md={8}>
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
+              <Typography variant='h6' gutterBottom>
                 テンプレート概要
               </Typography>
-              <Typography variant="body1" sx={{ mb: 2 }}>
+              <Typography variant='body1' sx={{ mb: 2 }}>
                 {template.description}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant='body2' color='text.secondary'>
                 使用回数: {template.usageCount}回
               </Typography>
             </CardContent>
@@ -328,23 +339,27 @@ const TemplateDetailPage: React.FC = () => {
         <Grid item xs={12} md={4}>
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
+              <Typography variant='h6' gutterBottom>
                 構成情報
               </Typography>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                <Typography variant="body2">カテゴリ数</Typography>
-                <Typography variant="h6" color="primary">
+              <Box
+                sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}
+              >
+                <Typography variant='body2'>カテゴリ数</Typography>
+                <Typography variant='h6' color='primary'>
                   {template.categories.length}
                 </Typography>
               </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                <Typography variant="body2">評価項目数</Typography>
-                <Typography variant="h6" color="primary">
+              <Box
+                sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}
+              >
+                <Typography variant='body2'>評価項目数</Typography>
+                <Typography variant='h6' color='primary'>
                   {totalCriteria}
                 </Typography>
               </Box>
               <Divider sx={{ my: 1 }} />
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant='body2' color='text.secondary'>
                 作成日: {formatDate(template.createdAt)}
               </Typography>
             </CardContent>
@@ -354,14 +369,19 @@ const TemplateDetailPage: React.FC = () => {
 
       {/* タブ */}
       <Paper sx={{ mb: 3 }}>
-        <Tabs value={tabValue} onChange={handleTabChange} variant="scrollable" scrollButtons="auto">
-          <Tab label="評価項目" />
-          <Tab label="設定" />
+        <Tabs
+          value={tabValue}
+          onChange={handleTabChange}
+          variant='scrollable'
+          scrollButtons='auto'
+        >
+          <Tab label='評価項目' />
+          <Tab label='設定' />
         </Tabs>
 
         {/* 評価項目タブ */}
         <TabPanel value={tabValue} index={0}>
-          <Typography variant="h6" sx={{ mb: 2 }}>
+          <Typography variant='h6' sx={{ mb: 2 }}>
             評価カテゴリと項目
           </Typography>
 
@@ -369,38 +389,57 @@ const TemplateDetailPage: React.FC = () => {
             <Accordion key={category.id} defaultExpanded>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                 <Box sx={{ flexGrow: 1 }}>
-                  <Typography variant="h6">{category.name}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    重み: {category.weight}% | 項目数: {category.criteria.length}
+                  <Typography variant='h6'>{category.name}</Typography>
+                  <Typography variant='body2' color='text.secondary'>
+                    重み: {category.weight}% | 項目数:{' '}
+                    {category.criteria.length}
                   </Typography>
                 </Box>
               </AccordionSummary>
               <AccordionDetails>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                <Typography
+                  variant='body2'
+                  color='text.secondary'
+                  sx={{ mb: 2 }}
+                >
                   {category.description}
                 </Typography>
 
-                <Typography variant="subtitle1" sx={{ mb: 1 }}>評価項目</Typography>
+                <Typography variant='subtitle1' sx={{ mb: 1 }}>
+                  評価項目
+                </Typography>
 
                 <List dense>
                   {category.criteria.map((criterion, criterionIndex) => (
                     <ListItem key={criterion.id} divider>
                       <ListItemText
                         primary={
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography variant="body1">{criterion.name}</Typography>
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 1,
+                            }}
+                          >
+                            <Typography variant='body1'>
+                              {criterion.name}
+                            </Typography>
                             {criterion.isRequired && (
-                              <Chip label="必須" size="small" color="error" />
+                              <Chip label='必須' size='small' color='error' />
                             )}
                           </Box>
                         }
                         secondary={
                           <Box>
-                            <Typography variant="body2" color="text.secondary">
+                            <Typography variant='body2' color='text.secondary'>
                               {criterion.description}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              重み: {criterion.weight}% | 範囲: {criterion.minScore}-{criterion.maxScore}
+                            <Typography
+                              variant='caption'
+                              color='text.secondary'
+                            >
+                              重み: {criterion.weight}% | 範囲:{' '}
+                              {criterion.minScore}-{criterion.maxScore}
                             </Typography>
                           </Box>
                         }
@@ -415,62 +454,72 @@ const TemplateDetailPage: React.FC = () => {
 
         {/* 設定タブ */}
         <TabPanel value={tabValue} index={1}>
-          <Typography variant="h6" gutterBottom>
+          <Typography variant='h6' gutterBottom>
             テンプレート設定
           </Typography>
           <List>
             <ListItem>
               <ListItemText
-                primary="コメント機能"
-                secondary="評価時にタイムライン連動コメントを許可する"
+                primary='コメント機能'
+                secondary='評価時にタイムライン連動コメントを許可する'
               />
               <ListItemSecondaryAction>
                 <Chip
                   label={template.settings.allowComments ? '有効' : '無効'}
-                  color={template.settings.allowComments ? 'success' : 'default'}
-                  size="small"
+                  color={
+                    template.settings.allowComments ? 'success' : 'default'
+                  }
+                  size='small'
                 />
               </ListItemSecondaryAction>
             </ListItem>
             <Divider />
             <ListItem>
               <ListItemText
-                primary="全項目必須"
-                secondary="すべての評価項目の入力を必須とする"
+                primary='全項目必須'
+                secondary='すべての評価項目の入力を必須とする'
               />
               <ListItemSecondaryAction>
                 <Chip
                   label={template.settings.requireAllCriteria ? '有効' : '無効'}
-                  color={template.settings.requireAllCriteria ? 'success' : 'default'}
-                  size="small"
+                  color={
+                    template.settings.requireAllCriteria ? 'success' : 'default'
+                  }
+                  size='small'
                 />
               </ListItemSecondaryAction>
             </ListItem>
             <Divider />
             <ListItem>
               <ListItemText
-                primary="重み表示"
-                secondary="評価者に各項目の重みを表示する"
+                primary='重み表示'
+                secondary='評価者に各項目の重みを表示する'
               />
               <ListItemSecondaryAction>
                 <Chip
                   label={template.settings.showWeights ? '有効' : '無効'}
                   color={template.settings.showWeights ? 'success' : 'default'}
-                  size="small"
+                  size='small'
                 />
               </ListItemSecondaryAction>
             </ListItem>
             <Divider />
             <ListItem>
               <ListItemText
-                primary="匿名評価"
-                secondary="評価者の名前を他の参加者に表示しない"
+                primary='匿名評価'
+                secondary='評価者の名前を他の参加者に表示しない'
               />
               <ListItemSecondaryAction>
                 <Chip
-                  label={template.settings.anonymousEvaluation ? '有効' : '無効'}
-                  color={template.settings.anonymousEvaluation ? 'success' : 'default'}
-                  size="small"
+                  label={
+                    template.settings.anonymousEvaluation ? '有効' : '無効'
+                  }
+                  color={
+                    template.settings.anonymousEvaluation
+                      ? 'success'
+                      : 'default'
+                  }
+                  size='small'
                 />
               </ListItemSecondaryAction>
             </ListItem>
@@ -482,23 +531,19 @@ const TemplateDetailPage: React.FC = () => {
       <Dialog
         open={previewDialogOpen}
         onClose={() => setPreviewDialogOpen(false)}
-        maxWidth="md"
+        maxWidth='md'
         fullWidth
       >
         <DialogTitle>テンプレートプレビュー</DialogTitle>
         <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
             このテンプレートを使用した評価画面のプレビューです。
           </Typography>
           {/* TODO: 実際の評価フォームのプレビューを実装 */}
-          <Alert severity="info">
-            プレビュー機能は今後実装予定です。
-          </Alert>
+          <Alert severity='info'>プレビュー機能は今後実装予定です。</Alert>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setPreviewDialogOpen(false)}>
-            閉じる
-          </Button>
+          <Button onClick={() => setPreviewDialogOpen(false)}>閉じる</Button>
         </DialogActions>
       </Dialog>
     </Box>
