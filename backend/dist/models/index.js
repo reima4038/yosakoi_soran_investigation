@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.NotificationStatus = exports.NotificationType = exports.Notification = exports.DiscussionType = exports.DiscussionComment = exports.DiscussionThread = exports.SharePermission = exports.ShareVisibility = exports.ShareType = exports.Share = exports.CommentType = exports.Comment = exports.ICategoryScore = exports.IScore = exports.Evaluation = exports.SessionStatus = exports.Session = exports.CriterionType = exports.Template = exports.Video = exports.UserRole = exports.User = void 0;
+exports.NotificationStatus = exports.NotificationType = exports.Notification = exports.DiscussionType = exports.DiscussionComment = exports.DiscussionThread = exports.SharePermission = exports.ShareVisibility = exports.ShareType = exports.Share = exports.CommentType = exports.Comment = exports.Evaluation = exports.SessionStatus = exports.Session = exports.CriterionType = exports.Template = exports.Video = exports.UserRole = exports.User = void 0;
 // Database models
 var User_1 = require("./User");
 Object.defineProperty(exports, "User", { enumerable: true, get: function () { return User_1.User; } });
@@ -15,8 +15,6 @@ Object.defineProperty(exports, "Session", { enumerable: true, get: function () {
 Object.defineProperty(exports, "SessionStatus", { enumerable: true, get: function () { return Session_1.SessionStatus; } });
 var Evaluation_1 = require("./Evaluation");
 Object.defineProperty(exports, "Evaluation", { enumerable: true, get: function () { return Evaluation_1.Evaluation; } });
-Object.defineProperty(exports, "IScore", { enumerable: true, get: function () { return Evaluation_1.IScore; } });
-Object.defineProperty(exports, "ICategoryScore", { enumerable: true, get: function () { return Evaluation_1.ICategoryScore; } });
 var Comment_1 = require("./Comment");
 Object.defineProperty(exports, "Comment", { enumerable: true, get: function () { return Comment_1.Comment; } });
 Object.defineProperty(exports, "CommentType", { enumerable: true, get: function () { return Comment_1.CommentType; } });

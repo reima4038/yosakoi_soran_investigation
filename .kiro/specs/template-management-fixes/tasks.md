@@ -1,6 +1,6 @@
 # Implementation Plan
 
-- [ ] 1. バックエンドモデルと API の更新
+- [x] 1. バックエンドモデルと API の更新
 
   - Template モデルに isPublic フィールドを追加し、既存のスキーマを更新する
   - 可視性切り替え用の新しい API エンドポイント PUT /api/templates/:id/visibility を実装する

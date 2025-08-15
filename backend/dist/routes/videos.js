@@ -1,7 +1,11 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const express_validator_1 = require("express-validator");
+const mongoose_1 = __importDefault(require("mongoose"));
 const Video_1 = require("../models/Video");
 const youtubeService_1 = require("../services/youtubeService");
 const middleware_1 = require("../middleware");
@@ -14,6 +18,9 @@ router.use(languageDetection_1.languageDetectionMiddleware);
 const handleValidationErrors = (req, res, next) => {
     const errors = (0, express_validator_1.validationResult)(req);
     if (!errors.isEmpty()) {
+        console.log('Validation errors:', JSON.stringify(errors.array(), null, 2));
+        console.log('Request params:', JSON.stringify(req.params, null, 2));
+        console.log('Request body:', JSON.stringify(req.body, null, 2));
         res.status(400).json({
             status: 'error',
             message: 'バリデーションエラー',
@@ -367,10 +374,15 @@ router.get('/', [
             .limit(limitNum);
         // 総数を取得
         const total = await Video_1.Video.countDocuments(filter);
+        // IDフィールドを正規化
+        const normalizedVideos = videos.map(video => ({
+            ...video.toObject(),
+            id: video._id.toString()
+        }));
         res.json({
             status: 'success',
             data: {
-                videos,
+                videos: normalizedVideos,
                 pagination: {
                     page: pageNum,
                     limit: limitNum,
@@ -410,9 +422,14 @@ router.get('/:id', [
                 message: '指定された動画が見つかりません'
             });
         }
+        // IDフィールドを正規化
+        const normalizedVideo = {
+            ...video.toObject(),
+            id: video._id.toString()
+        };
         res.json({
             status: 'success',
-            data: video
+            data: normalizedVideo
         });
     }
     catch (error) {
@@ -434,33 +451,60 @@ router.put('/:id', [
         .isMongoId()
         .withMessage('有効な動画IDを指定してください'),
     (0, express_validator_1.body)('metadata.teamName')
-        .optional()
-        .isString()
-        .withMessage('チーム名は文字列である必要があります')
-        .isLength({ max: 100 })
-        .withMessage('チーム名は100文字以下である必要があります'),
+        .optional({ values: 'falsy' })
+        .custom((value) => {
+        if (value !== undefined && value !== null && typeof value !== 'string') {
+            throw new Error('チーム名は文字列である必要があります');
+        }
+        if (value && value.length > 100) {
+            throw new Error('チーム名は100文字以下である必要があります');
+        }
+        return true;
+    }),
     (0, express_validator_1.body)('metadata.performanceName')
-        .optional()
-        .isString()
-        .withMessage('演舞名は文字列である必要があります')
-        .isLength({ max: 100 })
-        .withMessage('演舞名は100文字以下である必要があります'),
+        .optional({ values: 'falsy' })
+        .custom((value) => {
+        if (value !== undefined && value !== null && typeof value !== 'string') {
+            throw new Error('演舞名は文字列である必要があります');
+        }
+        if (value && value.length > 100) {
+            throw new Error('演舞名は100文字以下である必要があります');
+        }
+        return true;
+    }),
     (0, express_validator_1.body)('metadata.eventName')
-        .optional()
-        .isString()
-        .withMessage('大会名は文字列である必要があります')
-        .isLength({ max: 100 })
-        .withMessage('大会名は100文字以下である必要があります'),
+        .optional({ values: 'falsy' })
+        .custom((value) => {
+        if (value !== undefined && value !== null && typeof value !== 'string') {
+            throw new Error('大会名は文字列である必要があります');
+        }
+        if (value && value.length > 100) {
+            throw new Error('大会名は100文字以下である必要があります');
+        }
+        return true;
+    }),
     (0, express_validator_1.body)('metadata.year')
-        .optional()
-        .isInt({ min: 1900, max: new Date().getFullYear() + 1 })
-        .withMessage('年度は1900年から来年までの範囲で入力してください'),
+        .optional({ values: 'falsy' })
+        .custom((value) => {
+        if (value !== undefined && value !== null) {
+            const year = parseInt(value);
+            if (isNaN(year) || year < 1900 || year > new Date().getFullYear() + 1) {
+                throw new Error('年度は1900年から来年までの範囲で入力してください');
+            }
+        }
+        return true;
+    }),
     (0, express_validator_1.body)('metadata.location')
-        .optional()
-        .isString()
-        .withMessage('場所は文字列である必要があります')
-        .isLength({ max: 100 })
-        .withMessage('場所は100文字以下である必要があります'),
+        .optional({ values: 'falsy' })
+        .custom((value) => {
+        if (value !== undefined && value !== null && typeof value !== 'string') {
+            throw new Error('場所は文字列である必要があります');
+        }
+        if (value && value.length > 100) {
+            throw new Error('場所は100文字以下である必要があります');
+        }
+        return true;
+    }),
     (0, express_validator_1.body)('tags')
         .optional()
         .isArray()
@@ -477,6 +521,11 @@ router.put('/:id', [
         const { id } = req.params;
         const { metadata = {}, tags } = req.body;
         const userId = req.user.userId;
+        console.log('PUT /videos/:id - Received ID:', id);
+        console.log('PUT /videos/:id - ID type:', typeof id);
+        console.log('PUT /videos/:id - ID length:', id.length);
+        console.log('PUT /videos/:id - Is valid ObjectId:', mongoose_1.default.Types.ObjectId.isValid(id));
+        console.log('PUT /videos/:id - Request body:', JSON.stringify(req.body, null, 2));
         // 動画の存在確認
         const video = await Video_1.Video.findById(id);
         if (!video) {

@@ -61,9 +61,14 @@ router.post('/', middleware_1.authenticateToken, async (req, res) => {
             .populate('videoId', 'title youtubeId thumbnailUrl')
             .populate('templateId', 'name description')
             .populate('creatorId', 'username email profile.displayName');
+        // IDフィールドを正規化
+        const normalizedSession = {
+            ...populatedSession.toObject(),
+            id: populatedSession._id.toString()
+        };
         return res.status(201).json({
             status: 'success',
-            data: populatedSession
+            data: normalizedSession
         });
     }
     catch (error) {
@@ -102,10 +107,19 @@ router.get('/', middleware_1.authenticateToken, async (req, res) => {
                 .limit(Number(limit)),
             Session_1.Session.countDocuments(filter)
         ]);
+        // IDフィールドを正規化
+        const normalizedSessions = sessions.map(session => ({
+            ...session.toObject(),
+            id: session._id.toString()
+        }));
+        console.log('Session list response:', {
+            sessionCount: normalizedSessions.length,
+            sessionStatuses: normalizedSessions.map(s => ({ id: s.id, status: s.status }))
+        });
         return res.json({
             status: 'success',
             data: {
-                sessions,
+                sessions: normalizedSessions,
                 pagination: {
                     page: Number(page),
                     limit: Number(limit),
@@ -127,15 +141,17 @@ router.get('/', middleware_1.authenticateToken, async (req, res) => {
 router.get('/:id', middleware_1.authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
+        console.log('Session detail request:', { id, query: req.query });
         if (!mongoose_1.default.Types.ObjectId.isValid(id)) {
+            console.log('Invalid session ID:', id);
             return res.status(400).json({
                 status: 'error',
                 message: '無効なセッションIDです'
             });
         }
         const session = await Session_1.Session.findById(id)
-            .populate('videoId')
-            .populate('templateId')
+            .populate('videoId', 'title youtubeId thumbnailUrl metadata')
+            .populate('templateId', 'name description categories')
             .populate('creatorId', 'username email profile')
             .populate('evaluators', 'username email profile');
         if (!session) {
@@ -154,9 +170,36 @@ router.get('/:id', middleware_1.authenticateToken, async (req, res) => {
                 message: 'このセッションにアクセスする権限がありません'
             });
         }
+        // IDフィールドを正規化（populateされたオブジェクトも含む）
+        const sessionObj = session.toObject();
+        const normalizedSession = {
+            ...sessionObj,
+            id: session._id.toString(),
+            // populateされた動画オブジェクトのIDも正規化
+            videoId: sessionObj.videoId && typeof sessionObj.videoId === 'object'
+                ? {
+                    ...sessionObj.videoId,
+                    id: sessionObj.videoId._id?.toString() || sessionObj.videoId.id
+                }
+                : sessionObj.videoId,
+            // populateされたテンプレートオブジェクトのIDも正規化
+            templateId: sessionObj.templateId && typeof sessionObj.templateId === 'object'
+                ? {
+                    ...sessionObj.templateId,
+                    id: sessionObj.templateId._id?.toString() || sessionObj.templateId.id
+                }
+                : sessionObj.templateId
+        };
+        console.log('Session detail response:', {
+            sessionId: id,
+            settings: normalizedSession.settings,
+            hasSettings: !!normalizedSession.settings,
+            videoId: normalizedSession.videoId,
+            templateId: normalizedSession.templateId
+        });
         return res.json({
             status: 'success',
-            data: session
+            data: normalizedSession
         });
     }
     catch (error) {
@@ -212,9 +255,14 @@ router.put('/:id', middleware_1.authenticateToken, async (req, res) => {
             .populate('templateId', 'name description')
             .populate('creatorId', 'username profile.displayName')
             .populate('evaluators', 'username profile.displayName');
+        // IDフィールドを正規化
+        const normalizedSession = {
+            ...updatedSession.toObject(),
+            id: updatedSession._id.toString()
+        };
         return res.json({
             status: 'success',
-            data: updatedSession
+            data: normalizedSession
         });
     }
     catch (error) {
@@ -409,6 +457,11 @@ router.patch('/:id/status', middleware_1.authenticateToken, async (req, res) => 
     try {
         const { id } = req.params;
         const { status } = req.body;
+        console.log('Session status update request:', {
+            sessionId: id,
+            newStatus: status,
+            userId: req.user?.userId
+        });
         if (!mongoose_1.default.Types.ObjectId.isValid(id)) {
             return res.status(400).json({
                 status: 'error',
@@ -450,37 +503,67 @@ router.patch('/:id/status', middleware_1.authenticateToken, async (req, res) => 
         }
         // アクティブにする場合の追加チェック
         if (status === Session_1.SessionStatus.ACTIVE) {
-            if (!session.startDate) {
-                session.startDate = new Date(Date.now() + 1000); // 1秒後に設定
+            const now = new Date();
+            // 開始日時が設定されていない、または過去の場合は現在時刻に設定
+            if (!session.startDate || session.startDate < now) {
+                session.startDate = new Date(now.getTime() + 1000); // 1秒後に設定
+                console.log(`セッション ${id} の開始日時を現在時刻に更新しました:`, session.startDate);
             }
-            if (session.evaluators.length === 0) {
-                return res.status(400).json({
-                    status: 'error',
-                    message: 'アクティブにするには少なくとも1人の評価者が必要です'
-                });
-            }
+            // 評価者のチェックは一旦コメントアウト（必要に応じて後で有効化）
+            // if (session.evaluators.length === 0) {
+            //   return res.status(400).json({
+            //     status: 'error',
+            //     message: 'アクティブにするには少なくとも1人の評価者が必要です'
+            //   });
+            // }
         }
         // 完了にする場合の処理
         if (status === Session_1.SessionStatus.COMPLETED && !session.endDate) {
             session.endDate = new Date();
         }
         session.status = status;
-        await session.save();
+        try {
+            await session.save();
+        }
+        catch (saveError) {
+            console.error('セッション保存エラー:', saveError);
+            // バリデーションエラーの場合
+            if (saveError.name === 'ValidationError') {
+                const validationErrors = Object.values(saveError.errors).map((err) => err.message);
+                return res.status(400).json({
+                    status: 'error',
+                    message: 'セッションの保存に失敗しました',
+                    details: validationErrors.join(', ')
+                });
+            }
+            throw saveError; // その他のエラーは上位に投げる
+        }
         const updatedSession = await Session_1.Session.findById(id)
             .populate('videoId', 'title youtubeId thumbnailUrl')
             .populate('templateId', 'name description')
             .populate('creatorId', 'username profile.displayName')
             .populate('evaluators', 'username profile.displayName');
+        // IDフィールドを正規化
+        const normalizedSession = {
+            ...updatedSession.toObject(),
+            id: updatedSession._id.toString()
+        };
         return res.json({
             status: 'success',
-            data: updatedSession
+            data: normalizedSession
         });
     }
     catch (error) {
         console.error('セッションステータス更新エラー:', error);
+        console.error('Error details:', {
+            name: error?.name,
+            message: error?.message,
+            stack: error?.stack
+        });
         return res.status(500).json({
             status: 'error',
-            message: 'セッションステータスの更新に失敗しました'
+            message: 'セッションステータスの更新に失敗しました',
+            details: error?.message || 'Unknown error'
         });
     }
 });

@@ -9,14 +9,26 @@ const middleware_1 = require("../middleware");
 const mongoose_1 = __importDefault(require("mongoose"));
 const router = (0, express_1.Router)();
 // GET /api/templates - テンプレート一覧取得
-router.get('/', middleware_1.authenticateToken, async (_req, res) => {
+router.get('/', middleware_1.authenticateToken, async (req, res) => {
     try {
-        const templates = await Template_1.Template.find()
+        const userId = req.user?.userId;
+        // 公開テンプレートまたは自分が作成したテンプレートのみ取得
+        const templates = await Template_1.Template.find({
+            $or: [
+                { isPublic: true },
+                { creatorId: userId }
+            ]
+        })
             .populate('creatorId', 'username email')
             .sort({ createdAt: -1 });
+        // IDフィールドを正規化
+        const normalizedTemplates = templates.map(template => ({
+            ...template.toObject(),
+            id: template._id.toString()
+        }));
         res.json({
             status: 'success',
-            data: templates
+            data: normalizedTemplates
         });
     }
     catch (error) {
@@ -47,9 +59,23 @@ router.get('/:id', middleware_1.authenticateToken, async (req, res) => {
             });
             return;
         }
+        const userId = req.user?.userId;
+        // 非公開テンプレートの場合、作成者のみアクセス可能
+        if (!template.isPublic && template.creatorId._id.toString() !== userId) {
+            res.status(403).json({
+                status: 'error',
+                message: 'このテンプレートにアクセスする権限がありません'
+            });
+            return;
+        }
+        // IDフィールドを正規化
+        const normalizedTemplate = {
+            ...template.toObject(),
+            id: template._id.toString()
+        };
         res.json({
             status: 'success',
-            data: template
+            data: normalizedTemplate
         });
     }
     catch (error) {
@@ -63,8 +89,15 @@ router.get('/:id', middleware_1.authenticateToken, async (req, res) => {
 // POST /api/templates - テンプレート作成
 router.post('/', middleware_1.authenticateToken, async (req, res) => {
     try {
-        const { name, description, categories } = req.body;
+        const { name, description, categories, allowGeneralComments, isPublic } = req.body;
         const userId = req.user?.userId;
+        console.log('Template creation request:', {
+            name,
+            description,
+            categories: categories ? categories.length : 'undefined',
+            userId,
+            requestBody: JSON.stringify(req.body, null, 2)
+        });
         if (!userId) {
             res.status(401).json({
                 status: 'error',
@@ -92,13 +125,18 @@ router.post('/', middleware_1.authenticateToken, async (req, res) => {
         if (Math.abs(categoryWeightSum - 1) > 0.001) {
             res.status(400).json({
                 status: 'error',
-                message: 'カテゴリの重みの合計は1である必要があります'
+                message: 'カテゴリの重みの合計は100%である必要があります'
             });
             return;
         }
         // 各カテゴリ内の評価基準の重みの合計をチェック
         for (const category of categories) {
-            if (!category.criteria || category.criteria.length === 0) {
+            console.log('Processing category:', {
+                name: category.name,
+                criteria: category.criteria ? category.criteria.length : 'undefined',
+                criteriaType: typeof category.criteria
+            });
+            if (!category.criteria || !Array.isArray(category.criteria) || category.criteria.length === 0) {
                 res.status(400).json({
                     status: 'error',
                     message: `カテゴリ「${category.name}」には少なくとも1つの評価基準が必要です`
@@ -109,7 +147,7 @@ router.post('/', middleware_1.authenticateToken, async (req, res) => {
             if (Math.abs(criteriaWeightSum - 1) > 0.001) {
                 res.status(400).json({
                     status: 'error',
-                    message: `カテゴリ「${category.name}」の評価基準の重みの合計は1である必要があります`
+                    message: `カテゴリ「${category.name}」の評価基準の重みの合計は100%である必要があります`
                 });
                 return;
             }
@@ -118,19 +156,37 @@ router.post('/', middleware_1.authenticateToken, async (req, res) => {
             name,
             description,
             creatorId: userId,
-            categories
+            categories,
+            allowGeneralComments: allowGeneralComments !== undefined ? allowGeneralComments : true,
+            isPublic: isPublic !== undefined ? isPublic : true
         });
         await template.save();
         const populatedTemplate = await Template_1.Template.findById(template._id)
             .populate('creatorId', 'username email');
+        // IDフィールドを正規化
+        const normalizedTemplate = {
+            ...populatedTemplate.toObject(),
+            id: populatedTemplate._id.toString()
+        };
         res.status(201).json({
             status: 'success',
-            data: populatedTemplate,
+            data: normalizedTemplate,
             message: 'テンプレートが正常に作成されました'
         });
     }
     catch (error) {
         console.error('Template creation error:', error);
+        // Mongooseバリデーションエラーの場合
+        if (error.name === 'ValidationError') {
+            const validationErrors = Object.values(error.errors).map((err) => err.message);
+            res.status(400).json({
+                status: 'error',
+                message: validationErrors.join(', '),
+                errors: validationErrors
+            });
+            return;
+        }
+        // 重みに関するカスタムエラーの場合
         if (error instanceof Error && error.message.includes('重み')) {
             res.status(400).json({
                 status: 'error',
@@ -148,7 +204,7 @@ router.post('/', middleware_1.authenticateToken, async (req, res) => {
 router.put('/:id', middleware_1.authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, description, categories } = req.body;
+        const { name, description, categories, allowGeneralComments, isPublic } = req.body;
         const userId = req.user?.userId;
         if (!mongoose_1.default.Types.ObjectId.isValid(id)) {
             res.status(400).json({
@@ -191,12 +247,23 @@ router.put('/:id', middleware_1.authenticateToken, async (req, res) => {
         template.name = name;
         template.description = description;
         template.categories = categories;
+        if (allowGeneralComments !== undefined) {
+            template.allowGeneralComments = allowGeneralComments;
+        }
+        if (isPublic !== undefined) {
+            template.isPublic = isPublic;
+        }
         await template.save();
         const populatedTemplate = await Template_1.Template.findById(template._id)
             .populate('creatorId', 'username email');
+        // IDフィールドを正規化
+        const normalizedTemplate = {
+            ...populatedTemplate.toObject(),
+            id: populatedTemplate._id.toString()
+        };
         res.json({
             status: 'success',
-            data: populatedTemplate,
+            data: normalizedTemplate,
             message: 'テンプレートが正常に更新されました'
         });
     }
@@ -257,6 +324,65 @@ router.delete('/:id', middleware_1.authenticateToken, async (req, res) => {
         });
     }
 });
+// PUT /api/templates/:id/visibility - テンプレート可視性切り替え
+router.put('/:id/visibility', middleware_1.authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { isPublic } = req.body;
+        const userId = req.user?.userId;
+        if (!mongoose_1.default.Types.ObjectId.isValid(id)) {
+            res.status(400).json({
+                status: 'error',
+                message: '無効なテンプレートIDです'
+            });
+            return;
+        }
+        if (typeof isPublic !== 'boolean') {
+            res.status(400).json({
+                status: 'error',
+                message: '公開設定は真偽値である必要があります'
+            });
+            return;
+        }
+        const template = await Template_1.Template.findById(id);
+        if (!template) {
+            res.status(404).json({
+                status: 'error',
+                message: 'テンプレートが見つかりません'
+            });
+            return;
+        }
+        // 作成者のみ可視性を変更可能
+        if (template.creatorId.toString() !== userId) {
+            res.status(403).json({
+                status: 'error',
+                message: 'このテンプレートの可視性を変更する権限がありません'
+            });
+            return;
+        }
+        template.isPublic = isPublic;
+        await template.save();
+        const populatedTemplate = await Template_1.Template.findById(template._id)
+            .populate('creatorId', 'username email');
+        // IDフィールドを正規化
+        const normalizedTemplate = {
+            ...populatedTemplate.toObject(),
+            id: populatedTemplate._id.toString()
+        };
+        res.json({
+            status: 'success',
+            data: normalizedTemplate,
+            message: `テンプレートが${isPublic ? '公開' : '非公開'}に設定されました`
+        });
+    }
+    catch (error) {
+        console.error('Template visibility update error:', error);
+        res.status(500).json({
+            status: 'error',
+            message: 'テンプレートの可視性変更に失敗しました'
+        });
+    }
+});
 // POST /api/templates/:id/duplicate - テンプレート複製
 router.post('/:id/duplicate', middleware_1.authenticateToken, async (req, res) => {
     try {
@@ -277,18 +403,33 @@ router.post('/:id/duplicate', middleware_1.authenticateToken, async (req, res) =
             });
             return;
         }
+        // 非公開テンプレートの場合、作成者のみ複製可能
+        if (!originalTemplate.isPublic && originalTemplate.creatorId.toString() !== userId) {
+            res.status(403).json({
+                status: 'error',
+                message: 'このテンプレートを複製する権限がありません'
+            });
+            return;
+        }
         const duplicatedTemplate = new Template_1.Template({
             name: `${originalTemplate.name} (コピー)`,
             description: originalTemplate.description,
             creatorId: userId,
-            categories: originalTemplate.categories
+            categories: originalTemplate.categories,
+            allowGeneralComments: originalTemplate.allowGeneralComments,
+            isPublic: originalTemplate.isPublic
         });
         await duplicatedTemplate.save();
         const populatedTemplate = await Template_1.Template.findById(duplicatedTemplate._id)
             .populate('creatorId', 'username email');
+        // IDフィールドを正規化
+        const normalizedTemplate = {
+            ...populatedTemplate.toObject(),
+            id: populatedTemplate._id.toString()
+        };
         res.status(201).json({
             status: 'success',
-            data: populatedTemplate,
+            data: normalizedTemplate,
             message: 'テンプレートが正常に複製されました'
         });
     }

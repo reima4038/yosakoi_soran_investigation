@@ -6,9 +6,17 @@ import mongoose from 'mongoose';
 const router = Router();
 
 // GET /api/templates - テンプレート一覧取得
-router.get('/', authenticateToken, async (_req: Request, res: Response) => {
+router.get('/', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const templates = await Template.find()
+    const userId = req.user?.userId;
+    
+    // 公開テンプレートまたは自分が作成したテンプレートのみ取得
+    const templates = await Template.find({
+      $or: [
+        { isPublic: true },
+        { creatorId: userId }
+      ]
+    })
       .populate('creatorId', 'username email')
       .sort({ createdAt: -1 });
 
@@ -55,6 +63,17 @@ router.get('/:id', authenticateToken, async (req: Request, res: Response): Promi
       return;
     }
 
+    const userId = req.user?.userId;
+    
+    // 非公開テンプレートの場合、作成者のみアクセス可能
+    if (!template.isPublic && template.creatorId._id.toString() !== userId) {
+      res.status(403).json({
+        status: 'error',
+        message: 'このテンプレートにアクセスする権限がありません'
+      });
+      return;
+    }
+
     // IDフィールドを正規化
     const normalizedTemplate = {
       ...template.toObject(),
@@ -77,7 +96,7 @@ router.get('/:id', authenticateToken, async (req: Request, res: Response): Promi
 // POST /api/templates - テンプレート作成
 router.post('/', authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, description, categories } = req.body;
+    const { name, description, categories, allowGeneralComments, isPublic } = req.body;
     const userId = req.user?.userId;
 
     console.log('Template creation request:', {
@@ -153,7 +172,9 @@ router.post('/', authenticateToken, async (req: Request, res: Response): Promise
       name,
       description,
       creatorId: userId,
-      categories
+      categories,
+      allowGeneralComments: allowGeneralComments !== undefined ? allowGeneralComments : true,
+      isPublic: isPublic !== undefined ? isPublic : true
     });
 
     await template.save();
@@ -206,7 +227,7 @@ router.post('/', authenticateToken, async (req: Request, res: Response): Promise
 router.put('/:id', authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { name, description, categories } = req.body;
+    const { name, description, categories, allowGeneralComments, isPublic } = req.body;
     const userId = req.user?.userId;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -255,6 +276,12 @@ router.put('/:id', authenticateToken, async (req: Request, res: Response): Promi
     template.name = name;
     template.description = description;
     template.categories = categories;
+    if (allowGeneralComments !== undefined) {
+      template.allowGeneralComments = allowGeneralComments;
+    }
+    if (isPublic !== undefined) {
+      template.isPublic = isPublic;
+    }
 
     await template.save();
 
@@ -337,6 +364,73 @@ router.delete('/:id', authenticateToken, async (req: Request, res: Response): Pr
   }
 });
 
+// PUT /api/templates/:id/visibility - テンプレート可視性切り替え
+router.put('/:id/visibility', authenticateToken, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { isPublic } = req.body;
+    const userId = req.user?.userId;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      res.status(400).json({
+        status: 'error',
+        message: '無効なテンプレートIDです'
+      });
+      return;
+    }
+
+    if (typeof isPublic !== 'boolean') {
+      res.status(400).json({
+        status: 'error',
+        message: '公開設定は真偽値である必要があります'
+      });
+      return;
+    }
+
+    const template = await Template.findById(id);
+    if (!template) {
+      res.status(404).json({
+        status: 'error',
+        message: 'テンプレートが見つかりません'
+      });
+      return;
+    }
+
+    // 作成者のみ可視性を変更可能
+    if (template.creatorId.toString() !== userId) {
+      res.status(403).json({
+        status: 'error',
+        message: 'このテンプレートの可視性を変更する権限がありません'
+      });
+      return;
+    }
+
+    template.isPublic = isPublic;
+    await template.save();
+
+    const populatedTemplate = await Template.findById(template._id)
+      .populate('creatorId', 'username email');
+
+    // IDフィールドを正規化
+    const normalizedTemplate = {
+      ...populatedTemplate!.toObject(),
+      id: (populatedTemplate!._id as mongoose.Types.ObjectId).toString()
+    };
+
+    res.json({
+      status: 'success',
+      data: normalizedTemplate,
+      message: `テンプレートが${isPublic ? '公開' : '非公開'}に設定されました`
+    });
+  } catch (error: any) {
+    console.error('Template visibility update error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'テンプレートの可視性変更に失敗しました'
+    });
+  }
+});
+
 // POST /api/templates/:id/duplicate - テンプレート複製
 router.post('/:id/duplicate', authenticateToken, async (req: Request, res: Response): Promise<void> => {
   try {
@@ -360,11 +454,22 @@ router.post('/:id/duplicate', authenticateToken, async (req: Request, res: Respo
       return;
     }
 
+    // 非公開テンプレートの場合、作成者のみ複製可能
+    if (!originalTemplate.isPublic && originalTemplate.creatorId.toString() !== userId) {
+      res.status(403).json({
+        status: 'error',
+        message: 'このテンプレートを複製する権限がありません'
+      });
+      return;
+    }
+
     const duplicatedTemplate = new Template({
       name: `${originalTemplate.name} (コピー)`,
       description: originalTemplate.description,
       creatorId: userId,
-      categories: originalTemplate.categories
+      categories: originalTemplate.categories,
+      allowGeneralComments: originalTemplate.allowGeneralComments,
+      isPublic: originalTemplate.isPublic
     });
 
     await duplicatedTemplate.save();

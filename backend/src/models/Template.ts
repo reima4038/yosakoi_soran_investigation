@@ -30,9 +30,11 @@ export interface ITemplate extends Document {
   name: string;
   description: string;
   createdAt: Date;
+  updatedAt: Date;
   creatorId: mongoose.Types.ObjectId;
   categories: ICategory[];
   allowGeneralComments?: boolean; // テンプレート全体での一般コメントを許可するか
+  isPublic: boolean; // 公開・非公開フラグ
 }
 
 const CriterionSchema = new Schema<ICriterion>({
@@ -163,6 +165,11 @@ const TemplateSchema = new Schema<ITemplate>({
   allowGeneralComments: {
     type: Boolean,
     default: true
+  },
+  isPublic: {
+    type: Boolean,
+    default: true,
+    required: [true, '公開設定は必須です']
   }
 }, {
   timestamps: true
@@ -172,6 +179,8 @@ const TemplateSchema = new Schema<ITemplate>({
 TemplateSchema.index({ creatorId: 1 });
 TemplateSchema.index({ name: 1 });
 TemplateSchema.index({ createdAt: -1 });
+TemplateSchema.index({ isPublic: 1 });
+TemplateSchema.index({ isPublic: 1, creatorId: 1 }); // 複合インデックス
 
 // 重みの合計が1になることを検証するバリデーション
 TemplateSchema.pre('save', function(next) {

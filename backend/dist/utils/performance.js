@@ -71,7 +71,7 @@ exports.PerformanceMonitor = PerformanceMonitor;
 /**
  * Middleware to track response times
  */
-const performanceMiddleware = (req, res, next) => {
+const performanceMiddleware = (_req, res, next) => {
     const startTime = Date.now();
     res.on('finish', () => {
         const responseTime = Date.now() - startTime;

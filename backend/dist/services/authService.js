@@ -50,14 +50,26 @@ class AuthService {
      */
     static async login(loginData) {
         const { email, password } = loginData;
+        console.log('Login attempt for email:', email);
         // ユーザー検索
         const user = await User_1.User.findOne({ email }).select('+passwordHash');
+        console.log('User found:', user ? 'Yes' : 'No');
         if (!user) {
+            console.log('User not found for email:', email);
             throw new Error('メールアドレスまたはパスワードが正しくありません');
         }
+        console.log('User details:', {
+            id: user._id,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            hasPasswordHash: !!user.passwordHash
+        });
         // パスワード検証
         const isPasswordValid = await user.comparePassword(password);
+        console.log('Password valid:', isPasswordValid);
         if (!isPasswordValid) {
+            console.log('Invalid password for user:', email);
             throw new Error('メールアドレスまたはパスワードが正しくありません');
         }
         // JWTトークン生成
@@ -67,6 +79,7 @@ class AuthService {
             email: user.email,
             role: user.role
         });
+        console.log('Login successful for user:', email);
         return { user, token };
     }
     /**

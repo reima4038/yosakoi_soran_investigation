@@ -55,7 +55,7 @@ const CriterionSchema = new mongoose_1.Schema({
     },
     description: {
         type: String,
-        required: [true, '評価基準の説明は必須です'],
+        required: false,
         trim: true,
         maxlength: [500, '評価基準の説明は500文字以下である必要があります']
     },
@@ -106,7 +106,7 @@ const CategorySchema = new mongoose_1.Schema({
     },
     description: {
         type: String,
-        required: [true, 'カテゴリの説明は必須です'],
+        required: false,
         trim: true,
         maxlength: [500, 'カテゴリの説明は500文字以下である必要があります']
     },
@@ -167,6 +167,11 @@ const TemplateSchema = new mongoose_1.Schema({
     allowGeneralComments: {
         type: Boolean,
         default: true
+    },
+    isPublic: {
+        type: Boolean,
+        default: true,
+        required: [true, '公開設定は必須です']
     }
 }, {
     timestamps: true
@@ -175,18 +180,20 @@ const TemplateSchema = new mongoose_1.Schema({
 TemplateSchema.index({ creatorId: 1 });
 TemplateSchema.index({ name: 1 });
 TemplateSchema.index({ createdAt: -1 });
+TemplateSchema.index({ isPublic: 1 });
+TemplateSchema.index({ isPublic: 1, creatorId: 1 }); // 複合インデックス
 // 重みの合計が1になることを検証するバリデーション
 TemplateSchema.pre('save', function (next) {
     // カテゴリの重みの合計をチェック
     const categoryWeightSum = this.categories.reduce((sum, category) => sum + category.weight, 0);
     if (Math.abs(categoryWeightSum - 1) > 0.001) {
-        return next(new Error('カテゴリの重みの合計は1である必要があります'));
+        return next(new Error('カテゴリの重みの合計は100%である必要があります'));
     }
     // 各カテゴリ内の評価基準の重みの合計をチェック
     for (const category of this.categories) {
         const criteriaWeightSum = category.criteria.reduce((sum, criterion) => sum + criterion.weight, 0);
         if (Math.abs(criteriaWeightSum - 1) > 0.001) {
-            return next(new Error(`カテゴリ「${category.name}」の評価基準の重みの合計は1である必要があります`));
+            return next(new Error(`カテゴリ「${category.name}」の評価基準の重みの合計は100%である必要があります`));
         }
     }
     next();

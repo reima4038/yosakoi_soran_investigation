@@ -37,7 +37,7 @@ export declare class PerformanceMonitor {
 /**
  * Middleware to track response times
  */
-export declare const performanceMiddleware: (req: any, res: any, next: any) => void;
+export declare const performanceMiddleware: (_req: any, res: any, next: any) => void;
 /**
  * Database query optimization utilities
  */

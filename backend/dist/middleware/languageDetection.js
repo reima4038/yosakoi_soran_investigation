@@ -12,7 +12,7 @@ const errorMessages_1 = require("../utils/errorMessages");
 /**
  * 言語検出ミドルウェア
  */
-function languageDetectionMiddleware(req, res, next) {
+function languageDetectionMiddleware(req, _res, next) {
     // Accept-Languageヘッダーから言語を検出
     const acceptLanguage = req.headers['accept-language'];
     const detectedLanguage = errorMessages_1.ErrorMessageManager.detectLanguageFromBrowser(acceptLanguage);

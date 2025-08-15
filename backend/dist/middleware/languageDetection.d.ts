@@ -14,7 +14,7 @@ declare global {
 /**
  * 言語検出ミドルウェア
  */
-export declare function languageDetectionMiddleware(req: Request, res: Response, next: NextFunction): void;
+export declare function languageDetectionMiddleware(req: Request, _res: Response, next: NextFunction): void;
 /**
  * クエリパラメータまたはヘッダーから言語を取得するヘルパー関数
  */
@@ -26,7 +26,7 @@ export declare function setResponseLanguage(res: Response, language: SupportedLa
 /**
  * 多言語対応のエラーレスポンスを生成するヘルパー関数
  */
-export declare function createLocalizedErrorResponse(error: any, language: SupportedLanguage, includeDetails?: boolean): {
+export declare function createLocalizedErrorResponse(error: unknown, language: SupportedLanguage, includeDetails?: boolean): {
     success: false;
     error: {
         type: string;

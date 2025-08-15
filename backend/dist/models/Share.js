@@ -63,7 +63,18 @@ const ShareSchema = new mongoose_1.Schema({
     resourceId: {
         type: mongoose_1.Schema.Types.ObjectId,
         required: [true, 'リソースIDは必須です'],
-        refPath: 'resourceType'
+        ref: function () {
+            switch (this.resourceType) {
+                case ShareType.SESSION_RESULTS:
+                    return 'Session';
+                case ShareType.EVALUATION:
+                    return 'Evaluation';
+                case ShareType.ANALYSIS:
+                    return 'Session'; // 分析も基本的にはセッションベース
+                default:
+                    return 'Session';
+            }
+        }
     },
     creatorId: {
         type: mongoose_1.Schema.Types.ObjectId,

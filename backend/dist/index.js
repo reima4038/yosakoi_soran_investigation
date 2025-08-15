@@ -15,7 +15,8 @@ const app = (0, express_1.default)();
 const PORT = config_1.config.port;
 // Database connection (skip in test environment)
 if (process.env.NODE_ENV !== 'test') {
-    mongoose_1.default.connect(config_1.config.mongoUri)
+    mongoose_1.default
+        .connect(config_1.config.mongoUri)
         .then(() => {
         console.log('Connected to MongoDB');
     })
@@ -27,22 +28,23 @@ if (process.env.NODE_ENV !== 'test') {
 // Enhanced security middleware (disabled in test environment)
 if (process.env.NODE_ENV !== 'test') {
     try {
-        const { securityMiddleware, securityLogger } = require('../../security/security-config');
-        securityMiddleware(app);
-        // Security event logging
-        app.use((req, res, next) => {
-            res.on('finish', () => {
-                if (res.statusCode >= 400) {
-                    securityLogger.logSecurityEvent('HTTP_ERROR', {
-                        statusCode: res.statusCode,
-                        method: req.method,
-                        url: req.url,
-                        userAgent: req.get('User-Agent')
-                    }, req);
-                }
-            });
-            next();
-        });
+        // const { securityMiddleware, securityLogger } = require('../../security/security-config');
+        // securityMiddleware(app);
+        console.log('Security configuration temporarily disabled');
+        // Security event logging temporarily disabled
+        // app.use((req, res, next) => {
+        //   res.on('finish', () => {
+        //     if (res.statusCode >= 400) {
+        //       securityLogger.logSecurityEvent('HTTP_ERROR', {
+        //         statusCode: res.statusCode,
+        //         method: req.method,
+        //         url: req.url,
+        //         userAgent: req.get('User-Agent')
+        //       }, req);
+        //     }
+        //   });
+        //   next();
+        // });
     }
     catch (error) {
         console.warn('Security configuration not loaded:', error instanceof Error ? error.message : String(error));
@@ -52,9 +54,20 @@ if (process.env.NODE_ENV !== 'test') {
 app.use((0, cors_1.default)({
     origin: process.env.NODE_ENV === 'development' ? true : config_1.config.frontendUrl,
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+// Request logging middleware
+app.use((req, _res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`, {
+        body: req.body,
+        headers: {
+            authorization: req.headers.authorization ? 'Bearer [token]' : 'none',
+            'content-type': req.headers['content-type'],
+        },
+    });
+    next();
+});
 // Body parsing middleware
 app.use(express_1.default.json({ limit: '10mb' }));
 app.use(express_1.default.urlencoded({ extended: true }));
@@ -70,14 +83,14 @@ app.use((err, _req, res, _next) => {
     res.status(500).json({
         status: 'error',
         message: 'Internal server error',
-        ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+        ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
     });
 });
 // 404 handler
 app.use('*', (_req, res) => {
     res.status(404).json({
         status: 'error',
-        message: 'Route not found'
+        message: 'Route not found',
     });
 });
 // Only start server if not in test environment

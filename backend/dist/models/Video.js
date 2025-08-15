@@ -113,7 +113,15 @@ const VideoSchema = new mongoose_1.Schema({
         required: [true, '作成者は必須です']
     }
 }, {
-    timestamps: true
+    timestamps: true,
+    toJSON: {
+        transform: function (_doc, ret) {
+            ret.id = ret._id;
+            delete ret._id;
+            delete ret.__v;
+            return ret;
+        }
+    }
 });
 // インデックス設定
 // youtubeIdは既にunique: trueで設定されているため、追加のインデックスは不要

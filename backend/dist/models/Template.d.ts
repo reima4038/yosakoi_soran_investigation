@@ -26,9 +26,11 @@ export interface ITemplate extends Document {
     name: string;
     description: string;
     createdAt: Date;
+    updatedAt: Date;
     creatorId: mongoose.Types.ObjectId;
     categories: ICategory[];
     allowGeneralComments?: boolean;
+    isPublic: boolean;
 }
 export declare const Template: mongoose.Model<ITemplate, {}, {}, {}, mongoose.Document<unknown, {}, ITemplate, {}> & ITemplate & Required<{
     _id: unknown;
