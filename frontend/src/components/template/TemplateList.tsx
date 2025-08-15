@@ -28,9 +28,12 @@ import {
   Delete as DeleteIcon,
   ContentCopy as CopyIcon,
   Visibility as VisibilityIcon,
+  VisibilityOff as VisibilityOffIcon,
   Settings as SettingsIcon,
   Star as StarIcon,
   StarBorder as StarBorderIcon,
+  Public as PublicIcon,
+  Lock as LockIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, UserRole } from '../../contexts/AuthContext';
@@ -63,33 +66,34 @@ const TemplateList: React.FC = () => {
   const [templateToDelete, setTemplateToDelete] = useState<TemplateDisplay | null>(null);
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateDisplay | null>(null);
+  const [isToggling, setIsToggling] = useState<string | null>(null);
 
   // APIデータを表示用に変換
-  const convertToDisplayTemplate = (template: any): TemplateDisplay => {
+  const convertToDisplayTemplate = (template: Template): TemplateDisplay => {
     const categoryCount = template.categories?.length || 0;
     const criteriaCount = template.categories?.reduce((total: number, cat: any) => total + (cat.criteria?.length || 0), 0) || 0;
     
     return {
-      id: template._id || template.id,
+      id: template.id,
       name: template.name || 'Untitled',
       description: template.description || '',
-      isDefault: template.isDefault || false,
-      isPublic: template.isPublic !== false, // デフォルトはtrue
+      isDefault: false, // APIから取得する場合はデフォルトテンプレートの概念はない
+      isPublic: template.isPublic,
       categoryCount,
       criteriaCount,
-      usageCount: template.usageCount || 0,
+      usageCount: 0, // 使用回数はAPIから取得していない
       createdAt: template.createdAt,
       updatedAt: template.updatedAt || template.createdAt,
-      creatorName: template.creatorId?.username || template.creatorId?.displayName || 'Unknown',
-      creatorAvatar: template.creatorId?.avatar,
-      tags: template.tags || [],
+      creatorName: typeof template.creatorId === 'string' ? 'Unknown' : ((template.creatorId as any)?.username || 'Unknown'),
+      creatorAvatar: typeof template.creatorId === 'string' ? undefined : (template.creatorId as any)?.avatar,
+      tags: [], // タグはAPIから取得していない
     };
   };
 
   // テンプレート一覧の取得
   useEffect(() => {
     fetchTemplates();
-  }, []);
+  }, [fetchTemplates]);
 
   const fetchTemplates = async () => {
     try {
@@ -104,69 +108,9 @@ const TemplateList: React.FC = () => {
       setTemplates(displayTemplates);
     } catch (error: any) {
       console.error('Template fetch error:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'テンプレート一覧の取得に失敗しました';
+      const errorMessage = error.message || 'テンプレート一覧の取得に失敗しました';
       setError(errorMessage);
-      
-      // エラー時はモックデータを使用
-      const mockTemplates: TemplateDisplay[] = [
-        {
-          id: '1',
-          name: '本祭評価テンプレート',
-          description: '本祭での演舞評価用の標準テンプレート。技術面、表現力、構成などを総合的に評価します。',
-          isDefault: true,
-          isPublic: true,
-          categoryCount: 4,
-          criteriaCount: 12,
-          usageCount: 25,
-          createdAt: '2024-01-15T10:00:00Z',
-          updatedAt: '2024-07-20T14:30:00Z',
-          creatorName: 'システム管理者',
-          tags: ['本祭', '標準', '総合評価'],
-        },
-        {
-          id: '2',
-          name: '地方車評価テンプレート',
-          description: '地方車での演舞パフォーマンスを評価するためのテンプレート。',
-          isDefault: false,
-          isPublic: true,
-          categoryCount: 3,
-          criteriaCount: 8,
-          usageCount: 12,
-          createdAt: '2024-02-10T09:30:00Z',
-          updatedAt: '2024-06-15T16:45:00Z',
-          creatorName: '田中審査員',
-          tags: ['地方車', 'パフォーマンス'],
-        },
-        {
-          id: '3',
-          name: '新人チーム評価テンプレート',
-          description: '新人チームの演舞技術向上のための評価テンプレート。基礎技術に重点を置いています。',
-          isDefault: false,
-          isPublic: true,
-          categoryCount: 5,
-          criteriaCount: 15,
-          usageCount: 8,
-          createdAt: '2024-03-05T11:15:00Z',
-          updatedAt: '2024-07-10T13:20:00Z',
-          creatorName: '佐藤指導者',
-          tags: ['新人', '基礎技術', '指導'],
-        },
-        {
-          id: '4',
-          name: 'カスタム評価テンプレート',
-          description: '特定のイベント用にカスタマイズされた評価テンプレート。',
-          isDefault: false,
-          isPublic: false,
-          categoryCount: 6,
-          criteriaCount: 18,
-          usageCount: 3,
-          createdAt: '2024-07-01T15:45:00Z',
-          updatedAt: '2024-07-25T10:30:00Z',
-          creatorName: user?.profile?.displayName || user?.username || 'あなた',
-          tags: ['カスタム', 'イベント'],
-        },
-      ];
-      setTemplates(mockTemplates);
+      setTemplates([]); // エラー時は空配列を設定
     } finally {
       setIsLoading(false);
     }
@@ -196,40 +140,58 @@ const TemplateList: React.FC = () => {
     if (!templateToDelete) return;
 
     try {
-      // TODO: API呼び出し
-      // await apiClient.delete(`/api/templates/${templateToDelete.id}`);
+      setError('');
+      console.log('Deleting template:', templateToDelete.id);
+      
+      await templateService.deleteTemplate(templateToDelete.id);
+      console.log('Template deleted successfully');
+      
       setTemplates(prev => prev.filter(t => t.id !== templateToDelete.id));
       setDeleteDialogOpen(false);
       setTemplateToDelete(null);
     } catch (error: any) {
-      setError('テンプレートの削除に失敗しました');
+      console.error('Template deletion error:', error);
+      setError(error.message || 'テンプレートの削除に失敗しました');
     }
   };
 
   // テンプレート複製
   const handleDuplicate = async (template: TemplateDisplay) => {
     try {
-      // TODO: API呼び出し
-      // const response = await apiClient.post(`/api/templates/${template.id}/duplicate`);
-      // const newTemplate = response.data;
+      setError('');
+      console.log('Duplicating template:', template.id);
       
-      // モック処理
-      const newTemplate: TemplateDisplay = {
-        ...template,
-        id: `${template.id}_copy_${Date.now()}`,
-        name: `${template.name} のコピー`,
-        isDefault: false,
-        isPublic: false,
-        usageCount: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        creatorName: user?.profile?.displayName || user?.username || 'あなた',
-      };
+      const duplicatedTemplate = await templateService.duplicateTemplate(template.id);
+      console.log('Template duplicated successfully:', duplicatedTemplate);
       
-      setTemplates(prev => [newTemplate, ...prev]);
+      const newDisplayTemplate = convertToDisplayTemplate(duplicatedTemplate);
+      setTemplates(prev => [newDisplayTemplate, ...prev]);
       handleMenuClose();
     } catch (error: any) {
-      setError('テンプレートの複製に失敗しました');
+      console.error('Template duplication error:', error);
+      setError(error.message || 'テンプレートの複製に失敗しました');
+    }
+  };
+
+  // 可視性切り替え
+  const handleToggleVisibility = async (template: TemplateDisplay) => {
+    try {
+      setIsToggling(template.id);
+      setError('');
+      
+      console.log('Toggling visibility for template:', template.id, 'to:', !template.isPublic);
+      
+      const updatedTemplate = await templateService.toggleTemplateVisibility(template.id, !template.isPublic);
+      console.log('Template visibility updated successfully:', updatedTemplate);
+      
+      const updatedDisplayTemplate = convertToDisplayTemplate(updatedTemplate);
+      setTemplates(prev => prev.map(t => t.id === template.id ? updatedDisplayTemplate : t));
+      handleMenuClose();
+    } catch (error: any) {
+      console.error('Template visibility toggle error:', error);
+      setError(error.message || 'テンプレートの可視性変更に失敗しました');
+    } finally {
+      setIsToggling(null);
     }
   };
 
@@ -248,8 +210,20 @@ const TemplateList: React.FC = () => {
   if (isLoading) {
     return (
       <Box sx={{ p: 3 }}>
-        <LinearProgress />
-        <Typography variant="body2" sx={{ mt: 2, textAlign: 'center' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Typography variant="h4">評価テンプレート管理</Typography>
+          {canCreateTemplate && (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              disabled
+            >
+              新規テンプレート作成
+            </Button>
+          )}
+        </Box>
+        <LinearProgress sx={{ mb: 2 }} />
+        <Typography variant="body2" sx={{ textAlign: 'center', color: 'text.secondary' }}>
           テンプレート一覧を読み込み中...
         </Typography>
       </Box>
@@ -273,7 +247,20 @@ const TemplateList: React.FC = () => {
       </Box>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert 
+          severity="error" 
+          sx={{ mb: 2 }}
+          action={
+            <Button 
+              color="inherit" 
+              size="small" 
+              onClick={fetchTemplates}
+              disabled={isLoading}
+            >
+              再試行
+            </Button>
+          }
+        >
           {error}
         </Alert>
       )}
@@ -316,15 +303,18 @@ const TemplateList: React.FC = () => {
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                   <Box sx={{ display: 'flex', gap: 1 }}>
                     <Chip
+                      icon={template.isPublic ? <PublicIcon /> : <LockIcon />}
                       label={template.isPublic ? '公開' : '非公開'}
                       color={template.isPublic ? 'success' : 'default'}
                       size="small"
+                      variant={template.isPublic ? 'filled' : 'outlined'}
                     />
                   </Box>
                   {canCreateTemplate && (
                     <IconButton
                       size="small"
                       onClick={(e) => handleMenuOpen(e, template)}
+                      disabled={isToggling === template.id}
                     >
                       <MoreVertIcon />
                     </IconButton>
@@ -474,6 +464,17 @@ const TemplateList: React.FC = () => {
             <CopyIcon />
           </ListItemIcon>
           <ListItemText primary="複製" />
+        </MenuItem>
+        <MenuItem 
+          onClick={() => selectedTemplate && handleToggleVisibility(selectedTemplate)}
+          disabled={isToggling === selectedTemplate?.id}
+        >
+          <ListItemIcon>
+            {selectedTemplate?.isPublic ? <VisibilityOffIcon /> : <VisibilityIcon />}
+          </ListItemIcon>
+          <ListItemText 
+            primary={selectedTemplate?.isPublic ? '非公開にする' : '公開する'} 
+          />
         </MenuItem>
         {selectedTemplate && !selectedTemplate.isDefault && (
           <MenuItem onClick={() => selectedTemplate && handleDeleteClick(selectedTemplate)}>
