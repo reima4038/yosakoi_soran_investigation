@@ -100,8 +100,6 @@ class TemplateService {
         return response.data.data;
       });
     } catch (error: any) {
-      console.error('Failed to fetch templates:', error);
-
       // ネットワークエラーの場合
       if (!error.response) {
         throw new Error(
@@ -137,8 +135,6 @@ class TemplateService {
         return response.data.data;
       });
     } catch (error: any) {
-      console.error('Failed to fetch template:', error);
-
       // ネットワークエラーの場合
       if (!error.response) {
         throw new Error(
@@ -176,8 +172,6 @@ class TemplateService {
       );
       return response.data.data;
     } catch (error: any) {
-      console.error('Failed to create template:', error);
-
       // ネットワークエラーの場合
       if (!error.response) {
         throw new Error(
@@ -216,8 +210,6 @@ class TemplateService {
       );
       return response.data.data;
     } catch (error: any) {
-      console.error('Failed to update template:', error);
-
       // ネットワークエラーの場合
       if (!error.response) {
         throw new Error(
@@ -259,8 +251,6 @@ class TemplateService {
     try {
       await apiClient.delete(`/templates/${id}`);
     } catch (error: any) {
-      console.error('Failed to delete template:', error);
-
       // ネットワークエラーの場合
       if (!error.response) {
         throw new Error(
@@ -297,8 +287,6 @@ class TemplateService {
       );
       return response.data.data;
     } catch (error: any) {
-      console.error('Failed to duplicate template:', error);
-
       // ネットワークエラーの場合
       if (!error.response) {
         throw new Error(
@@ -351,7 +339,6 @@ class TemplateService {
       );
       return response.data.data;
     } catch (error: any) {
-      console.error('Failed to toggle template visibility:', error);
       const message =
         error.response?.data?.message ||
         'テンプレートの可視性変更に失敗しました';
@@ -571,7 +558,7 @@ class TemplateService {
   }
 
   private generateId(): string {
-    return Math.random().toString(36).substr(2, 9);
+    return Math.random().toString(36).substring(2, 11);
   }
 }
 

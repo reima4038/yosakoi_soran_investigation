@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -21,9 +21,6 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  TextField,
-  Switch,
-  FormControlLabel,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -32,19 +29,13 @@ import {
 import {
   ArrowBack as ArrowBackIcon,
   Edit as EditIcon,
-  Delete as DeleteIcon,
-  Add as AddIcon,
   ExpandMore as ExpandMoreIcon,
-  DragIndicator as DragIndicatorIcon,
   Visibility as VisibilityIcon,
-  Save as SaveIcon,
-  Cancel as CancelIcon,
   Public as PublicIcon,
   Lock as LockIcon,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth, UserRole } from '../../contexts/AuthContext';
-import { templateService, Template } from '../../services/templateService';
 import { useTemplateOperations } from '../../hooks/useTemplateOperations';
 import { OperationFeedback } from '../common';
 
@@ -114,7 +105,7 @@ interface TemplateDetail {
 const TemplateDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const { user, hasAnyRole } = useAuth();
+  const { hasAnyRole } = useAuth();
   const [template, setTemplate] = useState<TemplateDetail | null>(null);
 
   const { operationState, clearMessages, getTemplate } =
@@ -123,66 +114,67 @@ const TemplateDetailPage: React.FC = () => {
 
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
 
+  const fetchTemplateDetail = useCallback(
+    async (templateId: string) => {
+      try {
+        const apiTemplate = await getTemplate(templateId);
+
+        if (!apiTemplate) {
+          return;
+        }
+
+        // APIデータを表示用に変換
+        const templateDetail: TemplateDetail = {
+          id: apiTemplate.id,
+          name: apiTemplate.name,
+          description: apiTemplate.description,
+          isDefault: false, // APIから取得する場合はデフォルトテンプレートの概念はない
+          isPublic: apiTemplate.isPublic,
+          categories: apiTemplate.categories.map(cat => ({
+            id: cat.id,
+            name: cat.name,
+            description: cat.description,
+            weight: Math.round(cat.weight * 100), // 小数点を%表記に変換
+            criteria: cat.criteria.map(crit => ({
+              id: crit.id,
+              name: crit.name,
+              description: crit.description,
+              weight: Math.round(crit.weight * 100), // 小数点を%表記に変換
+              minScore: crit.minValue,
+              maxScore: crit.maxValue,
+              isRequired: crit.allowComments || false, // 適切にマッピング
+            })),
+          })),
+          settings: {
+            allowComments: apiTemplate.allowGeneralComments || false,
+            requireAllCriteria: false,
+            showWeights: true,
+            anonymousEvaluation: false,
+          },
+          usageCount: 0, // 使用回数はAPIから取得していない
+          createdAt: apiTemplate.createdAt,
+          updatedAt: apiTemplate.updatedAt || apiTemplate.createdAt,
+          creatorName:
+            typeof apiTemplate.creatorId === 'string'
+              ? 'Unknown'
+              : (apiTemplate.creatorId as any)?.username || 'Unknown',
+          tags: [], // タグはAPIから取得していない
+        };
+
+        setTemplate(templateDetail);
+      } catch (error: any) {
+        // エラーはuseTemplateOperationsで管理される
+      }
+    },
+    [getTemplate]
+  );
+
   // テンプレート詳細の取得
   useEffect(() => {
     if (id) {
       fetchTemplateDetail(id);
     }
-  }, [id]);
-
-  const fetchTemplateDetail = async (templateId: string) => {
-    try {
-      console.log('Fetching template detail:', templateId);
-      const apiTemplate = await getTemplate(templateId);
-
-      if (!apiTemplate) {
-        return;
-      }
-
-      // APIデータを表示用に変換
-      const templateDetail: TemplateDetail = {
-        id: apiTemplate.id,
-        name: apiTemplate.name,
-        description: apiTemplate.description,
-        isDefault: false, // APIから取得する場合はデフォルトテンプレートの概念はない
-        isPublic: apiTemplate.isPublic,
-        categories: apiTemplate.categories.map(cat => ({
-          id: cat.id,
-          name: cat.name,
-          description: cat.description,
-          weight: Math.round(cat.weight * 100), // 小数点を%表記に変換
-          criteria: cat.criteria.map(crit => ({
-            id: crit.id,
-            name: crit.name,
-            description: crit.description,
-            weight: Math.round(crit.weight * 100), // 小数点を%表記に変換
-            minScore: crit.minValue,
-            maxScore: crit.maxValue,
-            isRequired: crit.allowComments || false, // 適切にマッピング
-          })),
-        })),
-        settings: {
-          allowComments: apiTemplate.allowGeneralComments || false,
-          requireAllCriteria: false,
-          showWeights: true,
-          anonymousEvaluation: false,
-        },
-        usageCount: 0, // 使用回数はAPIから取得していない
-        createdAt: apiTemplate.createdAt,
-        updatedAt: apiTemplate.updatedAt || apiTemplate.createdAt,
-        creatorName:
-          typeof apiTemplate.creatorId === 'string'
-            ? 'Unknown'
-            : (apiTemplate.creatorId as any)?.username || 'Unknown',
-        tags: [], // タグはAPIから取得していない
-      };
-
-      setTemplate(templateDetail);
-    } catch (error: any) {
-      console.error('Failed to fetch template detail:', error);
-      // エラーはuseTemplateOperationsで管理される
-    }
-  };
+  }, [id, fetchTemplateDetail]);
 
   // タブ変更
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
@@ -385,7 +377,7 @@ const TemplateDetailPage: React.FC = () => {
             評価カテゴリと項目
           </Typography>
 
-          {template.categories.map((category, categoryIndex) => (
+          {template.categories.map(category => (
             <Accordion key={category.id} defaultExpanded>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                 <Box sx={{ flexGrow: 1 }}>
@@ -410,7 +402,7 @@ const TemplateDetailPage: React.FC = () => {
                 </Typography>
 
                 <List dense>
-                  {category.criteria.map((criterion, criterionIndex) => (
+                  {category.criteria.map(criterion => (
                     <ListItem key={criterion.id} divider>
                       <ListItemText
                         primary={

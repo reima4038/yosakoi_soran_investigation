@@ -31,13 +31,12 @@ import {
   VisibilityOff as VisibilityOffIcon,
   Settings as SettingsIcon,
   Star as StarIcon,
-  StarBorder as StarBorderIcon,
   Public as PublicIcon,
   Lock as LockIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, UserRole } from '../../contexts/AuthContext';
-import { templateService, Template } from '../../services/templateService';
+import { Template } from '../../services/templateService';
 import { useTemplateOperations } from '../../hooks/useTemplateOperations';
 import { OperationFeedback } from '../common';
 
@@ -60,7 +59,7 @@ interface TemplateDisplay {
 
 const TemplateList: React.FC = () => {
   const navigate = useNavigate();
-  const { user, hasAnyRole } = useAuth();
+  const { hasAnyRole } = useAuth();
   const [templates, setTemplates] = useState<TemplateDisplay[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [templateToDelete, setTemplateToDelete] =
