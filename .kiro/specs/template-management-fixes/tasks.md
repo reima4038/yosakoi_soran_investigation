@@ -21,7 +21,7 @@
   - API 呼び出しのエラーハンドリングを改善する
   - _Requirements: 2.2, 2.3, 4.3, 5.3_
 
-- [ ] 4. TemplateEditPage コンポーネントの作成
+- [x] 4. TemplateEditPage コンポーネントの作成
 
   - 新しい TemplateEditPage コンポーネントを作成する
   - テンプレートデータの事前読み込み機能を実装する
