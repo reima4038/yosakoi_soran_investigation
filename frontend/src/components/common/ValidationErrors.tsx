@@ -18,7 +18,7 @@ export interface ValidationError {
 export interface ValidationErrorsProps {
   errors: ValidationError[] | string[];
   title?: string;
-  severity?: 'error' | 'warning';
+  severity?: 'error' | 'warning' | 'info' | 'success';
 }
 
 const ValidationErrors: React.FC<ValidationErrorsProps> = ({

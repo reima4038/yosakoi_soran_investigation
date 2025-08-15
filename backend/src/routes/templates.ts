@@ -504,7 +504,7 @@ router.post('/:id/duplicate', authenticateToken, async (req: Request, res: Respo
     
     // Mongooseバリデーションエラーの場合
     if (error.name === 'ValidationError') {
-      const validationErrors = Object.values(error.errors).map((err: unknown) => err.message);
+      const validationErrors = Object.values(error.errors).map((err: any) => err.message);
       res.status(400).json({
         status: 'error',
         message: '複製されたテンプレートのデータが無効です',

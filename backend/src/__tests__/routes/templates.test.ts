@@ -405,4 +405,150 @@ describe('Template Routes', () => {
       expect(response.body.message).toContain('権限がありません');
     });
   });
+
+  describe('PUT /api/templates/:id/visibility', () => {
+    let templateId: string;
+
+    beforeEach(async () => {
+      // テスト用テンプレートを作成
+      const template = new Template({
+        name: '可視性テストテンプレート',
+        description: '可視性切り替えテスト用のテンプレートです',
+        creatorId: userId,
+        isPublic: true,
+        categories: [
+          {
+            id: 'cat1',
+            name: 'カテゴリ1',
+            description: 'カテゴリ1の説明',
+            weight: 1.0,
+            criteria: [
+              {
+                id: 'crit1',
+                name: '評価基準1',
+                description: '評価基準1の説明',
+                type: 'scale',
+                minValue: 1,
+                maxValue: 5,
+                weight: 1.0,
+              },
+            ],
+          },
+        ],
+      });
+      const savedTemplate = await template.save();
+      templateId = String(savedTemplate._id);
+    });
+
+    it('should toggle template visibility successfully', async () => {
+      const response = await request(app)
+        .put(`/api/templates/${templateId}/visibility`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ isPublic: false })
+        .expect(200);
+
+      expect(response.body.status).toBe('success');
+      expect(response.body.data.isPublic).toBe(false);
+      expect(response.body.message).toContain('非公開に設定されました');
+
+      // データベースで確認
+      const updatedTemplate = await Template.findById(templateId);
+      expect(updatedTemplate!.isPublic).toBe(false);
+    });
+
+    it('should toggle template visibility back to public', async () => {
+      // まず非公開にする
+      await Template.findByIdAndUpdate(templateId, { isPublic: false });
+
+      const response = await request(app)
+        .put(`/api/templates/${templateId}/visibility`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ isPublic: true })
+        .expect(200);
+
+      expect(response.body.status).toBe('success');
+      expect(response.body.data.isPublic).toBe(true);
+      expect(response.body.message).toContain('公開に設定されました');
+    });
+
+    it('should return 400 for invalid isPublic value', async () => {
+      const response = await request(app)
+        .put(`/api/templates/${templateId}/visibility`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ isPublic: 'invalid' })
+        .expect(400);
+
+      expect(response.body.status).toBe('error');
+      expect(response.body.message).toContain('真偽値である必要があります');
+    });
+
+    it('should return 404 for non-existent template', async () => {
+      const nonExistentId = new mongoose.Types.ObjectId().toString();
+      const response = await request(app)
+        .put(`/api/templates/${nonExistentId}/visibility`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ isPublic: false })
+        .expect(404);
+
+      expect(response.body.status).toBe('error');
+      expect(response.body.message).toContain('見つかりません');
+    });
+
+    it('should return 403 for template of another user', async () => {
+      // 別のユーザーを作成
+      const otherUser = new User({
+        username: 'otheruser2',
+        email: 'other2@example.com',
+        passwordHash: 'hashedpassword',
+        role: 'user',
+      });
+      const savedOtherUser = await otherUser.save();
+
+      // 別のユーザーのテンプレートを作成
+      const otherTemplate = new Template({
+        name: '他のユーザーのテンプレート',
+        description: '他のユーザーのテンプレートです',
+        creatorId: savedOtherUser._id,
+        isPublic: true,
+        categories: [
+          {
+            id: 'cat1',
+            name: 'カテゴリ1',
+            description: 'カテゴリ1の説明',
+            weight: 1.0,
+            criteria: [
+              {
+                id: 'crit1',
+                name: '評価基準1',
+                description: '評価基準1の説明',
+                type: 'scale',
+                minValue: 1,
+                maxValue: 5,
+                weight: 1.0,
+              },
+            ],
+          },
+        ],
+      });
+      const savedOtherTemplate = await otherTemplate.save();
+
+      const response = await request(app)
+        .put(`/api/templates/${savedOtherTemplate._id}/visibility`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ isPublic: false })
+        .expect(403);
+
+      expect(response.body.status).toBe('error');
+      expect(response.body.message).toContain('権限がありません');
+    });
+
+    it('should return 401 without authentication', async () => {
+      const response = await request(app)
+        .put(`/api/templates/${templateId}/visibility`)
+        .send({ isPublic: false })
+        .expect(401);
+
+      expect(response.body.status).toBe('error');
+    });
+  });
 });
