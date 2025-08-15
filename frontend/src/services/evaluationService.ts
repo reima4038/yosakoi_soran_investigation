@@ -64,7 +64,7 @@ export interface EvaluationData {
 }
 
 class EvaluationService {
-  private baseUrl = '/api/evaluations';
+  private baseUrl = '/evaluations';
 
   /**
    * セッションの評価を開始/取得する（オフライン対応）
@@ -73,7 +73,7 @@ class EvaluationService {
     try {
       // オンラインの場合は通常通りAPI呼び出し
       if (offlineService.getOnlineStatus()) {
-        const response = await api.get<{
+        const response = await apiClient.get<{
           status: string;
           data: EvaluationData;
         }>(`${this.baseUrl}/session/${sessionId}`);
@@ -125,7 +125,7 @@ class EvaluationService {
     try {
       if (offlineService.getOnlineStatus()) {
         // オンラインの場合は通常通りAPI呼び出し
-        const response = await api.put<{
+        const response = await apiClient.put<{
           status: string;
           data: { evaluation: Evaluation };
         }>(`${this.baseUrl}/session/${sessionId}/scores`, { scores });
@@ -171,7 +171,7 @@ class EvaluationService {
     try {
       if (offlineService.getOnlineStatus()) {
         // オンラインの場合は通常通りAPI呼び出し
-        const response = await api.post<{
+        const response = await apiClient.post<{
           status: string;
           data: { comment: Comment };
         }>(`${this.baseUrl}/session/${sessionId}/comments`, {
@@ -208,7 +208,7 @@ class EvaluationService {
     try {
       if (offlineService.getOnlineStatus()) {
         // オンラインの場合は通常通りAPI呼び出し
-        const response = await api.put<{
+        const response = await apiClient.put<{
           status: string;
           data: { comment: Comment };
         }>(`${this.baseUrl}/session/${sessionId}/comments/${commentId}`, {
@@ -238,7 +238,7 @@ class EvaluationService {
    */
   async deleteComment(sessionId: string, commentId: string): Promise<void> {
     try {
-      await api.delete(
+      await apiClient.delete(
         `${this.baseUrl}/session/${sessionId}/comments/${commentId}`
       );
     } catch (error) {
@@ -254,7 +254,7 @@ class EvaluationService {
     try {
       if (offlineService.getOnlineStatus()) {
         // オンラインの場合は通常通りAPI呼び出し
-        const response = await api.post<{
+        const response = await apiClient.post<{
           status: string;
           data: {
             evaluation: Evaluation;
@@ -297,7 +297,7 @@ class EvaluationService {
    */
   async getSubmissionStatus(sessionId: string): Promise<any> {
     try {
-      const response = await api.get<{ status: string; data: any }>(
+      const response = await apiClient.get<{ status: string; data: any }>(
         `${this.baseUrl}/session/${sessionId}/submission-status`
       );
       return response.data.data;
