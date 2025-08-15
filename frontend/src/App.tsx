@@ -40,6 +40,7 @@ import {
   TemplateList,
   TemplateDetailPage,
   TemplateCreatePage,
+  TemplateEditPage,
 } from './components/template';
 import { EvaluationPage } from './components/evaluation';
 import { SharingPage } from './components/sharing';
@@ -345,6 +346,16 @@ const AppContent: React.FC = () => {
                 requiredRoles={[UserRole.ADMIN, UserRole.EVALUATOR]}
               >
                 <TemplateDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path='/templates/:id/edit'
+            element={
+              <ProtectedRoute
+                requiredRoles={[UserRole.ADMIN, UserRole.EVALUATOR]}
+              >
+                <TemplateEditPage />
               </ProtectedRoute>
             }
           />
