@@ -45,6 +45,8 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth, UserRole } from '../../contexts/AuthContext';
 import { templateService, Template } from '../../services/templateService';
+import { useTemplateOperations } from '../../hooks/useTemplateOperations';
+import { OperationFeedback } from '../common';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -114,8 +116,12 @@ const TemplateDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { user, hasAnyRole } = useAuth();
   const [template, setTemplate] = useState<TemplateDetail | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
+  
+  const {
+    operationState,
+    clearMessages,
+    getTemplate,
+  } = useTemplateOperations();
   const [tabValue, setTabValue] = useState(0);
 
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
@@ -134,7 +140,7 @@ const TemplateDetailPage: React.FC = () => {
       
       console.log('Fetching template detail:', templateId);
       const apiTemplate = await templateService.getTemplate(templateId);
-      console.log('Template detail loaded:', apiTemplate);
+      
       
       // APIデータを表示用に変換
       const templateDetail: TemplateDetail = {

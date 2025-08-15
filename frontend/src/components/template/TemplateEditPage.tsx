@@ -44,6 +44,8 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { templateService, CreateTemplateRequest, CriterionType, Template } from '../../services/templateService';
+import { useTemplateOperations } from '../../hooks/useTemplateOperations';
+import { OperationFeedback, ValidationErrors } from '../common';
 
 // 評価項目の型定義
 interface EvaluationCriterion {
@@ -94,12 +96,17 @@ const TemplateEditPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const [activeStep, setActiveStep] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
   const [isLoadingTemplate, setIsLoadingTemplate] = useState(true);
-  const [error, setError] = useState('');
-  const [validationError, setValidationError] = useState('');
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [originalTemplate, setOriginalTemplate] = useState<Template | null>(null);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  
+  const {
+    operationState,
+    clearMessages,
+    updateTemplate,
+    getTemplate,
+  } = useTemplateOperations();
 
   const [templateForm, setTemplateForm] = useState<TemplateForm>({
     name: '',
@@ -119,16 +126,13 @@ const TemplateEditPage: React.FC = () => {
   useEffect(() => {
     const loadTemplate = async () => {
       if (!id) {
-        setError('テンプレートIDが指定されていません');
         setIsLoadingTemplate(false);
         return;
       }
 
-      try {
-        setIsLoadingTemplate(true);
-        setError('');
-        
-        const template = await templateService.getTemplate(id);
+      setIsLoadingTemplate(true);
+      const template = await getTemplate(id);
+      if (template) {
         setOriginalTemplate(template);
         
         // テンプレートデータをフォーム形式に変換
@@ -162,12 +166,8 @@ const TemplateEditPage: React.FC = () => {
         };
         
         setTemplateForm(formData);
-      } catch (error: any) {
-        console.error('Failed to load template:', error);
-        setError(error.message || 'テンプレートの読み込みに失敗しました');
-      } finally {
-        setIsLoadingTemplate(false);
       }
+      setIsLoadingTemplate(false);
     };
 
     loadTemplate();
@@ -300,93 +300,114 @@ const TemplateEditPage: React.FC = () => {
   };
 
   // バリデーション
-  const validateStep = (step: number): boolean => {
+  const validateStep = (step: number): { isValid: boolean; errors: string[] } => {
+    const errors: string[] = [];
+    
     switch (step) {
       case 0: // 基本情報
-        return templateForm.name.trim() !== '' && templateForm.description.trim() !== '';
+        if (!templateForm.name.trim()) {
+          errors.push('テンプレート名は必須です');
+        }
+        if (!templateForm.description.trim()) {
+          errors.push('テンプレートの説明は必須です');
+        }
+        break;
+        
       case 1: // カテゴリ
+        if (templateForm.categories.length === 0) {
+          errors.push('少なくとも1つのカテゴリが必要です');
+        }
+        
         const categoryWeightSum = templateForm.categories.reduce((sum, cat) => sum + cat.weight, 0);
-        return templateForm.categories.length > 0 && 
-               templateForm.categories.every(cat => cat.name.trim() !== '') &&
-               Math.abs(categoryWeightSum - 100) < 0.1; // 100%に近いかチェック
-      case 2: // 評価項目
-        return templateForm.categories.every(cat => {
-          const criteriaWeightSum = cat.criteria.reduce((sum, crit) => sum + crit.weight, 0);
-          return cat.criteria.length > 0 && 
-                 cat.criteria.every(crit => crit.name.trim() !== '') &&
-                 Math.abs(criteriaWeightSum - 100) < 0.1; // 各カテゴリ内で100%に近いかチェック
+        if (Math.abs(categoryWeightSum - 100) > 0.1) {
+          errors.push('カテゴリの重みの合計は100%である必要があります');
+        }
+        
+        templateForm.categories.forEach((cat, index) => {
+          if (!cat.name.trim()) {
+            errors.push(`カテゴリ ${index + 1}: 名前は必須です`);
+          }
         });
+        break;
+        
+      case 2: // 評価項目
+        templateForm.categories.forEach((cat, catIndex) => {
+          if (cat.criteria.length === 0) {
+            errors.push(`カテゴリ「${cat.name}」: 少なくとも1つの評価項目が必要です`);
+          }
+          
+          const criteriaWeightSum = cat.criteria.reduce((sum, crit) => sum + crit.weight, 0);
+          if (Math.abs(criteriaWeightSum - 100) > 0.1) {
+            errors.push(`カテゴリ「${cat.name}」: 評価項目の重みの合計は100%である必要があります`);
+          }
+          
+          cat.criteria.forEach((crit, critIndex) => {
+            if (!crit.name.trim()) {
+              errors.push(`カテゴリ「${cat.name}」の評価項目 ${critIndex + 1}: 名前は必須です`);
+            }
+            if (crit.maxScore <= crit.minScore) {
+              errors.push(`評価項目「${crit.name}」: 最大値は最小値より大きい必要があります`);
+            }
+          });
+        });
+        break;
+        
       case 3: // 設定
-        return true;
-      default:
-        return true;
+        // 設定に関するバリデーションは特になし
+        break;
     }
+    
+    return { isValid: errors.length === 0, errors };
   };
 
   // テンプレートの保存
   const handleSave = async () => {
     if (!id || !originalTemplate) {
-      setError('テンプレートIDが見つかりません');
       return;
     }
 
-    try {
-      setIsLoading(true);
-      setError('');
-      
-      console.log('Updating template:', templateForm);
-      
-      // TemplateFormをCreateTemplateRequestに変換
-      const updateRequest: CreateTemplateRequest = {
-        name: templateForm.name,
-        description: templateForm.description,
-        isPublic: templateForm.isPublic,
-        categories: templateForm.categories.map(cat => ({
-          id: cat.id,
-          name: cat.name,
-          description: cat.description,
-          weight: cat.weight / 100, // %表記を小数点表記に変換
-          criteria: cat.criteria.map(crit => ({
-            id: crit.id,
-            name: crit.name,
-            description: crit.description,
-            type: crit.type,
-            weight: crit.weight / 100, // %表記を小数点表記に変換
-            minValue: crit.minScore,
-            maxValue: crit.maxScore,
-            allowComments: crit.isRequired, // 適切にマッピング
-          })),
-          allowComments: templateForm.settings.allowComments,
+    // 最終バリデーション
+    const allErrors: string[] = [];
+    for (let step = 0; step < 4; step++) {
+      const { errors } = validateStep(step);
+      allErrors.push(...errors);
+    }
+    
+    if (allErrors.length > 0) {
+      setValidationErrors(allErrors);
+      return;
+    }
+    
+    setValidationErrors([]);
+    
+    // TemplateFormをCreateTemplateRequestに変換
+    const updateRequest: CreateTemplateRequest = {
+      name: templateForm.name,
+      description: templateForm.description,
+      isPublic: templateForm.isPublic,
+      categories: templateForm.categories.map(cat => ({
+        id: cat.id,
+        name: cat.name,
+        description: cat.description,
+        weight: cat.weight / 100, // %表記を小数点表記に変換
+        criteria: cat.criteria.map(crit => ({
+          id: crit.id,
+          name: crit.name,
+          description: crit.description,
+          type: crit.type,
+          weight: crit.weight / 100, // %表記を小数点表記に変換
+          minValue: crit.minScore,
+          maxValue: crit.maxScore,
+          allowComments: crit.isRequired, // 適切にマッピング
         })),
-        allowGeneralComments: templateForm.settings.allowComments,
-      };
-      
-      console.log('Sending update request:', JSON.stringify(updateRequest, null, 2));
-      
-      // templateServiceを使用してテンプレートを更新
-      const response = await templateService.updateTemplate(id, updateRequest);
-      console.log('Template updated successfully:', response);
-      
+        allowComments: templateForm.settings.allowComments,
+      })),
+      allowGeneralComments: templateForm.settings.allowComments,
+    };
+    
+    const result = await updateTemplate(id, updateRequest);
+    if (result) {
       navigate('/templates');
-    } catch (error: any) {
-      console.error('Template update error:', error);
-      let errorMessage = 'テンプレートの更新に失敗しました';
-      
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.response?.data?.errors) {
-        // バリデーションエラーの配列がある場合
-        const errors = error.response.data.errors;
-        if (Array.isArray(errors) && errors.length > 0) {
-          errorMessage = errors.join('\n');
-        }
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      setError(errorMessage);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -396,7 +417,7 @@ const TemplateEditPage: React.FC = () => {
   };
 
   // ローディング中の表示
-  if (isLoadingTemplate) {
+  if (isLoadingTemplate || (operationState.isLoading && !originalTemplate)) {
     return (
       <Box sx={{ p: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
@@ -406,33 +427,16 @@ const TemplateEditPage: React.FC = () => {
           <Typography variant="h4">テンプレート編集</Typography>
         </Box>
         
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={3}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {steps.map((_, index) => (
-                <Skeleton key={index} variant="rectangular" height={40} />
-              ))}
-            </Box>
-          </Grid>
-          <Grid item xs={12} md={9}>
-            <Card>
-              <CardContent>
-                <Skeleton variant="text" width="40%" height={32} sx={{ mb: 2 }} />
-                <Skeleton variant="rectangular" height={200} sx={{ mb: 2 }} />
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Skeleton variant="rectangular" width={80} height={36} />
-                  <Skeleton variant="rectangular" width={120} height={36} />
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
+        <OperationFeedback
+          isLoading={true}
+          loadingMessage="テンプレートデータを読み込み中..."
+        />
       </Box>
     );
   }
 
   // エラー時の表示
-  if (error && !originalTemplate) {
+  if (operationState.error && !originalTemplate) {
     return (
       <Box sx={{ p: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
@@ -442,9 +446,11 @@ const TemplateEditPage: React.FC = () => {
           <Typography variant="h4">テンプレート編集</Typography>
         </Box>
         
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
+        <OperationFeedback
+          error={operationState.error}
+          onRetry={() => id && loadTemplate()}
+          onClearMessages={clearMessages}
+        />
         
         <Button variant="contained" onClick={() => navigate('/templates')}>
           テンプレート一覧に戻る
@@ -848,13 +854,15 @@ const TemplateEditPage: React.FC = () => {
         )}
       </Box>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error.split('\n').map((line, index) => (
-            <div key={index}>{line}</div>
-          ))}
-        </Alert>
-      )}
+      <OperationFeedback
+        isLoading={operationState.isLoading}
+        error={operationState.error}
+        success={operationState.success}
+        onClearMessages={clearMessages}
+        loadingMessage="テンプレートを更新中..."
+      />
+      
+      <ValidationErrors errors={validationErrors} />
 
       <Grid container spacing={3}>
         {/* ステッパー */}
@@ -908,15 +916,22 @@ const TemplateEditPage: React.FC = () => {
                       variant="contained"
                       startIcon={<SaveIcon />}
                       onClick={handleSave}
-                      disabled={isLoading}
+                      disabled={operationState.isLoading}
                     >
-                      {isLoading ? '更新中...' : 'テンプレート更新'}
+                      テンプレート更新
                     </Button>
                   ) : (
                     <Button
                       variant="contained"
-                      onClick={handleNext}
-                      disabled={!validateStep(activeStep)}
+                      onClick={() => {
+                        const { isValid, errors } = validateStep(activeStep);
+                        if (isValid) {
+                          setValidationErrors([]);
+                          handleNext();
+                        } else {
+                          setValidationErrors(errors);
+                        }
+                      }}
                     >
                       次へ
                     </Button>

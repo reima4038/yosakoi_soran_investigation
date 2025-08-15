@@ -38,6 +38,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuth, UserRole } from '../../contexts/AuthContext';
 import { templateService, Template } from '../../services/templateService';
+import { useTemplateOperations } from '../../hooks/useTemplateOperations';
+import { OperationFeedback } from '../common';
 
 // テンプレート表示用の型定義
 interface TemplateDisplay {
@@ -60,13 +62,20 @@ const TemplateList: React.FC = () => {
   const navigate = useNavigate();
   const { user, hasAnyRole } = useAuth();
   const [templates, setTemplates] = useState<TemplateDisplay[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [templateToDelete, setTemplateToDelete] = useState<TemplateDisplay | null>(null);
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateDisplay | null>(null);
   const [isToggling, setIsToggling] = useState<string | null>(null);
+  
+  const {
+    operationState,
+    clearMessages,
+    deleteTemplate,
+    duplicateTemplate,
+    toggleVisibility,
+    getTemplates,
+  } = useTemplateOperations();
 
   // APIデータを表示用に変換
   const convertToDisplayTemplate = (template: Template): TemplateDisplay => {
@@ -96,24 +105,9 @@ const TemplateList: React.FC = () => {
   }, [fetchTemplates]);
 
   const fetchTemplates = async () => {
-    try {
-      setIsLoading(true);
-      setError('');
-      
-      console.log('Fetching templates...');
-      const apiTemplates = await templateService.getTemplates();
-      console.log('Templates loaded:', apiTemplates);
-      
-      const displayTemplates = apiTemplates.map(convertToDisplayTemplate);
-      setTemplates(displayTemplates);
-    } catch (error: any) {
-      console.error('Template fetch error:', error);
-      const errorMessage = error.message || 'テンプレート一覧の取得に失敗しました';
-      setError(errorMessage);
-      setTemplates([]); // エラー時は空配列を設定
-    } finally {
-      setIsLoading(false);
-    }
+    const apiTemplates = await getTemplates();
+    const displayTemplates = apiTemplates.map(convertToDisplayTemplate);
+    setTemplates(displayTemplates);
   };
 
   // メニューの制御
@@ -139,60 +133,36 @@ const TemplateList: React.FC = () => {
   const handleDeleteConfirm = async () => {
     if (!templateToDelete) return;
 
-    try {
-      setError('');
-      console.log('Deleting template:', templateToDelete.id);
-      
-      await templateService.deleteTemplate(templateToDelete.id);
-      console.log('Template deleted successfully');
-      
+    const success = await deleteTemplate(templateToDelete.id);
+    if (success) {
       setTemplates(prev => prev.filter(t => t.id !== templateToDelete.id));
       setDeleteDialogOpen(false);
       setTemplateToDelete(null);
-    } catch (error: any) {
-      console.error('Template deletion error:', error);
-      setError(error.message || 'テンプレートの削除に失敗しました');
     }
   };
 
   // テンプレート複製
   const handleDuplicate = async (template: TemplateDisplay) => {
-    try {
-      setError('');
-      console.log('Duplicating template:', template.id);
-      
-      const duplicatedTemplate = await templateService.duplicateTemplate(template.id);
-      console.log('Template duplicated successfully:', duplicatedTemplate);
-      
+    const duplicatedTemplate = await duplicateTemplate(template.id);
+    if (duplicatedTemplate) {
       const newDisplayTemplate = convertToDisplayTemplate(duplicatedTemplate);
       setTemplates(prev => [newDisplayTemplate, ...prev]);
       handleMenuClose();
-    } catch (error: any) {
-      console.error('Template duplication error:', error);
-      setError(error.message || 'テンプレートの複製に失敗しました');
     }
   };
 
   // 可視性切り替え
   const handleToggleVisibility = async (template: TemplateDisplay) => {
-    try {
-      setIsToggling(template.id);
-      setError('');
-      
-      console.log('Toggling visibility for template:', template.id, 'to:', !template.isPublic);
-      
-      const updatedTemplate = await templateService.toggleTemplateVisibility(template.id, !template.isPublic);
-      console.log('Template visibility updated successfully:', updatedTemplate);
-      
+    setIsToggling(template.id);
+    
+    const updatedTemplate = await toggleVisibility(template.id, !template.isPublic);
+    if (updatedTemplate) {
       const updatedDisplayTemplate = convertToDisplayTemplate(updatedTemplate);
       setTemplates(prev => prev.map(t => t.id === template.id ? updatedDisplayTemplate : t));
       handleMenuClose();
-    } catch (error: any) {
-      console.error('Template visibility toggle error:', error);
-      setError(error.message || 'テンプレートの可視性変更に失敗しました');
-    } finally {
-      setIsToggling(null);
     }
+    
+    setIsToggling(null);
   };
 
   // 日付フォーマット
@@ -207,7 +177,7 @@ const TemplateList: React.FC = () => {
   // テンプレート作成権限の確認
   const canCreateTemplate = hasAnyRole([UserRole.ADMIN, UserRole.EVALUATOR]);
 
-  if (isLoading) {
+  if (operationState.isLoading && templates.length === 0) {
     return (
       <Box sx={{ p: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -246,24 +216,15 @@ const TemplateList: React.FC = () => {
         )}
       </Box>
 
-      {error && (
-        <Alert 
-          severity="error" 
-          sx={{ mb: 2 }}
-          action={
-            <Button 
-              color="inherit" 
-              size="small" 
-              onClick={fetchTemplates}
-              disabled={isLoading}
-            >
-              再試行
-            </Button>
-          }
-        >
-          {error}
-        </Alert>
-      )}
+      <OperationFeedback
+        isLoading={operationState.isLoading && templates.length > 0}
+        error={operationState.error}
+        success={operationState.success}
+        onRetry={fetchTemplates}
+        onClearMessages={clearMessages}
+        loadingMessage="処理中..."
+        showAsSnackbar={true}
+      />
 
       {/* テンプレート一覧 */}
       <Grid container spacing={3}>
