@@ -31,9 +31,11 @@ export interface Template {
   name: string;
   description: string;
   createdAt: string;
+  updatedAt: string;
   creatorId: string;
   categories: Category[];
   allowGeneralComments?: boolean;
+  isPublic: boolean;
 }
 
 export interface CreateTemplateRequest {
@@ -41,6 +43,7 @@ export interface CreateTemplateRequest {
   description: string;
   categories: Category[];
   allowGeneralComments?: boolean;
+  isPublic?: boolean;
 }
 
 export interface TemplateResponse {
@@ -55,25 +58,112 @@ export interface TemplateListResponse {
 }
 
 class TemplateService {
+  private readonly MAX_RETRY_ATTEMPTS = 3;
+  private readonly RETRY_DELAY = 1000; // 1秒
+
+  // 再試行機能付きのAPIリクエスト
+  private async retryRequest<T>(
+    requestFn: () => Promise<T>,
+    maxAttempts: number = this.MAX_RETRY_ATTEMPTS
+  ): Promise<T> {
+    let lastError: any;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await requestFn();
+      } catch (error: any) {
+        lastError = error;
+
+        // ネットワークエラーまたは5xxエラーの場合のみ再試行
+        const shouldRetry =
+          !error.response ||
+          (error.response.status >= 500 && error.response.status < 600);
+
+        if (!shouldRetry || attempt === maxAttempts) {
+          throw error;
+        }
+
+        // 指数バックオフで待機
+        const delay = this.RETRY_DELAY * Math.pow(2, attempt - 1);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+
+    throw lastError;
+  }
   // テンプレート一覧取得
   async getTemplates(): Promise<Template[]> {
     try {
-      const response = await apiClient.get<TemplateListResponse>('/templates');
-      return response.data.data;
-    } catch (error) {
+      return await this.retryRequest(async () => {
+        const response =
+          await apiClient.get<TemplateListResponse>('/templates');
+        return response.data.data;
+      });
+    } catch (error: any) {
       console.error('Failed to fetch templates:', error);
-      throw new Error('テンプレート一覧の取得に失敗しました');
+
+      // ネットワークエラーの場合
+      if (!error.response) {
+        throw new Error(
+          'ネットワークエラーが発生しました。インターネット接続を確認してください。'
+        );
+      }
+
+      // サーバーエラーの場合
+      if (error.response.status >= 500) {
+        throw new Error(
+          'サーバーエラーが発生しました。しばらく待ってから再試行してください。'
+        );
+      }
+
+      // 認証エラーの場合
+      if (error.response.status === 401) {
+        throw new Error('認証が必要です。ログインしてください。');
+      }
+
+      const message =
+        error.response?.data?.message || 'テンプレート一覧の取得に失敗しました';
+      throw new Error(message);
     }
   }
 
   // テンプレート詳細取得
   async getTemplate(id: string): Promise<Template> {
     try {
-      const response = await apiClient.get<TemplateResponse>(`/templates/${id}`);
-      return response.data.data;
-    } catch (error) {
+      return await this.retryRequest(async () => {
+        const response = await apiClient.get<TemplateResponse>(
+          `/templates/${id}`
+        );
+        return response.data.data;
+      });
+    } catch (error: any) {
       console.error('Failed to fetch template:', error);
-      throw new Error('テンプレート詳細の取得に失敗しました');
+
+      // ネットワークエラーの場合
+      if (!error.response) {
+        throw new Error(
+          'ネットワークエラーが発生しました。インターネット接続を確認してください。'
+        );
+      }
+
+      // 404エラーの場合
+      if (error.response.status === 404) {
+        throw new Error('指定されたテンプレートが見つかりません。');
+      }
+
+      // 403エラーの場合
+      if (error.response.status === 403) {
+        throw new Error('このテンプレートにアクセスする権限がありません。');
+      }
+
+      // 認証エラーの場合
+      if (error.response.status === 401) {
+        throw new Error('認証が必要です。ログインしてください。');
+      }
+
+      const message =
+        error.response?.data?.message || 'テンプレート詳細の取得に失敗しました';
+      throw new Error(message);
     }
   }
 
@@ -87,6 +177,27 @@ class TemplateService {
       return response.data.data;
     } catch (error: any) {
       console.error('Failed to create template:', error);
+
+      // ネットワークエラーの場合
+      if (!error.response) {
+        throw new Error(
+          'ネットワークエラーが発生しました。インターネット接続を確認してください。'
+        );
+      }
+
+      // バリデーションエラーの場合
+      if (error.response.status === 400) {
+        const errors = error.response.data?.errors;
+        if (errors && Array.isArray(errors)) {
+          throw new Error(`入力データに問題があります: ${errors.join(', ')}`);
+        }
+      }
+
+      // 認証エラーの場合
+      if (error.response.status === 401) {
+        throw new Error('認証が必要です。ログインしてください。');
+      }
+
       const message =
         error.response?.data?.message || 'テンプレートの作成に失敗しました';
       throw new Error(message);
@@ -106,6 +217,37 @@ class TemplateService {
       return response.data.data;
     } catch (error: any) {
       console.error('Failed to update template:', error);
+
+      // ネットワークエラーの場合
+      if (!error.response) {
+        throw new Error(
+          'ネットワークエラーが発生しました。インターネット接続を確認してください。'
+        );
+      }
+
+      // 404エラーの場合
+      if (error.response.status === 404) {
+        throw new Error('指定されたテンプレートが見つかりません。');
+      }
+
+      // 403エラーの場合
+      if (error.response.status === 403) {
+        throw new Error('このテンプレートを編集する権限がありません。');
+      }
+
+      // バリデーションエラーの場合
+      if (error.response.status === 400) {
+        const errors = error.response.data?.errors;
+        if (errors && Array.isArray(errors)) {
+          throw new Error(`入力データに問題があります: ${errors.join(', ')}`);
+        }
+      }
+
+      // 認証エラーの場合
+      if (error.response.status === 401) {
+        throw new Error('認証が必要です。ログインしてください。');
+      }
+
       const message =
         error.response?.data?.message || 'テンプレートの更新に失敗しました';
       throw new Error(message);
@@ -118,6 +260,29 @@ class TemplateService {
       await apiClient.delete(`/templates/${id}`);
     } catch (error: any) {
       console.error('Failed to delete template:', error);
+
+      // ネットワークエラーの場合
+      if (!error.response) {
+        throw new Error(
+          'ネットワークエラーが発生しました。インターネット接続を確認してください。'
+        );
+      }
+
+      // 404エラーの場合
+      if (error.response.status === 404) {
+        throw new Error('指定されたテンプレートが見つかりません。');
+      }
+
+      // 403エラーの場合
+      if (error.response.status === 403) {
+        throw new Error('このテンプレートを削除する権限がありません。');
+      }
+
+      // 認証エラーの場合
+      if (error.response.status === 401) {
+        throw new Error('認証が必要です。ログインしてください。');
+      }
+
       const message =
         error.response?.data?.message || 'テンプレートの削除に失敗しました';
       throw new Error(message);
@@ -133,8 +298,63 @@ class TemplateService {
       return response.data.data;
     } catch (error: any) {
       console.error('Failed to duplicate template:', error);
+
+      // ネットワークエラーの場合
+      if (!error.response) {
+        throw new Error(
+          'ネットワークエラーが発生しました。インターネット接続を確認してください。'
+        );
+      }
+
+      // 404エラーの場合
+      if (error.response.status === 404) {
+        throw new Error('指定されたテンプレートが見つかりません。');
+      }
+
+      // 403エラーの場合
+      if (error.response.status === 403) {
+        throw new Error('このテンプレートを複製する権限がありません。');
+      }
+
+      // 409エラー（重複）の場合
+      if (error.response.status === 409) {
+        throw new Error('テンプレート名が重複しています。再試行してください。');
+      }
+
+      // 503エラー（サービス利用不可）の場合
+      if (error.response.status === 503) {
+        throw new Error(
+          'データベース接続エラーが発生しました。しばらく待ってから再試行してください。'
+        );
+      }
+
+      // 認証エラーの場合
+      if (error.response.status === 401) {
+        throw new Error('認証が必要です。ログインしてください。');
+      }
+
       const message =
         error.response?.data?.message || 'テンプレートの複製に失敗しました';
+      throw new Error(message);
+    }
+  }
+
+  // テンプレート可視性切り替え
+  async toggleTemplateVisibility(
+    id: string,
+    isPublic: boolean
+  ): Promise<Template> {
+    try {
+      const response = await apiClient.put<TemplateResponse>(
+        `/templates/${id}/visibility`,
+        { isPublic }
+      );
+      return response.data.data;
+    } catch (error: any) {
+      console.error('Failed to toggle template visibility:', error);
+      const message =
+        error.response?.data?.message ||
+        'テンプレートの可視性変更に失敗しました';
       throw new Error(message);
     }
   }
@@ -207,8 +427,6 @@ class TemplateService {
         errors.push(`カテゴリ ${categoryIndex + 1}: 名前は必須です`);
       }
 
-
-
       if (category.criteria.length === 0) {
         errors.push(
           `カテゴリ「${category.name}」: 少なくとも1つの評価基準が必要です`
@@ -232,8 +450,6 @@ class TemplateService {
             `カテゴリ「${category.name}」の評価基準 ${criterionIndex + 1}: 名前は必須です`
           );
         }
-
-
 
         if (criterion.maxValue <= criterion.minValue) {
           errors.push(
@@ -259,6 +475,7 @@ class TemplateService {
       description: template.description,
       categories: template.categories,
       allowGeneralComments: template.allowGeneralComments,
+      isPublic: template.isPublic,
       exportedAt: new Date().toISOString(),
       version: '1.0',
     };
@@ -308,6 +525,7 @@ class TemplateService {
               })),
             })),
             allowGeneralComments: importData.allowGeneralComments ?? true,
+            isPublic: importData.isPublic ?? true,
           };
 
           resolve(templateData);
@@ -332,6 +550,7 @@ class TemplateService {
         description: template.description,
         categories: template.categories,
         allowGeneralComments: template.allowGeneralComments,
+        isPublic: template.isPublic,
       })),
       exportedAt: new Date().toISOString(),
       version: '1.0',

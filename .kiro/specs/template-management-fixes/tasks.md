@@ -14,7 +14,7 @@
   - 複製時の名前変更ロジックを実装する
   - _Requirements: 3.1, 3.2, 3.3, 3.4_
 
-- [ ] 3. フロントエンドサービスの更新
+- [x] 3. フロントエンドサービスの更新
 
   - templateService に toggleTemplateVisibility メソッドを追加する
   - 既存のサービスメソッドを修正して isPublic フィールドに対応させる
