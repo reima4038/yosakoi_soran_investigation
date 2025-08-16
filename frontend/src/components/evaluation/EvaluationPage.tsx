@@ -39,6 +39,14 @@ import { useAuth } from '../../contexts/AuthContext';
 import { evaluationService } from '../../services/evaluationService';
 import type { EvaluationData, EvaluationSession, EvaluationScore } from '../../services/evaluationService';
 
+// セッション状態の定義
+enum SessionStatus {
+  DRAFT = 'draft',
+  ACTIVE = 'active',
+  COMPLETED = 'completed',
+  ARCHIVED = 'archived'
+}
+
 // ローカル型定義（evaluationServiceの型を拡張）
 interface TimelineComment {
   id: string;
@@ -84,6 +92,106 @@ const EvaluationPage: React.FC = () => {
   const [newComment, setNewComment] = useState('');
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+
+  // セッション状態検証ユーティリティ
+  const validateSessionAccess = (session: EvaluationSession) => {
+    const now = new Date();
+    const endDate = session.endDate ? new Date(session.endDate) : null;
+    const sessionStatus = (session as any).status;
+
+    // セッション状態チェック
+    switch (sessionStatus) {
+      case SessionStatus.DRAFT:
+        return {
+          canAccess: false,
+          title: 'セッションは準備中です',
+          message: 'このセッションはまだ開始されていません。',
+          action: '管理者がセッションを開始するまでお待ちください。',
+          severity: 'info' as const,
+          redirectTo: '/sessions'
+        };
+
+      case SessionStatus.COMPLETED:
+        return {
+          canAccess: false,
+          title: 'セッションは終了しています',
+          message: 'このセッションは既に終了しています。',
+          action: '結果ページで評価結果を確認できます。',
+          severity: 'info' as const,
+          redirectTo: `/sessions/${session.id}/results`
+        };
+
+      case SessionStatus.ARCHIVED:
+        return {
+          canAccess: false,
+          title: 'セッションはアーカイブされています',
+          message: 'このセッションはアーカイブされており、評価できません。',
+          action: 'セッション一覧で他のセッションを確認してください。',
+          severity: 'warning' as const,
+          redirectTo: '/sessions'
+        };
+
+      case SessionStatus.ACTIVE:
+        // アクティブセッションの期限チェック
+        if (endDate && now > endDate) {
+          return {
+            canAccess: false,
+            title: 'セッションの期限が切れています',
+            message: `このセッションは ${endDate.toLocaleString()} に終了しました。`,
+            action: '結果ページで評価結果を確認できます。',
+            severity: 'warning' as const,
+            redirectTo: `/sessions/${session.id}/results`
+          };
+        }
+        
+        return {
+          canAccess: true,
+          title: 'セッションにアクセス可能',
+          message: 'セッションは正常にアクセス可能です。',
+          action: '',
+          severity: 'success' as const,
+          redirectTo: null
+        };
+
+      default:
+        return {
+          canAccess: false,
+          title: '不明なセッション状態',
+          message: 'セッションの状態が不明です。',
+          action: '管理者にお問い合わせください。',
+          severity: 'error' as const,
+          redirectTo: '/sessions'
+        };
+    }
+  };
+
+  // 権限チェック
+  const validateUserPermission = (session: EvaluationSession, userId: string) => {
+    // セッションの評価者リストに含まれているかチェック
+    const evaluators = (session as any).evaluators || [];
+    const isEvaluator = evaluators.some((evaluatorId: string) => evaluatorId === userId);
+    const isCreator = (session as any).creatorId === userId;
+
+    if (!isEvaluator && !isCreator) {
+      return {
+        hasPermission: false,
+        title: '評価権限がありません',
+        message: 'このセッションの評価権限がありません。',
+        action: '管理者にお問い合わせいただくか、正しいアカウントでログインしてください。',
+        severity: 'warning' as const,
+        redirectTo: '/dashboard'
+      };
+    }
+
+    return {
+      hasPermission: true,
+      title: '評価権限があります',
+      message: 'セッションの評価権限があります。',
+      action: '',
+      severity: 'success' as const,
+      redirectTo: null
+    };
+  };
 
   // エラーハンドリングユーティリティ
   const getErrorDetails = (error: any) => {
@@ -209,6 +317,24 @@ const EvaluationPage: React.FC = () => {
       // evaluationServiceを使用してデータを取得
       const data = await evaluationService.getEvaluation(id);
       
+      // セッション状態検証
+      const sessionValidation = validateSessionAccess(data.session);
+      if (!sessionValidation.canAccess) {
+        setError(JSON.stringify(sessionValidation));
+        setSession(data.session); // セッション情報は設定（エラー表示で使用）
+        return;
+      }
+
+      // 権限チェック
+      if (user?.id) {
+        const permissionValidation = validateUserPermission(data.session, user.id);
+        if (!permissionValidation.hasPermission) {
+          setError(JSON.stringify(permissionValidation));
+          setSession(data.session);
+          return;
+        }
+      }
+      
       setSession(data.session);
 
       // 評価データの初期化
@@ -290,6 +416,24 @@ const EvaluationPage: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [error, retryCount]);
+
+  // セッション状態の定期チェック
+  useEffect(() => {
+    if (!session || evaluationData.isSubmitted) return;
+
+    const checkSessionStatus = () => {
+      const sessionValidation = validateSessionAccess(session);
+      if (!sessionValidation.canAccess) {
+        console.log('セッション状態が変更されました:', sessionValidation.title);
+        setError(JSON.stringify(sessionValidation));
+      }
+    };
+
+    // 5分ごとにセッション状態をチェック
+    const statusCheckInterval = setInterval(checkSessionStatus, 5 * 60 * 1000);
+
+    return () => clearInterval(statusCheckInterval);
+  }, [session, evaluationData.isSubmitted]);
 
   // ネットワーク状態の監視
   useEffect(() => {
@@ -439,7 +583,15 @@ const EvaluationPage: React.FC = () => {
   // 評価提出
   const handleSubmit = async () => {
     try {
-      if (sessionId) {
+      if (sessionId && session) {
+        // 提出前にセッション状態を再検証
+        const sessionValidation = validateSessionAccess(session);
+        if (!sessionValidation.canAccess) {
+          setError(JSON.stringify(sessionValidation));
+          setSubmitDialogOpen(false);
+          return;
+        }
+
         // evaluationServiceを使用して評価を提出
         await evaluationService.submitEvaluation(sessionId);
         setEvaluationData(prev => ({ ...prev, isSubmitted: true }));
@@ -504,7 +656,12 @@ const EvaluationPage: React.FC = () => {
 
   // バリデーション
   const canSubmit = () => {
-    if (!session) return false;
+    if (!session || evaluationData.isSubmitted) return false;
+    
+    // セッション状態チェック
+    const sessionValidation = validateSessionAccess(session);
+    if (!sessionValidation.canAccess) return false;
+    
     // すべての評価項目にスコアが入力されているかチェック
     const allCriteria = session.template.categories.flatMap(cat => cat.criteria);
     return allCriteria.every(crit =>
@@ -627,7 +784,20 @@ const EvaluationPage: React.FC = () => {
         <Typography variant="h4" gutterBottom>
           {session.name}
         </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        
+        {/* セッション状態に応じた警告 */}
+        {session.endDate && new Date() > new Date(session.endDate) && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            このセッションは期限切れです。評価の提出はできません。
+          </Alert>
+        )}
+        
+        {evaluationData.isSubmitted && (
+          <Alert severity="success" sx={{ mb: 2 }}>
+            評価は既に提出済みです。内容の変更はできません。
+          </Alert>
+        )}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
           <Chip
             label={`進捗: ${getProgress()}%`}
             color={getProgress() === 100 ? 'success' : 'primary'}
@@ -637,6 +807,27 @@ const EvaluationPage: React.FC = () => {
             color={autoSaveStatus === 'saved' ? 'success' : autoSaveStatus === 'saving' ? 'info' : 'error'}
             size="small"
           />
+          {/* セッション状態表示 */}
+          <Chip
+            label={`状態: ${(session as any).status === 'active' ? 'アクティブ' : 
+                           (session as any).status === 'completed' ? '完了' : 
+                           (session as any).status === 'draft' ? '準備中' : 
+                           (session as any).status === 'archived' ? 'アーカイブ' : '不明'}`}
+            color={(session as any).status === 'active' ? 'success' : 
+                   (session as any).status === 'completed' ? 'default' : 
+                   (session as any).status === 'draft' ? 'warning' : 'error'}
+            size="small"
+            variant="outlined"
+          />
+          {/* 期限表示 */}
+          {session.endDate && (
+            <Chip
+              label={`期限: ${new Date(session.endDate).toLocaleDateString()}`}
+              color={new Date() > new Date(session.endDate) ? 'error' : 'default'}
+              size="small"
+              variant="outlined"
+            />
+          )}
           <Typography variant="body2" color="text.secondary">
             評価者: {user?.profile?.displayName || user?.username}
           </Typography>
