@@ -418,7 +418,7 @@ const EvaluationPage: React.FC = () => {
       const timer = setTimeout(handleAutoRetry, 2000);
       return () => clearTimeout(timer);
     }
-  }, [error, retryCount]);
+  }, [error, handleAutoRetry, retryCount]);
 
   // セッション状態の定期チェック
   useEffect(() => {

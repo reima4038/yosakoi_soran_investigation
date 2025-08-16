@@ -85,13 +85,13 @@ const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
     defaultActions.push(
       {
         label: 'ダッシュボード',
-        onClick: () => window.location.href = '/dashboard',
+        onClick: () => (window.location.href = '/dashboard'),
         variant: 'outlined',
         icon: <HomeIcon />,
       },
       {
         label: 'セッション一覧',
-        onClick: () => window.location.href = '/sessions',
+        onClick: () => (window.location.href = '/sessions'),
         variant: 'outlined',
         icon: <ListIcon />,
       }
@@ -106,14 +106,14 @@ const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
 
   const renderContent = () => (
     <Box>
-      <Alert 
+      <Alert
         severity={severity as 'error' | 'warning' | 'info' | 'success'}
         sx={{ mb: 2 }}
         action={
           primaryAction && (
             <Button
-              color="inherit"
-              size="small"
+              color='inherit'
+              size='small'
               onClick={primaryAction.onClick}
               disabled={isRetrying}
               startIcon={primaryAction.icon}
@@ -124,33 +124,34 @@ const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
         }
       >
         <AlertTitle>{title}</AlertTitle>
-        <Typography variant="body2" sx={{ mb: 1 }}>
+        <Typography variant='body2' sx={{ mb: 1 }}>
           {message}
         </Typography>
-        
+
         {errorDetails && (
           <Box sx={{ mt: 1 }}>
             {errorDetails.timestamp && (
               <Chip
                 label={`発生時刻: ${errorDetails.timestamp.toLocaleString()}`}
-                size="small"
-                variant="outlined"
+                size='small'
+                variant='outlined'
                 sx={{ mr: 1, mb: 1 }}
               />
             )}
-            {errorDetails.retryCount !== undefined && errorDetails.retryCount > 0 && (
-              <Chip
-                label={`再試行回数: ${errorDetails.retryCount}回`}
-                size="small"
-                variant="outlined"
-                sx={{ mr: 1, mb: 1 }}
-              />
-            )}
+            {errorDetails.retryCount !== undefined &&
+              errorDetails.retryCount > 0 && (
+                <Chip
+                  label={`再試行回数: ${errorDetails.retryCount}回`}
+                  size='small'
+                  variant='outlined'
+                  sx={{ mr: 1, mb: 1 }}
+                />
+              )}
             {errorDetails.errorCode && (
               <Chip
                 label={`エラーコード: ${errorDetails.errorCode}`}
-                size="small"
-                variant="outlined"
+                size='small'
+                variant='outlined'
                 sx={{ mr: 1, mb: 1 }}
               />
             )}
@@ -163,29 +164,31 @@ const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
         <Box sx={{ mb: 2 }}>
           <Button
             onClick={() => setDetailsExpanded(!detailsExpanded)}
-            startIcon={detailsExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-            size="small"
-            color="inherit"
+            startIcon={
+              detailsExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />
+            }
+            size='small'
+            color='inherit'
           >
             詳細情報
           </Button>
           <Collapse in={detailsExpanded}>
             <Box sx={{ mt: 1, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-              <Typography variant="caption" component="div" sx={{ mb: 1 }}>
+              <Typography variant='caption' component='div' sx={{ mb: 1 }}>
                 <strong>診断情報:</strong>
               </Typography>
               {errorDetails?.requestId && (
-                <Typography variant="caption" component="div">
+                <Typography variant='caption' component='div'>
                   リクエストID: {errorDetails.requestId}
                 </Typography>
               )}
-              <Typography variant="caption" component="div">
+              <Typography variant='caption' component='div'>
                 ユーザーエージェント: {navigator.userAgent}
               </Typography>
-              <Typography variant="caption" component="div">
+              <Typography variant='caption' component='div'>
                 URL: {window.location.href}
               </Typography>
-              <Typography variant="caption" component="div">
+              <Typography variant='caption' component='div'>
                 タイムスタンプ: {new Date().toISOString()}
               </Typography>
             </Box>
@@ -195,7 +198,14 @@ const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
 
       {/* アクションボタン */}
       {secondaryActions.length > 0 && (
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'center' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 1,
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+          }}
+        >
           {secondaryActions.map((action, index) => (
             <Button
               key={index}
@@ -231,19 +241,13 @@ const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
         }}
       >
         <Card sx={{ maxWidth, width: '100%' }}>
-          <CardContent>
-            {renderContent()}
-          </CardContent>
+          <CardContent>{renderContent()}</CardContent>
         </Card>
       </Box>
     );
   }
 
-  return (
-    <Box sx={{ p: 3, maxWidth, mx: 'auto' }}>
-      {renderContent()}
-    </Box>
-  );
+  return <Box sx={{ p: 3, maxWidth, mx: 'auto' }}>{renderContent()}</Box>;
 };
 
 export default ErrorDisplay;
