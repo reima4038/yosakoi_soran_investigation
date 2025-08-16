@@ -38,6 +38,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { evaluationService } from '../../services/evaluationService';
 import type { EvaluationData, EvaluationSession, EvaluationScore } from '../../services/evaluationService';
+import LoadingIndicator from '../common/LoadingIndicator';
+import ErrorDisplay from '../common/ErrorDisplay';
+import EvaluationLoadingState from './EvaluationLoadingState';
 
 // セッション状態の定義
 enum SessionStatus {
@@ -671,26 +674,14 @@ const EvaluationPage: React.FC = () => {
 
   if (isLoading || isRetrying) {
     return (
-      <Box sx={{ p: 3 }}>
-        <LinearProgress />
-        <Typography variant="body2" sx={{ mt: 2, textAlign: 'center' }}>
-          {isRetrying 
-            ? `再試行中... (${retryCount}回目)` 
-            : '評価画面を読み込み中...'
-          }
-        </Typography>
-        <Typography variant="caption" sx={{ mt: 1, textAlign: 'center', display: 'block', color: 'text.secondary' }}>
-          {isRetrying 
-            ? `${getRetryDelay(retryCount - 1) / 1000}秒待機後に再試行しています`
-            : 'セッション情報とテンプレートを取得しています'
-          }
-        </Typography>
-        {retryCount > 0 && (
-          <Typography variant="caption" sx={{ mt: 1, textAlign: 'center', display: 'block', color: 'text.secondary' }}>
-            {retryCount < 3 ? `自動再試行: ${3 - retryCount}回残り` : '手動で再試行してください'}
-          </Typography>
-        )}
-      </Box>
+      <EvaluationLoadingState
+        message={isRetrying ? `再試行中... (${retryCount}回目)` : '評価画面を読み込み中...'}
+        submessage={isRetrying 
+          ? `${getRetryDelay(retryCount - 1) / 1000}秒待機後に再試行しています`
+          : 'セッション情報とテンプレートを取得しています'
+        }
+        retryCount={retryCount}
+      />
     );
   }
 
@@ -702,78 +693,38 @@ const EvaluationPage: React.FC = () => {
       // エラーパース失敗時は従来のエラーメッセージを使用
     }
 
-    return (
-      <Box sx={{ p: 3, maxWidth: 700, mx: 'auto' }}>
-        <Alert 
-          severity={errorDetails?.severity || 'error'} 
-          sx={{ mb: 2 }}
-          action={
-            errorDetails?.canRetry !== false && (
-              <Button 
-                color="inherit" 
-                size="small" 
-                onClick={handleRetry}
-                disabled={isLoading || isRetrying}
-              >
-                {isRetrying ? '再試行中...' : '再試行'}
-              </Button>
-            )
-          }
-        >
-          <Typography variant="subtitle2" gutterBottom>
-            {errorDetails?.title || 'エラーが発生しました'}
-          </Typography>
-          <Typography variant="body2" sx={{ mb: 1 }}>
-            {errorDetails?.message || error || 'セッションが見つかりません'}
-          </Typography>
-          {errorDetails?.action && (
-            <Typography variant="body2" color="text.secondary">
-              {errorDetails.action}
-            </Typography>
-          )}
-        </Alert>
-        
-        {lastErrorTime && (
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2, textAlign: 'center' }}>
-            エラー発生時刻: {lastErrorTime.toLocaleString()}
-            {retryCount > 0 && ` (再試行回数: ${retryCount}回)`}
-          </Typography>
-        )}
-        
-        <Box sx={{ mt: 2, display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
-          {errorDetails?.redirectTo && (
-            <Button 
-              variant="contained" 
-              onClick={() => navigate(errorDetails.redirectTo)}
-            >
-              {errorDetails.redirectTo === '/sessions' ? 'セッション一覧' : 
+    const customActions = [];
+    
+    // 主要なリダイレクトアクション
+    if (errorDetails?.redirectTo) {
+      customActions.push({
+        label: errorDetails.redirectTo === '/sessions' ? 'セッション一覧' : 
                errorDetails.redirectTo === '/dashboard' ? 'ダッシュボード' : 
-               errorDetails.redirectTo === '/login' ? 'ログイン' : '戻る'}
-            </Button>
-          )}
-          <Button 
-            variant="outlined" 
-            onClick={() => navigate('/sessions')}
-          >
-            セッション一覧
-          </Button>
-          <Button 
-            variant="outlined" 
-            onClick={() => navigate('/dashboard')}
-          >
-            ダッシュボード
-          </Button>
-          {errorDetails?.canRetry !== false && (
-            <Button 
-              variant="outlined" 
-              onClick={handleRetry}
-              disabled={isLoading || isRetrying}
-            >
-              再試行
-            </Button>
-          )}
-        </Box>
-      </Box>
+               errorDetails.redirectTo === '/login' ? 'ログイン' : '戻る',
+        onClick: () => navigate(errorDetails.redirectTo),
+        variant: 'contained' as const,
+        primary: true,
+      });
+    }
+
+    return (
+      <ErrorDisplay
+        title={errorDetails?.title || 'エラーが発生しました'}
+        message={`${errorDetails?.message || error || 'セッションが見つかりません'}${
+          errorDetails?.action ? '\n\n' + errorDetails.action : ''
+        }`}
+        severity={errorDetails?.severity || 'error'}
+        canRetry={errorDetails?.canRetry !== false}
+        onRetry={handleRetry}
+        isRetrying={isRetrying}
+        actions={customActions}
+        errorDetails={{
+          timestamp: lastErrorTime || undefined,
+          retryCount: retryCount > 0 ? retryCount : undefined,
+          errorCode: errorDetails?.title,
+        }}
+        showDetails={true}
+      />
     );
   }
 
@@ -799,13 +750,19 @@ const EvaluationPage: React.FC = () => {
         )}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
           <Chip
-            label={`進捗: ${getProgress()}%`}
-            color={getProgress() === 100 ? 'success' : 'primary'}
+            label={`進捗: ${getProgress()}% (${evaluationData.scores.filter(s => s.score > 0).length}/${session?.template.categories.flatMap(cat => cat.criteria).length || 0})`}
+            color={getProgress() === 100 ? 'success' : getProgress() >= 50 ? 'primary' : 'warning'}
+            icon={getProgress() === 100 ? <span>✓</span> : <span>⏳</span>}
           />
           <Chip
-            label={autoSaveStatus === 'saved' ? '保存済み' : autoSaveStatus === 'saving' ? '保存中...' : '保存エラー'}
+            label={
+              autoSaveStatus === 'saved' ? '✓ 保存済み' : 
+              autoSaveStatus === 'saving' ? '⏳ 保存中...' : 
+              '⚠ 保存エラー'
+            }
             color={autoSaveStatus === 'saved' ? 'success' : autoSaveStatus === 'saving' ? 'info' : 'error'}
             size="small"
+            variant={autoSaveStatus === 'saved' ? 'outlined' : 'filled'}
           />
           {/* セッション状態表示 */}
           <Chip
@@ -1084,21 +1041,75 @@ const EvaluationPage: React.FC = () => {
       <Dialog
         open={submitDialogOpen}
         onClose={() => setSubmitDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
       >
-        <DialogTitle>評価の提出</DialogTitle>
+        <DialogTitle sx={{ pb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <SendIcon color="primary" />
+            評価の提出
+          </Box>
+        </DialogTitle>
         <DialogContent>
-          <Typography gutterBottom>
-            評価を提出しますか？提出後は内容を変更できません。
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            進捗: {getProgress()}% 完了
-          </Typography>
+          <Alert severity="info" sx={{ mb: 2 }}>
+            <Typography variant="body2">
+              評価を提出しますか？提出後は内容を変更できません。
+            </Typography>
+          </Alert>
+          
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              提出内容の確認
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+              <Chip
+                label={`進捗: ${getProgress()}%`}
+                color={getProgress() === 100 ? 'success' : 'warning'}
+                size="small"
+              />
+              <Chip
+                label={`評価項目: ${evaluationData.scores.filter(s => s.score > 0).length}/${session?.template.categories.flatMap(cat => cat.criteria).length || 0}`}
+                color="info"
+                size="small"
+              />
+              <Chip
+                label={`コメント: ${evaluationData.timelineComments.length}件`}
+                color="default"
+                size="small"
+              />
+            </Box>
+          </Box>
+
+          {getProgress() < 100 && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              <Typography variant="body2">
+                一部の評価項目が未完了です。このまま提出してもよろしいですか？
+              </Typography>
+            </Alert>
+          )}
+
+          {session?.endDate && new Date() > new Date(session.endDate) && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              <Typography variant="body2">
+                セッションの期限が切れています。提出できない可能性があります。
+              </Typography>
+            </Alert>
+          )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setSubmitDialogOpen(false)}>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button 
+            onClick={() => setSubmitDialogOpen(false)}
+            variant="outlined"
+          >
             キャンセル
           </Button>
-          <Button onClick={handleSubmit} variant="contained" color="primary">
+          <Button 
+            onClick={handleSubmit} 
+            variant="contained" 
+            color="primary"
+            startIcon={<SendIcon />}
+            disabled={session?.endDate && new Date() > new Date(session.endDate)}
+          >
             提出する
           </Button>
         </DialogActions>
