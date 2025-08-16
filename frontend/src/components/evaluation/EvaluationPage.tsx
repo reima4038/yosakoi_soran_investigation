@@ -73,6 +73,8 @@ const EvaluationPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [retryCount, setRetryCount] = useState(0);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [lastErrorTime, setLastErrorTime] = useState<Date | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -82,6 +84,94 @@ const EvaluationPage: React.FC = () => {
   const [newComment, setNewComment] = useState('');
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+
+  // エラーハンドリングユーティリティ
+  const getErrorDetails = (error: any) => {
+    const status = error.response?.status;
+    const errorCode = error.code;
+    const errorMessage = error.response?.data?.message || error.message;
+
+    switch (status) {
+      case 404:
+        return {
+          title: 'セッションが見つかりません',
+          message: 'セッションが削除されたか、URLが間違っている可能性があります。',
+          action: 'セッション一覧で確認してください。',
+          severity: 'error' as const,
+          canRetry: false,
+          redirectTo: '/sessions'
+        };
+      
+      case 403:
+        return {
+          title: '評価権限がありません',
+          message: 'このセッションの評価権限がありません。',
+          action: '管理者にお問い合わせいただくか、正しいアカウントでログインしてください。',
+          severity: 'warning' as const,
+          canRetry: false,
+          redirectTo: '/dashboard'
+        };
+      
+      case 400:
+        return {
+          title: 'セッションが利用できません',
+          message: errorMessage || 'セッションが無効または非アクティブです。',
+          action: 'セッションの状態を確認してください。',
+          severity: 'info' as const,
+          canRetry: true,
+          redirectTo: '/sessions'
+        };
+      
+      case 401:
+        return {
+          title: '認証が必要です',
+          message: 'ログインセッションが期限切れです。',
+          action: '再度ログインしてください。',
+          severity: 'warning' as const,
+          canRetry: false,
+          redirectTo: '/login'
+        };
+      
+      case 500:
+      case 502:
+      case 503:
+      case 504:
+        return {
+          title: 'サーバーエラー',
+          message: 'サーバーで一時的な問題が発生しています。',
+          action: 'しばらく時間をおいて再試行してください。',
+          severity: 'error' as const,
+          canRetry: true,
+          redirectTo: null
+        };
+      
+      default:
+        if (errorCode === 'NETWORK_ERROR' || !error.response) {
+          return {
+            title: 'ネットワークエラー',
+            message: 'インターネット接続に問題があります。',
+            action: '接続を確認して再試行してください。',
+            severity: 'error' as const,
+            canRetry: true,
+            redirectTo: null
+          };
+        }
+        
+        return {
+          title: '予期しないエラー',
+          message: errorMessage || 'セッション情報の取得に失敗しました。',
+          action: 'しばらく時間をおいて再試行してください。',
+          severity: 'error' as const,
+          canRetry: true,
+          redirectTo: null
+        };
+    }
+  };
+
+  // 指数バックオフ計算
+  const getRetryDelay = (retryCount: number) => {
+    return Math.min(1000 * Math.pow(2, retryCount), 30000); // 最大30秒
+  };
 
   // セッション情報の取得
   useEffect(() => {
@@ -99,15 +189,21 @@ const EvaluationPage: React.FC = () => {
     }, 30000); // 30秒ごと
 
     return () => clearInterval(autoSaveInterval);
-  }, [evaluationData, handleAutoSave]);
+  }, [evaluationData]);
 
   const fetchSession = async (id: string, isRetry: boolean = false) => {
     try {
       setIsLoading(true);
       setError('');
+      setLastErrorTime(null);
       
       if (isRetry) {
+        setIsRetrying(true);
         setRetryCount(prev => prev + 1);
+        
+        // 指数バックオフでリトライ遅延
+        const delay = getRetryDelay(retryCount);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
 
       // evaluationServiceを使用してデータを取得
@@ -131,35 +227,96 @@ const EvaluationPage: React.FC = () => {
         isSubmitted: data.evaluation.isComplete && !!data.evaluation.submittedAt,
       }));
 
-      // リトライカウントをリセット
+      // 成功時にリトライカウントをリセット
       setRetryCount(0);
+      setIsRetrying(false);
     } catch (error: any) {
       console.error('評価データ取得エラー:', error);
       
-      // エラーの種類に応じて適切なメッセージを設定
-      if (error.response?.status === 404) {
-        setError('セッションが見つかりません。セッション一覧に戻って確認してください。');
-      } else if (error.response?.status === 403) {
-        setError('このセッションの評価権限がありません。管理者にお問い合わせください。');
-      } else if (error.response?.status === 400) {
-        const message = error.response?.data?.message || 'セッションが無効または非アクティブです';
-        setError(message);
-      } else if (error.code === 'NETWORK_ERROR' || !error.response) {
-        setError('ネットワーク接続に問題があります。インターネット接続を確認してください。');
-      } else {
-        setError('セッション情報の取得に失敗しました。しばらく時間をおいて再試行してください。');
-      }
+      const errorDetails = getErrorDetails(error);
+      setError(JSON.stringify(errorDetails));
+      setLastErrorTime(new Date());
+      setIsRetrying(false);
+      
+      // 診断情報をログに記録
+      console.error('エラー診断情報:', {
+        sessionId: id,
+        retryCount,
+        timestamp: new Date().toISOString(),
+        userAgent: navigator.userAgent,
+        url: window.location.href,
+        error: {
+          status: error.response?.status,
+          code: error.code,
+          message: error.message,
+          data: error.response?.data
+        }
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
-  // リトライ機能
+  // 手動リトライ機能
   const handleRetry = () => {
-    if (sessionId) {
+    if (sessionId && !isLoading && !isRetrying) {
       fetchSession(sessionId, true);
     }
   };
+
+  // 自動リトライ機能（ネットワークエラーの場合のみ）
+  const handleAutoRetry = () => {
+    if (!sessionId || isLoading || isRetrying || retryCount >= 3) return;
+    
+    try {
+      const errorDetails = error ? JSON.parse(error) : null;
+      if (errorDetails?.canRetry && errorDetails?.severity === 'error') {
+        const delay = getRetryDelay(retryCount);
+        setTimeout(() => {
+          if (!isLoading && !isRetrying) {
+            fetchSession(sessionId, true);
+          }
+        }, delay);
+      }
+    } catch (e) {
+      // エラーパース失敗時は何もしない
+    }
+  };
+
+  // 自動リトライのトリガー
+  useEffect(() => {
+    if (error && retryCount < 3) {
+      const timer = setTimeout(handleAutoRetry, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [error, retryCount]);
+
+  // ネットワーク状態の監視
+  useEffect(() => {
+    const handleOnline = () => {
+      console.log('ネットワーク接続が復旧しました');
+      if (error && retryCount < 3) {
+        // ネットワーク復旧時に自動リトライ
+        setTimeout(() => {
+          if (sessionId && !isLoading && !isRetrying) {
+            fetchSession(sessionId, true);
+          }
+        }, 1000);
+      }
+    };
+
+    const handleOffline = () => {
+      console.log('ネットワーク接続が切断されました');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [error, retryCount, sessionId, isLoading, isRetrying, fetchSession]);
 
   // 動画制御
   const handlePlayPause = () => {
@@ -251,9 +408,31 @@ const EvaluationPage: React.FC = () => {
         await evaluationService.saveScores(sessionId, evaluationData.scores);
         setAutoSaveStatus('saved');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('自動保存エラー:', error);
       setAutoSaveStatus('error');
+      
+      // 自動保存エラーの診断情報
+      console.error('自動保存エラー診断情報:', {
+        sessionId,
+        scoresCount: evaluationData.scores.length,
+        timestamp: new Date().toISOString(),
+        error: {
+          status: error.response?.status,
+          code: error.code,
+          message: error.message,
+          data: error.response?.data
+        }
+      });
+      
+      // 重要でないエラーの場合は、しばらく後に再試行
+      if (error.response?.status >= 500 || error.code === 'NETWORK_ERROR') {
+        setTimeout(() => {
+          if (autoSaveStatus === 'error') {
+            handleAutoSave();
+          }
+        }, 5000);
+      }
     }
   };
 
@@ -270,12 +449,41 @@ const EvaluationPage: React.FC = () => {
     } catch (error: any) {
       console.error('評価提出エラー:', error);
       
+      // 提出エラーの診断情報
+      console.error('評価提出エラー診断情報:', {
+        sessionId,
+        scoresCount: evaluationData.scores.length,
+        completedScores: evaluationData.scores.filter(s => s.score > 0).length,
+        timestamp: new Date().toISOString(),
+        error: {
+          status: error.response?.status,
+          code: error.code,
+          message: error.message,
+          data: error.response?.data
+        }
+      });
+      
+      const errorDetails = getErrorDetails(error);
+      let errorMessage = errorDetails.title + ': ' + errorDetails.message;
+      
       if (error.response?.status === 400) {
-        const message = error.response?.data?.message || '評価の提出に失敗しました';
-        setError(message);
-      } else {
-        setError('評価の提出に失敗しました。しばらく時間をおいて再試行してください。');
+        const serverMessage = error.response?.data?.message;
+        if (serverMessage) {
+          errorMessage = serverMessage;
+        }
+        
+        // 完了していない項目がある場合の詳細情報
+        if (serverMessage?.includes('すべての評価項目')) {
+          const missingCriteria = error.response?.data?.data?.missingCriteria || [];
+          if (missingCriteria.length > 0) {
+            errorMessage += '\n\n未完了の項目:\n' + 
+              missingCriteria.map((c: any) => `• ${c.categoryName}: ${c.name}`).join('\n');
+          }
+        }
       }
+      
+      setError(errorMessage);
+      setSubmitDialogOpen(false);
     }
   };
 
@@ -304,53 +512,109 @@ const EvaluationPage: React.FC = () => {
     );
   };
 
-  if (isLoading) {
+  if (isLoading || isRetrying) {
     return (
       <Box sx={{ p: 3 }}>
         <LinearProgress />
         <Typography variant="body2" sx={{ mt: 2, textAlign: 'center' }}>
-          {retryCount > 0 ? `再試行中... (${retryCount}回目)` : '評価画面を読み込み中...'}
+          {isRetrying 
+            ? `再試行中... (${retryCount}回目)` 
+            : '評価画面を読み込み中...'
+          }
         </Typography>
         <Typography variant="caption" sx={{ mt: 1, textAlign: 'center', display: 'block', color: 'text.secondary' }}>
-          セッション情報とテンプレートを取得しています
+          {isRetrying 
+            ? `${getRetryDelay(retryCount - 1) / 1000}秒待機後に再試行しています`
+            : 'セッション情報とテンプレートを取得しています'
+          }
         </Typography>
+        {retryCount > 0 && (
+          <Typography variant="caption" sx={{ mt: 1, textAlign: 'center', display: 'block', color: 'text.secondary' }}>
+            {retryCount < 3 ? `自動再試行: ${3 - retryCount}回残り` : '手動で再試行してください'}
+          </Typography>
+        )}
       </Box>
     );
   }
 
   if (error || !session) {
+    let errorDetails = null;
+    try {
+      errorDetails = error ? JSON.parse(error) : null;
+    } catch (e) {
+      // エラーパース失敗時は従来のエラーメッセージを使用
+    }
+
     return (
-      <Box sx={{ p: 3, maxWidth: 600, mx: 'auto' }}>
+      <Box sx={{ p: 3, maxWidth: 700, mx: 'auto' }}>
         <Alert 
-          severity="error" 
+          severity={errorDetails?.severity || 'error'} 
           sx={{ mb: 2 }}
           action={
-            <Button 
-              color="inherit" 
-              size="small" 
-              onClick={handleRetry}
-              disabled={isLoading}
-            >
-              再試行
-            </Button>
+            errorDetails?.canRetry !== false && (
+              <Button 
+                color="inherit" 
+                size="small" 
+                onClick={handleRetry}
+                disabled={isLoading || isRetrying}
+              >
+                {isRetrying ? '再試行中...' : '再試行'}
+              </Button>
+            )
           }
         >
-          {error || 'セッションが見つかりません'}
+          <Typography variant="subtitle2" gutterBottom>
+            {errorDetails?.title || 'エラーが発生しました'}
+          </Typography>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            {errorDetails?.message || error || 'セッションが見つかりません'}
+          </Typography>
+          {errorDetails?.action && (
+            <Typography variant="body2" color="text.secondary">
+              {errorDetails.action}
+            </Typography>
+          )}
         </Alert>
         
-        <Box sx={{ mt: 2, display: 'flex', gap: 1, justifyContent: 'center' }}>
+        {lastErrorTime && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2, textAlign: 'center' }}>
+            エラー発生時刻: {lastErrorTime.toLocaleString()}
+            {retryCount > 0 && ` (再試行回数: ${retryCount}回)`}
+          </Typography>
+        )}
+        
+        <Box sx={{ mt: 2, display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
+          {errorDetails?.redirectTo && (
+            <Button 
+              variant="contained" 
+              onClick={() => navigate(errorDetails.redirectTo)}
+            >
+              {errorDetails.redirectTo === '/sessions' ? 'セッション一覧' : 
+               errorDetails.redirectTo === '/dashboard' ? 'ダッシュボード' : 
+               errorDetails.redirectTo === '/login' ? 'ログイン' : '戻る'}
+            </Button>
+          )}
           <Button 
             variant="outlined" 
             onClick={() => navigate('/sessions')}
           >
-            セッション一覧に戻る
+            セッション一覧
           </Button>
           <Button 
             variant="outlined" 
             onClick={() => navigate('/dashboard')}
           >
-            ダッシュボードに戻る
+            ダッシュボード
           </Button>
+          {errorDetails?.canRetry !== false && (
+            <Button 
+              variant="outlined" 
+              onClick={handleRetry}
+              disabled={isLoading || isRetrying}
+            >
+              再試行
+            </Button>
+          )}
         </Box>
       </Box>
     );
