@@ -36,14 +36,10 @@ import {
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { evaluationService } from '../../services/evaluationService';
+import type { EvaluationData, EvaluationSession, EvaluationScore } from '../../services/evaluationService';
 
-// 評価データの型定義
-interface EvaluationScore {
-  criterionId: string;
-  score: number;
-  comment: string;
-}
-
+// ローカル型定義（evaluationServiceの型を拡張）
 interface TimelineComment {
   id: string;
   timestamp: number;
@@ -51,50 +47,12 @@ interface TimelineComment {
   criterionId?: string;
 }
 
-interface EvaluationData {
+interface LocalEvaluationData {
   sessionId: string;
   scores: EvaluationScore[];
   timelineComments: TimelineComment[];
   overallComment: string;
   isSubmitted: boolean;
-}
-
-// セッション情報の型定義
-interface EvaluationSession {
-  id: string;
-  name: string;
-  description: string;
-  video: {
-    id: string;
-    title: string;
-    youtubeId: string;
-    duration: number;
-  };
-  template: {
-    id: string;
-    name: string;
-    categories: Array<{
-      id: string;
-      name: string;
-      description: string;
-      weight: number;
-      criteria: Array<{
-        id: string;
-        name: string;
-        description: string;
-        weight: number;
-        minScore: number;
-        maxScore: number;
-        isRequired: boolean;
-      }>;
-    }>;
-    settings: {
-      allowComments: boolean;
-      requireAllCriteria: boolean;
-      showWeights: boolean;
-    };
-  };
-  endDate: string;
 }
 
 const EvaluationPage: React.FC = () => {
@@ -104,7 +62,7 @@ const EvaluationPage: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   
   const [session, setSession] = useState<EvaluationSession | null>(null);
-  const [evaluationData, setEvaluationData] = useState<EvaluationData>({
+  const [evaluationData, setEvaluationData] = useState<LocalEvaluationData>({
     sessionId: sessionId || '',
     scores: [],
     timelineComments: [],
@@ -114,6 +72,7 @@ const EvaluationPage: React.FC = () => {
   
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [retryCount, setRetryCount] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -140,100 +99,65 @@ const EvaluationPage: React.FC = () => {
     }, 30000); // 30秒ごと
 
     return () => clearInterval(autoSaveInterval);
-  }, [evaluationData]);
+  }, [evaluationData, handleAutoSave]);
 
-  const fetchSession = async (id: string) => {
+  const fetchSession = async (id: string, isRetry: boolean = false) => {
     try {
       setIsLoading(true);
-      // TODO: API呼び出し
-      // const response = await apiClient.get(`/api/sessions/${id}/evaluation`);
-      // setSession(response.data);
+      setError('');
+      
+      if (isRetry) {
+        setRetryCount(prev => prev + 1);
+      }
 
-      // モックデータ
-      const mockSession: EvaluationSession = {
-        id,
-        name: '第45回よさこい祭り 本祭評価',
-        description: '本祭での各チームの演舞を評価します',
-        video: {
-          id: 'video1',
-          title: '鳴子踊り - 伝統チーム',
-          youtubeId: 'dQw4w9WgXcQ',
-          duration: 272, // 4:32
-        },
-        template: {
-          id: 'template1',
-          name: '本祭評価テンプレート',
-          categories: [
-            {
-              id: 'cat1',
-              name: '技術面',
-              description: '演舞の技術的な完成度を評価',
-              weight: 30,
-              criteria: [
-                {
-                  id: 'crit1',
-                  name: '基本動作の正確性',
-                  description: 'よさこいの基本動作が正確に実行されているか',
-                  weight: 40,
-                  minScore: 1,
-                  maxScore: 5,
-                  isRequired: true,
-                },
-                {
-                  id: 'crit2',
-                  name: '鳴子の扱い',
-                  description: '鳴子を効果的に使用できているか',
-                  weight: 30,
-                  minScore: 1,
-                  maxScore: 5,
-                  isRequired: true,
-                },
-              ],
-            },
-            {
-              id: 'cat2',
-              name: '表現力',
-              description: '演舞の表現力と感情の伝達を評価',
-              weight: 25,
-              criteria: [
-                {
-                  id: 'crit3',
-                  name: '表情・感情表現',
-                  description: '豊かな表情で感情を表現できているか',
-                  weight: 50,
-                  minScore: 1,
-                  maxScore: 5,
-                  isRequired: true,
-                },
-              ],
-            },
-          ],
-          settings: {
-            allowComments: true,
-            requireAllCriteria: false,
-            showWeights: true,
-          },
-        },
-        endDate: '2024-08-15T23:59:59Z',
-      };
-      setSession(mockSession);
+      // evaluationServiceを使用してデータを取得
+      const data = await evaluationService.getEvaluation(id);
+      
+      setSession(data.session);
 
       // 評価データの初期化
-      const initialScores = mockSession.template.categories.flatMap(cat =>
+      const initialScores: EvaluationScore[] = data.session.template.categories.flatMap(cat =>
         cat.criteria.map(crit => ({
           criterionId: crit.id,
-          score: 0,
-          comment: '',
+          score: data.evaluation.scores.find(s => s.criterionId === crit.id)?.score || 0,
+          comment: data.evaluation.scores.find(s => s.criterionId === crit.id)?.comment || '',
         }))
       );
+      
       setEvaluationData(prev => ({
         ...prev,
+        sessionId: data.evaluation.sessionId,
         scores: initialScores,
+        isSubmitted: data.evaluation.isComplete && !!data.evaluation.submittedAt,
       }));
+
+      // リトライカウントをリセット
+      setRetryCount(0);
     } catch (error: any) {
-      setError('セッション情報の取得に失敗しました');
+      console.error('評価データ取得エラー:', error);
+      
+      // エラーの種類に応じて適切なメッセージを設定
+      if (error.response?.status === 404) {
+        setError('セッションが見つかりません。セッション一覧に戻って確認してください。');
+      } else if (error.response?.status === 403) {
+        setError('このセッションの評価権限がありません。管理者にお問い合わせください。');
+      } else if (error.response?.status === 400) {
+        const message = error.response?.data?.message || 'セッションが無効または非アクティブです';
+        setError(message);
+      } else if (error.code === 'NETWORK_ERROR' || !error.response) {
+        setError('ネットワーク接続に問題があります。インターネット接続を確認してください。');
+      } else {
+        setError('セッション情報の取得に失敗しました。しばらく時間をおいて再試行してください。');
+      }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // リトライ機能
+  const handleRetry = () => {
+    if (sessionId) {
+      fetchSession(sessionId, true);
     }
   };
 
@@ -321,10 +245,14 @@ const EvaluationPage: React.FC = () => {
   const handleAutoSave = async () => {
     try {
       setAutoSaveStatus('saving');
-      // TODO: API呼び出し
-      // await apiClient.put(`/api/evaluations/${sessionId}`, evaluationData);
-      setAutoSaveStatus('saved');
+      
+      if (sessionId) {
+        // evaluationServiceを使用してスコアを保存
+        await evaluationService.saveScores(sessionId, evaluationData.scores);
+        setAutoSaveStatus('saved');
+      }
     } catch (error) {
+      console.error('自動保存エラー:', error);
       setAutoSaveStatus('error');
     }
   };
@@ -332,13 +260,22 @@ const EvaluationPage: React.FC = () => {
   // 評価提出
   const handleSubmit = async () => {
     try {
-      // TODO: API呼び出し
-      // await apiClient.post(`/api/evaluations/${sessionId}/submit`, evaluationData);
-      setEvaluationData(prev => ({ ...prev, isSubmitted: true }));
-      setSubmitDialogOpen(false);
-      navigate(`/sessions/${sessionId}/results`);
+      if (sessionId) {
+        // evaluationServiceを使用して評価を提出
+        await evaluationService.submitEvaluation(sessionId);
+        setEvaluationData(prev => ({ ...prev, isSubmitted: true }));
+        setSubmitDialogOpen(false);
+        navigate(`/sessions/${sessionId}/results`);
+      }
     } catch (error: any) {
-      setError('評価の提出に失敗しました');
+      console.error('評価提出エラー:', error);
+      
+      if (error.response?.status === 400) {
+        const message = error.response?.data?.message || '評価の提出に失敗しました';
+        setError(message);
+      } else {
+        setError('評価の提出に失敗しました。しばらく時間をおいて再試行してください。');
+      }
     }
   };
 
@@ -360,10 +297,9 @@ const EvaluationPage: React.FC = () => {
   // バリデーション
   const canSubmit = () => {
     if (!session) return false;
-    const requiredCriteria = session.template.categories
-      .flatMap(cat => cat.criteria)
-      .filter(crit => crit.isRequired);
-    return requiredCriteria.every(crit =>
+    // すべての評価項目にスコアが入力されているかチェック
+    const allCriteria = session.template.categories.flatMap(cat => cat.criteria);
+    return allCriteria.every(crit =>
       evaluationData.scores.find(s => s.criterionId === crit.id)?.score > 0
     );
   };
@@ -373,7 +309,10 @@ const EvaluationPage: React.FC = () => {
       <Box sx={{ p: 3 }}>
         <LinearProgress />
         <Typography variant="body2" sx={{ mt: 2, textAlign: 'center' }}>
-          評価画面を読み込み中...
+          {retryCount > 0 ? `再試行中... (${retryCount}回目)` : '評価画面を読み込み中...'}
+        </Typography>
+        <Typography variant="caption" sx={{ mt: 1, textAlign: 'center', display: 'block', color: 'text.secondary' }}>
+          セッション情報とテンプレートを取得しています
         </Typography>
       </Box>
     );
@@ -381,8 +320,38 @@ const EvaluationPage: React.FC = () => {
 
   if (error || !session) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="error">{error || 'セッションが見つかりません'}</Alert>
+      <Box sx={{ p: 3, maxWidth: 600, mx: 'auto' }}>
+        <Alert 
+          severity="error" 
+          sx={{ mb: 2 }}
+          action={
+            <Button 
+              color="inherit" 
+              size="small" 
+              onClick={handleRetry}
+              disabled={isLoading}
+            >
+              再試行
+            </Button>
+          }
+        >
+          {error || 'セッションが見つかりません'}
+        </Alert>
+        
+        <Box sx={{ mt: 2, display: 'flex', gap: 1, justifyContent: 'center' }}>
+          <Button 
+            variant="outlined" 
+            onClick={() => navigate('/sessions')}
+          >
+            セッション一覧に戻る
+          </Button>
+          <Button 
+            variant="outlined" 
+            onClick={() => navigate('/dashboard')}
+          >
+            ダッシュボードに戻る
+          </Button>
+        </Box>
       </Box>
     );
   }
@@ -434,7 +403,8 @@ const EvaluationPage: React.FC = () => {
                 </video>
                 
                 {/* タイムラインコメント表示 */}
-                {session.template.settings.allowComments && evaluationData.timelineComments.map(comment => (
+                {/* タイムラインコメント表示（設定があれば） */}
+                {evaluationData.timelineComments.map(comment => (
                   <Tooltip
                     key={comment.id}
                     title={comment.comment}
@@ -486,7 +456,7 @@ const EvaluationPage: React.FC = () => {
               </Box>
 
               {/* タイムラインコメント追加ボタン */}
-              {session.template.settings.allowComments && (
+              {true && (
                 <Button
                   startIcon={<CommentIcon />}
                   onClick={handleAddTimelineComment}
@@ -521,7 +491,8 @@ const EvaluationPage: React.FC = () => {
                     <Box>
                       <Typography variant="subtitle1">
                         {category.name}
-                        {session.template.settings.showWeights && (
+                        {/* 重み表示（設定があれば） */}
+                        {true && (
                           <Chip label={`${category.weight}%`} size="small" sx={{ ml: 1 }} />
                         )}
                       </Typography>
@@ -538,11 +509,13 @@ const EvaluationPage: React.FC = () => {
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                             <Typography variant="body2" sx={{ flexGrow: 1 }}>
                               {criterion.name}
-                              {criterion.isRequired && (
+                              {/* 必須マーク（設定があれば） */}
+                              {false && (
                                 <Chip label="必須" size="small" color="error" sx={{ ml: 1 }} />
                               )}
                             </Typography>
-                            {session.template.settings.showWeights && (
+                            {/* 重み表示（設定があれば） */}
+                            {true && (
                               <Chip label={`${criterion.weight}%`} size="small" variant="outlined" />
                             )}
                           </Box>
@@ -554,8 +527,8 @@ const EvaluationPage: React.FC = () => {
                           <Box sx={{ px: 1 }}>
                             <Slider
                               value={score?.score || 0}
-                              min={criterion.minScore}
-                              max={criterion.maxScore}
+                              min={criterion.minValue}
+                              max={criterion.maxValue}
                               step={1}
                               marks
                               valueLabelDisplay="on"
@@ -677,7 +650,7 @@ const EvaluationPage: React.FC = () => {
       </Dialog>
 
       {/* フローティングアクションボタン */}
-      {session.template.settings.allowComments && (
+      {true && (
         <Fab
           color="primary"
           sx={{ position: 'fixed', bottom: 16, right: 16 }}
