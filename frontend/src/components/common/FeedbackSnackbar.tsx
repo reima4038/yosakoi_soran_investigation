@@ -64,7 +64,11 @@ const FeedbackSnackbar: React.FC<FeedbackSnackbarProps> = ({
         }
       >
         <AlertTitle>{message.message}</AlertTitle>
-        {message.details && message.details}
+        {message.details && (
+          typeof message.details === 'string' 
+            ? message.details 
+            : JSON.stringify(message.details)
+        )}
       </Alert>
     </Snackbar>
   );

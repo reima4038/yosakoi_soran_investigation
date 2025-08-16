@@ -110,7 +110,7 @@ const ParticipantManagementPage: React.FC = () => {
   const fetchSessionData = useCallback(async (sessionId: string) => {
     try {
       setIsLoading(true);
-      setError('');
+      setError(null);
 
       // セッション基本情報と参加者情報を並行取得
       const [sessionData, participantsData] = await Promise.all([
@@ -358,7 +358,7 @@ const ParticipantManagementPage: React.FC = () => {
 
     try {
       setIsDeleting(true);
-      setError('');
+      setError(null);
 
       await sessionService.removeParticipant(id, participantToDelete.id);
 
@@ -367,7 +367,11 @@ const ParticipantManagementPage: React.FC = () => {
         prev.filter(p => p.id !== participantToDelete.id)
       );
 
-      setSuccessMessage(`${participantToDelete.name}を参加者から削除しました`);
+      setSuccessMessage({
+        message: `${participantToDelete.name}を参加者から削除しました`,
+        severity: 'success',
+        details: '参加者が正常に削除されました。'
+      });
       setDeleteDialogOpen(false);
       setParticipantToDelete(null);
     } catch (error: any) {
@@ -375,13 +379,29 @@ const ParticipantManagementPage: React.FC = () => {
 
       // エラーの詳細な処理
       if (error.response?.status === 403) {
-        setError('参加者を削除する権限がありません');
+        setError({
+          message: '参加者を削除する権限がありません',
+          severity: 'error',
+          details: 'セッションの作成者またはシステム管理者のみが参加者を削除できます。'
+        });
       } else if (error.response?.status === 404) {
-        setError('参加者が見つかりません');
+        setError({
+          message: '参加者が見つかりません',
+          severity: 'error',
+          details: '参加者が既に削除されている可能性があります。'
+        });
       } else if (error.response?.status === 409) {
-        setError('評価を提出済みの参加者は削除できません');
+        setError({
+          message: '評価を提出済みの参加者は削除できません',
+          severity: 'error',
+          details: '評価を提出済みの参加者を削除するには、まず評価データを削除してください。'
+        });
       } else {
-        setError('参加者の削除に失敗しました');
+        setError({
+          message: '参加者の削除に失敗しました',
+          severity: 'error',
+          details: 'しばらく時間をおいてから再度お試しください。'
+        });
       }
 
       setDeleteDialogOpen(false);
@@ -397,7 +417,7 @@ const ParticipantManagementPage: React.FC = () => {
 
     try {
       setIsDeleting(true);
-      setError('');
+      setError(null);
 
       // 並行して削除処理を実行
       const deletePromises = selectedParticipants.map(participantId =>
@@ -411,14 +431,20 @@ const ParticipantManagementPage: React.FC = () => {
         prev.filter(p => !selectedParticipants.includes(p.id))
       );
 
-      setSuccessMessage(
-        `${selectedParticipants.length}名の参加者を削除しました`
-      );
+      setSuccessMessage({
+        message: `${selectedParticipants.length}名の参加者を削除しました`,
+        severity: 'success',
+        details: '選択された参加者が正常に削除されました。'
+      });
       setSelectedParticipants([]);
       setBulkDeleteDialogOpen(false);
     } catch (error: any) {
       console.error('Bulk delete error:', error);
-      setError('一部の参加者の削除に失敗しました');
+      setError({
+        message: '一部の参加者の削除に失敗しました',
+        severity: 'error',
+        details: 'しばらく時間をおいてから再度お試しください。'
+      });
       setBulkDeleteDialogOpen(false);
     } finally {
       setIsDeleting(false);
@@ -447,7 +473,7 @@ const ParticipantManagementPage: React.FC = () => {
     if (!id || !roleChangeData) return;
 
     try {
-      setError('');
+      setError(null);
 
       await sessionService.updateParticipantRole(
         id,
@@ -464,9 +490,11 @@ const ParticipantManagementPage: React.FC = () => {
         )
       );
 
-      setSuccessMessage(
-        `${roleChangeData.participantName}の権限を${roleChangeData.newRole}に変更しました`
-      );
+      setSuccessMessage({
+        message: `${roleChangeData.participantName}の権限を${roleChangeData.newRole}に変更しました`,
+        severity: 'success',
+        details: '権限が正常に変更されました。'
+      });
       setRoleChangeDialogOpen(false);
       setRoleChangeData(null);
     } catch (error: any) {
@@ -474,13 +502,29 @@ const ParticipantManagementPage: React.FC = () => {
 
       // エラーの詳細な処理
       if (error.response?.status === 403) {
-        setError('参加者の権限を変更する権限がありません');
+        setError({
+          message: '参加者の権限を変更する権限がありません',
+          severity: 'error',
+          details: 'セッションの作成者またはシステム管理者のみが権限を変更できます。'
+        });
       } else if (error.response?.status === 404) {
-        setError('参加者が見つかりません');
+        setError({
+          message: '参加者が見つかりません',
+          severity: 'error',
+          details: '参加者が既に削除されている可能性があります。'
+        });
       } else if (error.response?.status === 409) {
-        setError('評価提出済みの参加者の権限は変更できません');
+        setError({
+          message: '評価提出済みの参加者の権限は変更できません',
+          severity: 'error',
+          details: '評価を提出済みの参加者の権限を変更するには、まず評価データを削除してください。'
+        });
       } else {
-        setError('権限の変更に失敗しました');
+        setError({
+          message: '権限の変更に失敗しました',
+          severity: 'error',
+          details: 'しばらく時間をおいてから再度お試しください。'
+        });
       }
 
       setRoleChangeDialogOpen(false);
@@ -607,14 +651,24 @@ const ParticipantManagementPage: React.FC = () => {
       </Box>
 
       {error && (
-        <Alert severity='error' sx={{ mb: 2 }}>
-          {error}
+        <Alert severity={error.severity || 'error'} sx={{ mb: 2 }}>
+          {error.message}
+          {error.details && (
+            <Box component="div" sx={{ mt: 1, fontSize: '0.875rem' }}>
+              {error.details}
+            </Box>
+          )}
         </Alert>
       )}
 
       {successMessage && (
-        <Alert severity='success' sx={{ mb: 2 }}>
-          {successMessage}
+        <Alert severity={successMessage.severity || 'success'} sx={{ mb: 2 }}>
+          {successMessage.message}
+          {successMessage.details && (
+            <Box component="div" sx={{ mt: 1, fontSize: '0.875rem' }}>
+              {successMessage.details}
+            </Box>
+          )}
         </Alert>
       )}
 

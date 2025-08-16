@@ -5,8 +5,37 @@ import { Template } from '../models/Template';
 import { authenticateToken } from '../middleware';
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
+import { emailService } from '../services/emailService';
+import { User } from '../models/User';
 
 const router = Router();
+
+// メール送信設定のテスト（開発環境のみ）
+if (process.env.NODE_ENV === 'development') {
+  router.get('/test-email', authenticateToken, async (_req: Request, res: Response) => {
+    try {
+      const isConnected = await emailService.testConnection();
+      
+      if (isConnected) {
+        return res.json({
+          status: 'success',
+          message: 'メール送信設定は正常です'
+        });
+      } else {
+        return res.status(500).json({
+          status: 'error',
+          message: 'メール送信設定に問題があります'
+        });
+      }
+    } catch (error) {
+      console.error('Email test error:', error);
+      return res.status(500).json({
+        status: 'error',
+        message: 'メール送信テストに失敗しました'
+      });
+    }
+  });
+}
 
 // セッション作成
 router.post('/', authenticateToken, async (req: Request, res: Response) => {
@@ -412,21 +441,76 @@ router.post('/:id/invite', authenticateToken, async (req: Request, res: Response
 
     const inviteLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/sessions/${id}/join?token=${inviteToken}`;
 
-    // TODO: メール送信機能の実装
-    // 現在は招待リンクのみ返す
-    const invitations = emails.map((email: string) => ({
-      email,
+    // 招待者の情報を取得
+    const inviter = await User.findById(req.user!.userId);
+    const inviterName = inviter?.username || '管理者';
+
+    // メール送信データの準備
+    const emailData = {
+      sessionName: session.name,
+      sessionDescription: session.description,
       inviteLink,
-      invitedAt: new Date(),
-      status: 'pending',
-      message: message || '' // メッセージを保存（将来のメール送信で使用）
-    }));
+      inviterName,
+      customMessage: message,
+      startDate: session.startDate ? new Date(session.startDate).toLocaleDateString('ja-JP', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }) : '',
+      endDate: session.endDate ? new Date(session.endDate).toLocaleDateString('ja-JP', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }) : '',
+    };
+
+    // メール送信の実行
+    const emailResults = await emailService.sendBulkInvitationEmails(emails, emailData);
+
+    // 招待結果の準備
+    const invitations = emails.map((email: string) => {
+      const isSuccessful = emailResults.successful.includes(email);
+      const failedResult = emailResults.failed.find(f => f.email === email);
+      
+      return {
+        email,
+        inviteLink,
+        invitedAt: new Date(),
+        status: isSuccessful ? 'sent' : 'failed',
+        message: message || '',
+        emailSent: isSuccessful,
+        emailError: failedResult?.error
+      };
+    });
+
+    // 結果の集計
+    const successCount = emailResults.successful.length;
+    const failedCount = emailResults.failed.length;
+
+    let responseMessage = '';
+    if (successCount > 0 && failedCount === 0) {
+      responseMessage = `${successCount}名に招待メールを送信しました`;
+    } else if (successCount > 0 && failedCount > 0) {
+      responseMessage = `${successCount}名に招待メールを送信しました（${failedCount}名は送信に失敗）`;
+    } else {
+      responseMessage = '招待メールの送信に失敗しました';
+    }
 
     return res.json({
-      status: 'success',
+      status: failedCount === 0 ? 'success' : 'partial_success',
       data: {
         invitations,
-        message: '招待リンクが生成されました'
+        message: responseMessage,
+        summary: {
+          total: emails.length,
+          successful: successCount,
+          failed: failedCount,
+          failedEmails: emailResults.failed
+        }
       }
     });
 
