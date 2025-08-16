@@ -44,6 +44,7 @@ import EvaluationLoadingState from './EvaluationLoadingState';
 import DiagnosticPanel from '../common/DiagnosticPanel';
 import { logger, withPerformanceTracking } from '../../utils/logger';
 import { errorMonitoring, captureApiError } from '../../utils/errorMonitoring';
+import { usePerformanceMonitoring } from '../../hooks/usePerformanceMonitoring';
 
 // セッション状態の定義
 enum SessionStatus {
@@ -75,6 +76,13 @@ const EvaluationPage: React.FC = () => {
   const { user } = useAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
   
+  // パフォーマンス監視
+  const performanceMonitor = usePerformanceMonitoring('EvaluationPage', {
+    loadTime: 5000,    // 5秒
+    renderTime: 200,   // 200ms
+    interactionTime: 100, // 100ms
+  });
+  
   const [session, setSession] = useState<EvaluationSession | null>(null);
   const [evaluationData, setEvaluationData] = useState<LocalEvaluationData>({
     sessionId: sessionId || '',
@@ -90,6 +98,8 @@ const EvaluationPage: React.FC = () => {
   const [isRetrying, setIsRetrying] = useState(false);
   const [lastErrorTime, setLastErrorTime] = useState<Date | null>(null);
   const [showDiagnosticPanel, setShowDiagnosticPanel] = useState(false);
+  const [loadingStage, setLoadingStage] = useState<'initial' | 'fetching' | 'processing' | 'finalizing'>('initial');
+  const [loadingProgress, setLoadingProgress] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -334,6 +344,10 @@ const EvaluationPage: React.FC = () => {
         retryCount: isRetry ? retryCount + 1 : 0 
       });
       
+      // ローディングステージの更新
+      setLoadingStage('initial');
+      setLoadingProgress(10);
+      
       if (isRetry) {
         setIsRetrying(true);
         setRetryCount(prev => prev + 1);
@@ -344,12 +358,20 @@ const EvaluationPage: React.FC = () => {
         await new Promise(resolve => setTimeout(resolve, delay));
       }
 
+      // データ取得段階
+      setLoadingStage('fetching');
+      setLoadingProgress(30);
+
       // evaluationServiceを使用してデータを取得（パフォーマンス監視付き）
       const data = await withPerformanceTracking(
         'fetchEvaluationSession',
-        () => evaluationService.getEvaluation(id),
+        () => evaluationService.getEvaluation(id, isRetry), // forceRefreshをリトライ時に設定
         { sessionId: id, isRetry }
       );
+
+      // データ処理段階
+      setLoadingStage('processing');
+      setLoadingProgress(60);
       
       // セッション状態検証
       const sessionValidation = validateSessionAccess(data.session);
@@ -387,20 +409,41 @@ const EvaluationPage: React.FC = () => {
         isSubmitted: data.evaluation.isComplete && !!data.evaluation.submittedAt,
       }));
 
+      // 最終化段階
+      setLoadingStage('finalizing');
+      setLoadingProgress(90);
+
       // 成功時にリトライカウントをリセット
       setRetryCount(0);
       setIsRetrying(false);
       
+      // 完了
+      setLoadingProgress(100);
+      
+      // パフォーマンス監視にローディング完了を記録
+      performanceMonitor.recordLoadComplete();
+      performanceMonitor.recordCacheHit(); // 成功時はキャッシュヒットとして記録
+      
+      // 関連データのプリロード（バックグラウンド）
+      evaluationService.preloadRelatedData(id).catch(() => {
+        // プリロードエラーは無視
+      });
+      
       logger.info(`セッション取得成功: ${id}`, 'EvaluationPage', {
         duration: performance.now() - startTime,
         sessionName: data.session.name,
-        evaluationId: data.evaluation.id
+        evaluationId: data.evaluation.id,
+        performanceMetrics: performanceMonitor.metrics,
       });
     } catch (error: any) {
       const errorDetails = getErrorDetails(error);
       setError(JSON.stringify(errorDetails));
       setLastErrorTime(new Date());
       setIsRetrying(false);
+      
+      // パフォーマンス監視にエラーを記録
+      performanceMonitor.recordError(error, { operation: 'fetchEvaluationSession', sessionId: id });
+      performanceMonitor.recordCacheMiss(); // エラー時はキャッシュミスとして記録
       
       // APIエラーの記録
       captureApiError(error, {
@@ -415,7 +458,8 @@ const EvaluationPage: React.FC = () => {
         retryCount,
         errorType: errorDetails.title,
         errorMessage: errorDetails.message,
-        httpStatus: error.response?.status
+        httpStatus: error.response?.status,
+        performanceMetrics: performanceMonitor.metrics,
       });
     } finally {
       setIsLoading(false);
@@ -581,23 +625,26 @@ const EvaluationPage: React.FC = () => {
     }
   };
 
-  // 自動保存
+  // パフォーマンス最適化された自動保存
   const handleAutoSave = async () => {
     const startTime = performance.now();
+    const recordInteractionEnd = performanceMonitor.recordInteraction('autoSave');
     
     try {
       setAutoSaveStatus('saving');
       logger.debug('自動保存開始', 'EvaluationPage', { sessionId, scoresCount: evaluationData.scores.length });
       
       if (sessionId) {
-        // evaluationServiceを使用してスコアを保存（パフォーマンス監視付き）
+        // デバウンス付きの最適化された保存
         await withPerformanceTracking(
           'autoSaveScores',
-          () => evaluationService.saveScores(sessionId, evaluationData.scores),
+          () => evaluationService.debouncedSaveScores(sessionId, evaluationData.scores, 2000),
           { sessionId, scoresCount: evaluationData.scores.length }
         );
         
         setAutoSaveStatus('saved');
+        performanceMonitor.recordCacheHit(); // 成功時はキャッシュヒット
+        
         logger.info('自動保存成功', 'EvaluationPage', {
           duration: performance.now() - startTime,
           scoresCount: evaluationData.scores.length
@@ -605,6 +652,7 @@ const EvaluationPage: React.FC = () => {
       }
     } catch (error: any) {
       setAutoSaveStatus('error');
+      performanceMonitor.recordError(error, { operation: 'autoSave' });
       
       // APIエラーの記録
       captureApiError(error, {
@@ -621,15 +669,19 @@ const EvaluationPage: React.FC = () => {
         httpStatus: error.response?.status
       });
       
-      // 重要でないエラーの場合は、しばらく後に再試行
+      // 重要でないエラーの場合は、指数バックオフで再試行
       if (error.response?.status >= 500 || error.code === 'NETWORK_ERROR') {
-        logger.info('自動保存リトライをスケジュール', 'EvaluationPage');
+        const retryDelay = Math.min(5000 * Math.pow(2, retryCount), 30000);
+        logger.info('自動保存リトライをスケジュール', 'EvaluationPage', { retryDelay });
+        
         setTimeout(() => {
           if (autoSaveStatus === 'error') {
             handleAutoSave();
           }
-        }, 5000);
+        }, retryDelay);
       }
+    } finally {
+      recordInteractionEnd();
     }
   };
 
@@ -757,6 +809,10 @@ const EvaluationPage: React.FC = () => {
           : 'セッション情報とテンプレートを取得しています'
         }
         retryCount={retryCount}
+        showProgress={true}
+        progress={loadingProgress}
+        loadingStage={loadingStage}
+        estimatedTime={isRetrying ? 8000 : 5000}
       />
     );
   }

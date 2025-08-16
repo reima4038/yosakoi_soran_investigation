@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Grid,
@@ -8,6 +8,8 @@ import {
   LinearProgress,
   Typography,
   Chip,
+  Fade,
+  Alert,
 } from '@mui/material';
 
 export interface EvaluationLoadingStateProps {
@@ -16,6 +18,8 @@ export interface EvaluationLoadingStateProps {
   retryCount?: number;
   showProgress?: boolean;
   progress?: number;
+  loadingStage?: 'initial' | 'fetching' | 'processing' | 'finalizing';
+  estimatedTime?: number;
 }
 
 const EvaluationLoadingState: React.FC<EvaluationLoadingStateProps> = ({
@@ -24,38 +28,132 @@ const EvaluationLoadingState: React.FC<EvaluationLoadingStateProps> = ({
   retryCount = 0,
   showProgress = false,
   progress,
+  loadingStage = 'initial',
+  estimatedTime = 5000,
 }) => {
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [showSlowLoadingWarning, setShowSlowLoadingWarning] = useState(false);
+  const [progressValue, setProgressValue] = useState(progress || 0);
+
+  // 経過時間の追跡
+  useEffect(() => {
+    const startTime = Date.now();
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      setElapsedTime(elapsed);
+      
+      // 遅いローディングの警告表示
+      if (elapsed > estimatedTime * 1.5 && !showSlowLoadingWarning) {
+        setShowSlowLoadingWarning(true);
+      }
+    }, 100);
+
+    return () => clearInterval(timer);
+  }, [estimatedTime, showSlowLoadingWarning]);
+
+  // プログレス値の自動更新（実際のプログレスがない場合）
+  useEffect(() => {
+    if (progress === undefined) {
+      const timer = setInterval(() => {
+        setProgressValue(prev => {
+          const target = getStageProgress(loadingStage);
+          const increment = (target - prev) * 0.1;
+          return Math.min(prev + increment, target);
+        });
+      }, 100);
+
+      return () => clearInterval(timer);
+    } else {
+      setProgressValue(progress);
+    }
+  }, [progress, loadingStage]);
+
+  const getStageProgress = (stage: string): number => {
+    switch (stage) {
+      case 'initial': return 10;
+      case 'fetching': return 40;
+      case 'processing': return 70;
+      case 'finalizing': return 90;
+      default: return 0;
+    }
+  };
+
+  const getStageMessage = (stage: string): string => {
+    switch (stage) {
+      case 'initial': return 'セッション情報を確認中...';
+      case 'fetching': return 'データを取得中...';
+      case 'processing': return 'テンプレートを処理中...';
+      case 'finalizing': return '画面を準備中...';
+      default: return submessage;
+    }
+  };
+
+  const formatElapsedTime = (ms: number): string => {
+    const seconds = Math.floor(ms / 1000);
+    return `${seconds}秒`;
+  };
   return (
     <Box sx={{ p: 3 }}>
+      {/* 遅いローディング警告 */}
+      <Fade in={showSlowLoadingWarning}>
+        <Alert 
+          severity="info" 
+          sx={{ mb: 2 }}
+          variant="outlined"
+        >
+          読み込みに時間がかかっています。ネットワーク接続をご確認ください。
+        </Alert>
+      </Fade>
+
       {/* プログレスバー */}
       <LinearProgress 
-        variant={progress !== undefined ? 'determinate' : 'indeterminate'}
-        value={progress}
-        sx={{ mb: 2 }}
+        variant="determinate"
+        value={progressValue}
+        sx={{ 
+          mb: 2,
+          height: 8,
+          borderRadius: 4,
+          '& .MuiLinearProgress-bar': {
+            borderRadius: 4,
+            transition: 'transform 0.3s ease-in-out',
+          }
+        }}
       />
       
       {/* ローディングメッセージ */}
-      <Typography variant="body2" sx={{ textAlign: 'center', mb: 1 }}>
+      <Typography variant="body2" sx={{ textAlign: 'center', mb: 1, fontWeight: 500 }}>
         {retryCount > 0 ? `再試行中... (${retryCount}回目)` : message}
       </Typography>
       
-      <Typography variant="caption" sx={{ textAlign: 'center', display: 'block', color: 'text.secondary', mb: 3 }}>
+      <Typography variant="caption" sx={{ textAlign: 'center', display: 'block', color: 'text.secondary', mb: 1 }}>
         {retryCount > 0 
           ? `しばらくお待ちください...`
-          : submessage
+          : getStageMessage(loadingStage)
         }
       </Typography>
 
-      {/* 再試行情報 */}
-      {retryCount > 0 && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+      {/* 進捗情報 */}
+      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 3, flexWrap: 'wrap' }}>
+        <Chip
+          label={`${Math.round(progressValue)}%`}
+          color="primary"
+          size="small"
+          variant="outlined"
+        />
+        <Chip
+          label={`経過時間: ${formatElapsedTime(elapsedTime)}`}
+          color="default"
+          size="small"
+          variant="outlined"
+        />
+        {retryCount > 0 && (
           <Chip
             label={retryCount < 3 ? `自動再試行: ${3 - retryCount}回残り` : '手動で再試行してください'}
             color={retryCount < 3 ? 'info' : 'warning'}
             size="small"
           />
-        </Box>
-      )}
+        )}
+      </Box>
 
       {/* スケルトンUI */}
       <Grid container spacing={3}>

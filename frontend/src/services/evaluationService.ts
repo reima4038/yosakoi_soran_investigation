@@ -1,5 +1,8 @@
 import { apiClient } from '../utils/api';
 import { offlineService } from './offlineService';
+import { sessionCache, evaluationCache, createCacheKey } from '../utils/cache';
+import { optimizedRequest } from '../utils/apiWithTimeout';
+import { logger } from '../utils/logger';
 
 export interface EvaluationScore {
   criterionId: string;
@@ -67,34 +70,83 @@ class EvaluationService {
   private baseUrl = '/evaluations';
 
   /**
-   * セッションの評価を開始/取得する（オフライン対応）
+   * セッションの評価を開始/取得する（オフライン対応・キャッシュ最適化）
    */
-  async getEvaluation(sessionId: string): Promise<EvaluationData> {
+  async getEvaluation(sessionId: string, forceRefresh: boolean = false): Promise<EvaluationData> {
+    const cacheKey = createCacheKey('evaluation', sessionId);
+    const sessionCacheKey = createCacheKey('session', sessionId);
+    
     try {
-      // オンラインの場合は通常通りAPI呼び出し
+      // オンラインの場合は最適化されたリクエストを使用
       if (offlineService.getOnlineStatus()) {
-        const response = await apiClient.get<{
-          status: string;
-          data: EvaluationData;
-        }>(`${this.baseUrl}/session/${sessionId}`);
+        logger.info(`評価データ取得開始: ${sessionId}`, 'EvaluationService', { forceRefresh });
+        
+        // 階層キャッシュ戦略: セッションデータとユーザー固有の評価データを分離
+        const data = await optimizedRequest(
+          cacheKey,
+          async () => {
+            const response = await apiClient.get<{
+              status: string;
+              data: EvaluationData;
+            }>(`${this.baseUrl}/session/${sessionId}`);
+            return response.data.data;
+          },
+          {
+            cache: true,
+            cacheTtl: 3 * 60 * 1000, // 3分間キャッシュ（評価データは頻繁に更新される可能性）
+            requestType: 'evaluation',
+            forceRefresh,
+            maxRetries: 3,
+            timeout: 15000, // 15秒タイムアウト
+          }
+        );
 
-        // データをキャッシュ
-        const data = response.data.data;
-        await offlineService.cacheSession(data.session);
-        await offlineService.cacheVideo(data.session.video);
-        await offlineService.cacheTemplate(data.session.template);
+        // セッション情報を長期キャッシュ（セッション情報は変更頻度が低い）
+        sessionCache.set(sessionCacheKey, data.session, 10 * 60 * 1000); // 10分間
 
+        // オフラインサービスにもキャッシュ（並列実行で高速化）
+        await Promise.all([
+          offlineService.cacheSession(data.session),
+          offlineService.cacheVideo(data.session.video),
+          offlineService.cacheTemplate(data.session.template),
+        ]);
+
+        logger.info(`評価データ取得成功: ${sessionId}`, 'EvaluationService');
         return data;
       } else {
         // オフラインの場合はキャッシュから取得
-        const cachedSession = await offlineService.getCachedSession(sessionId);
-        if (!cachedSession) {
+        logger.info(`オフラインモード: キャッシュから評価データ取得: ${sessionId}`, 'EvaluationService');
+        
+        // まずメモリキャッシュから試行
+        const cachedSession = sessionCache.get<EvaluationSession>(sessionCacheKey);
+        if (cachedSession) {
+          logger.debug('メモリキャッシュからセッション取得', 'EvaluationService');
+          
+          const evaluationData: EvaluationData = {
+            session: cachedSession,
+            evaluation: {
+              id: `offline_${sessionId}`,
+              sessionId,
+              userId: 'offline_user',
+              submittedAt: undefined,
+              isComplete: false,
+              scores: [],
+              comments: [],
+              lastSavedAt: new Date(),
+            },
+          };
+          return evaluationData;
+        }
+
+        // メモリキャッシュにない場合はオフラインサービスから取得
+        const offlineCachedSession = await offlineService.getCachedSession(sessionId);
+        if (!offlineCachedSession) {
           throw new Error('オフラインでセッションデータが利用できません');
         }
 
         // 基本的な評価データ構造を作成
         const evaluationData: EvaluationData = {
-          session: cachedSession,
+          session: offlineCachedSession,
           evaluation: {
             id: `offline_${sessionId}`,
             sessionId,
@@ -109,8 +161,48 @@ class EvaluationService {
 
         return evaluationData;
       }
-    } catch (error) {
-      console.error('評価取得エラー:', error);
+    } catch (error: any) {
+      logger.error(`評価データ取得エラー: ${sessionId}`, 'EvaluationService', {
+        error: error.message,
+        isTimeout: error.name === 'TimeoutError',
+        isNetworkError: !error.response,
+      });
+      
+      // タイムアウトまたはネットワークエラーの場合のみ、キャッシュからフォールバック
+      // 認証エラー（403）や見つからない（404）などのクライアントエラーはフォールバックしない
+      const shouldFallbackToCache = (
+        error.name === 'TimeoutError' || 
+        !error.response || 
+        (error.response && error.response.status >= 500)
+      );
+      
+      if (shouldFallbackToCache) {
+        logger.info('エラー時キャッシュフォールバック試行', 'EvaluationService', {
+          errorType: error.name,
+          httpStatus: error.response?.status,
+        });
+        
+        const cachedSession = sessionCache.get<EvaluationSession>(sessionCacheKey);
+        if (cachedSession) {
+          logger.info('キャッシュからフォールバック成功', 'EvaluationService');
+          
+          const evaluationData: EvaluationData = {
+            session: cachedSession,
+            evaluation: {
+              id: `fallback_${sessionId}`,
+              sessionId,
+              userId: 'cached_user',
+              submittedAt: undefined,
+              isComplete: false,
+              scores: [],
+              comments: [],
+              lastSavedAt: new Date(),
+            },
+          };
+          return evaluationData;
+        }
+      }
+      
       throw error;
     }
   }
@@ -302,7 +394,7 @@ class EvaluationService {
       );
       return response.data.data;
     } catch (error) {
-      console.error('提出状況確認エラー:', error);
+      
       throw error;
     }
   }
@@ -371,6 +463,86 @@ class EvaluationService {
 
       this.saveTimeouts.set(sessionId, timeout);
     });
+  }
+
+  /**
+   * 関連データのプリロード
+   */
+  async preloadRelatedData(sessionId: string): Promise<void> {
+    const { preloadData } = await import('../utils/apiWithTimeout');
+    
+    try {
+      // 並列でプリロード実行
+      await Promise.allSettled([
+        // セッション詳細のプリロード
+        preloadData(
+          createCacheKey('session_details', sessionId),
+          () => apiClient.get(`/sessions/${sessionId}/details`),
+          { priority: 'low' }
+        ),
+        
+        // 他の評価者の進捗状況のプリロード（管理者の場合）
+        preloadData(
+          createCacheKey('session_progress', sessionId),
+          () => apiClient.get(`/sessions/${sessionId}/progress`),
+          { priority: 'low' }
+        ),
+        
+        // セッション統計のプリロード
+        preloadData(
+          createCacheKey('session_stats', sessionId),
+          () => apiClient.get(`/sessions/${sessionId}/stats`),
+          { priority: 'low' }
+        ),
+      ]);
+      
+      logger.debug('関連データプリロード完了', 'EvaluationService', { sessionId });
+    } catch (error) {
+      logger.warn('関連データプリロード失敗', 'EvaluationService', { sessionId, error });
+      // プリロードの失敗は無視
+    }
+  }
+
+  /**
+   * パフォーマンス最適化されたバッチ保存
+   */
+  async batchSaveData(
+    sessionId: string,
+    data: {
+      scores?: EvaluationScore[];
+      comments?: Comment[];
+      overallComment?: string;
+    }
+  ): Promise<void> {
+    const { batchOptimizedRequests } = await import('../utils/apiWithTimeout');
+    
+    const requests = [];
+    
+    if (data.scores) {
+      requests.push({
+        cacheKey: createCacheKey('save_scores', sessionId),
+        requestFn: () => this.saveScores(sessionId, data.scores!),
+        options: { priority: 'high' as const, requestType: 'submission' as const }
+      });
+    }
+    
+    if (data.comments) {
+      for (const comment of data.comments) {
+        requests.push({
+          cacheKey: createCacheKey('save_comment', sessionId, comment.id || Date.now()),
+          requestFn: () => this.addComment(sessionId, comment.timestamp, comment.text),
+          options: { priority: 'normal' as const }
+        });
+      }
+    }
+    
+    try {
+      await batchOptimizedRequests(requests, { concurrency: 2, failFast: false });
+      logger.info('バッチ保存完了', 'EvaluationService', { sessionId, requestCount: requests.length });
+    } catch (error) {
+      logger.error('バッチ保存失敗', 'EvaluationService', { sessionId, error });
+      throw error;
+    }
   }
 }
 
