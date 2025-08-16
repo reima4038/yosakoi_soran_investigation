@@ -359,14 +359,7 @@ const AppContent: React.FC = () => {
               </ProtectedRoute>
             }
           />
-          <Route
-            path='/evaluations'
-            element={
-              <ProtectedRoute>
-                <EvaluationPage />
-              </ProtectedRoute>
-            }
-          />
+
           <Route
             path='/sessions/:sessionId/evaluate'
             element={

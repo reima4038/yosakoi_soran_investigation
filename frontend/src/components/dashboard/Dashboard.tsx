@@ -277,7 +277,7 @@ const Dashboard: React.FC = () => {
       title: '評価を開始',
       description: '割り当てられた評価を実行',
       icon: <Assessment />,
-      action: () => navigate('/evaluations'),
+      action: () => navigate('/sessions'),
       color: 'secondary' as const,
     },
     {

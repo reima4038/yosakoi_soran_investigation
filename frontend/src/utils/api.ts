@@ -5,7 +5,7 @@ const API_BASE_URL =
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 30000, // 30秒に延長（評価データの読み込みに時間がかかる場合を考慮）
   headers: {
     'Content-Type': 'application/json',
   },

@@ -26,7 +26,6 @@ const routeMapping: Record<string, string> = {
   '/videos': '動画管理',
   '/sessions': 'セッション管理',
   '/templates': 'テンプレート管理',
-  '/evaluations': '評価実行',
   '/analytics': '分析・結果',
   '/sharing': '共有・フィードバック',
   '/profile': 'プロフィール',

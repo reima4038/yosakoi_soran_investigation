@@ -79,16 +79,25 @@ class EvaluationService {
     try {
       // オンラインの場合は最適化されたリクエストを使用
       if (offlineService.getOnlineStatus()) {
-        logger.info(`評価データ取得開始: ${sessionId}`, 'EvaluationService', { forceRefresh });
+        logger.info(`評価データ取得開始: ${sessionId}`, 'EvaluationService', { 
+          forceRefresh,
+          url: `${this.baseUrl}/session/${sessionId}`,
+          timestamp: new Date().toISOString()
+        });
         
         // 階層キャッシュ戦略: セッションデータとユーザー固有の評価データを分離
         const data = await optimizedRequest(
           cacheKey,
           async () => {
+            logger.debug(`API呼び出し実行: ${this.baseUrl}/session/${sessionId}`, 'EvaluationService');
             const response = await apiClient.get<{
               status: string;
               data: EvaluationData;
             }>(`${this.baseUrl}/session/${sessionId}`);
+            logger.debug(`API呼び出し成功: ${this.baseUrl}/session/${sessionId}`, 'EvaluationService', {
+              status: response.status,
+              dataKeys: Object.keys(response.data.data || {}),
+            });
             return response.data.data;
           },
           {
@@ -97,7 +106,7 @@ class EvaluationService {
             requestType: 'evaluation',
             forceRefresh,
             maxRetries: 3,
-            timeout: 15000, // 15秒タイムアウト
+            timeout: 30000, // 30秒タイムアウトに延長
           }
         );
 

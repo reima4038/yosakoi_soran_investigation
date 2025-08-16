@@ -42,8 +42,8 @@ const EvaluationLoadingState: React.FC<EvaluationLoadingStateProps> = ({
       const elapsed = Date.now() - startTime;
       setElapsedTime(elapsed);
       
-      // 遅いローディングの警告表示
-      if (elapsed > estimatedTime * 1.5 && !showSlowLoadingWarning) {
+      // 遅いローディングの警告表示（20秒後に表示）
+      if (elapsed > Math.max(estimatedTime * 2, 20000) && !showSlowLoadingWarning) {
         setShowSlowLoadingWarning(true);
       }
     }, 100);

@@ -219,7 +219,7 @@ const SessionList: React.FC = () => {
       setDeleteDialogOpen(false);
       setSessionToDelete(null);
     } catch (error: any) {
-      console.error('Session delete error:', error);
+      
       
       // エラーの種類に応じて適切なメッセージを表示
       if (error.response?.status === 403) {
@@ -412,7 +412,7 @@ const SessionList: React.FC = () => {
                   </Box>
 
                   {/* 参加者アバター */}
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <AvatarGroup max={4} sx={{ '& .MuiAvatar-root': { width: 24, height: 24, fontSize: '0.75rem' } }}>
                       {session.participants.map((participant) => (
                         <Tooltip title={participant.name} key={participant.id}>
@@ -433,6 +433,37 @@ const SessionList: React.FC = () => {
                       作成者: {session.creatorName}
                     </Typography>
                   </Box>
+
+                  {/* アクションボタン */}
+                  {(() => {
+                    // 現在のユーザーが参加者かチェック
+                    const isParticipant = user && session.participants.some(p => p.id === user.id);
+                    const userParticipant = session.participants.find(p => p.id === user.id);
+                    const hasSubmitted = userParticipant?.hasSubmitted || false;
+
+                    if (isParticipant && session.status === 'active') {
+                      return (
+                        <Button
+                          variant={hasSubmitted ? 'outlined' : 'contained'}
+                          color={hasSubmitted ? 'success' : 'primary'}
+                          size="small"
+                          startIcon={hasSubmitted ? <CheckCircleIcon /> : <AssessmentIcon />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (hasSubmitted) {
+                              navigate(`/sessions/${session.id}/results`);
+                            } else {
+                              navigate(`/sessions/${session.id}/evaluate`);
+                            }
+                          }}
+                          fullWidth
+                        >
+                          {hasSubmitted ? '評価結果を確認' : '評価を開始'}
+                        </Button>
+                      );
+                    }
+                    return null;
+                  })()}
                 </CardContent>
               </Card>
             </Grid>

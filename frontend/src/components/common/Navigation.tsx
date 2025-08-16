@@ -83,7 +83,7 @@ const Navigation: React.FC = () => {
       description: '評価テンプレートの作成・編集'
     },
     { 
-      path: '/evaluations', 
+      path: '/sessions', 
       label: '評価実行', 
       icon: <Assessment />,
       description: '演舞動画の評価実行'

@@ -45,6 +45,7 @@ import DiagnosticPanel from '../common/DiagnosticPanel';
 import { logger, withPerformanceTracking } from '../../utils/logger';
 import { errorMonitoring, captureApiError } from '../../utils/errorMonitoring';
 import { usePerformanceMonitoring } from '../../hooks/usePerformanceMonitoring';
+import { generateDiagnosticReport, formatDiagnosticReport } from '../../utils/networkDiagnostics';
 
 // セッション状態の定義
 enum SessionStatus {
@@ -100,6 +101,7 @@ const EvaluationPage: React.FC = () => {
   const [showDiagnosticPanel, setShowDiagnosticPanel] = useState(false);
   const [loadingStage, setLoadingStage] = useState<'initial' | 'fetching' | 'processing' | 'finalizing'>('initial');
   const [loadingProgress, setLoadingProgress] = useState(0);
+  const [diagnosticReport, setDiagnosticReport] = useState<string>('');
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -302,6 +304,17 @@ const EvaluationPage: React.FC = () => {
   useEffect(() => {
     if (sessionId) {
       fetchSession(sessionId);
+    } else {
+      // sessionIdがない場合はセッション一覧にリダイレクト
+      setIsLoading(false);
+      setError(JSON.stringify({
+        title: 'セッションが指定されていません',
+        message: '評価するセッションが指定されていません。',
+        action: 'セッション一覧から評価するセッションを選択してください。',
+        severity: 'info',
+        canRetry: false,
+        redirectTo: '/sessions'
+      }));
     }
   }, [sessionId]);
 
@@ -331,7 +344,7 @@ const EvaluationPage: React.FC = () => {
     return () => clearInterval(autoSaveInterval);
   }, [evaluationData]);
 
-  const fetchSession = async (id: string, isRetry: boolean = false) => {
+  const fetchSession = useCallback(async (id: string, isRetry: boolean = false) => {
     const startTime = performance.now();
     
     try {
@@ -341,7 +354,10 @@ const EvaluationPage: React.FC = () => {
       
       logger.info(`セッション取得開始: ${id}`, 'EvaluationPage', { 
         isRetry, 
-        retryCount: isRetry ? retryCount + 1 : 0 
+        retryCount: isRetry ? retryCount + 1 : 0,
+        timestamp: new Date().toISOString(),
+        userAgent: navigator.userAgent,
+        onlineStatus: navigator.onLine,
       });
       
       // ローディングステージの更新
@@ -461,10 +477,23 @@ const EvaluationPage: React.FC = () => {
         httpStatus: error.response?.status,
         performanceMetrics: performanceMonitor.metrics,
       });
+
+      // 診断レポートを生成（エラー時のみ）
+      if (retryCount === 0) {
+        generateDiagnosticReport('http://localhost:3001/api')
+          .then(report => {
+            const formattedReport = formatDiagnosticReport(report);
+            setDiagnosticReport(formattedReport);
+            logger.info('診断レポート生成完了', 'EvaluationPage', { report: formattedReport });
+          })
+          .catch(diagError => {
+            logger.warn('診断レポート生成失敗', 'EvaluationPage', { error: diagError.message });
+          });
+      }
     } finally {
       setIsLoading(false);
     }
-  };
+  });
 
   // 手動リトライ機能
   const handleRetry = () => {
@@ -840,23 +869,58 @@ const EvaluationPage: React.FC = () => {
     }
 
     return (
-      <ErrorDisplay
-        title={errorDetails?.title || 'エラーが発生しました'}
-        message={`${errorDetails?.message || error || 'セッションが見つかりません'}${
-          errorDetails?.action ? '\n\n' + errorDetails.action : ''
-        }`}
-        severity={errorDetails?.severity || 'error'}
-        canRetry={errorDetails?.canRetry !== false}
-        onRetry={handleRetry}
-        isRetrying={isRetrying}
-        actions={customActions}
-        errorDetails={{
-          timestamp: lastErrorTime || undefined,
-          retryCount: retryCount > 0 ? retryCount : undefined,
-          errorCode: errorDetails?.title,
-        }}
-        showDetails={true}
-      />
+      <Box>
+        <ErrorDisplay
+          title={errorDetails?.title || 'エラーが発生しました'}
+          message={`${errorDetails?.message || error || 'セッションが見つかりません'}${
+            errorDetails?.action ? '\n\n' + errorDetails.action : ''
+          }`}
+          severity={errorDetails?.severity || 'error'}
+          canRetry={errorDetails?.canRetry !== false}
+          onRetry={handleRetry}
+          isRetrying={isRetrying}
+          actions={customActions}
+          errorDetails={{
+            timestamp: lastErrorTime || undefined,
+            retryCount: retryCount > 0 ? retryCount : undefined,
+            errorCode: errorDetails?.title,
+          }}
+          showDetails={true}
+        />
+        
+        {/* 診断情報表示 */}
+        {diagnosticReport && (
+          <Card sx={{ mt: 2 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                診断情報
+              </Typography>
+              <Typography variant="body2" component="pre" sx={{ 
+                whiteSpace: 'pre-wrap', 
+                fontFamily: 'monospace',
+                fontSize: '0.8rem',
+                backgroundColor: 'grey.100',
+                p: 2,
+                borderRadius: 1,
+                overflow: 'auto',
+                maxHeight: 300,
+              }}>
+                {diagnosticReport}
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => {
+                  navigator.clipboard.writeText(diagnosticReport);
+                }}
+                sx={{ mt: 1 }}
+              >
+                診断情報をコピー
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+      </Box>
     );
   }
 

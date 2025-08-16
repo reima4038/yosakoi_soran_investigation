@@ -8,11 +8,15 @@ const router = Router();
 
 // 評価の開始/取得
 router.get('/session/:sessionId', authenticateToken, async (req: Request, res: Response) => {
+  const startTime = Date.now();
   try {
     const { sessionId } = req.params;
     const userId = req.user!.userId;
 
+    console.log(`[評価取得] 開始: sessionId=${sessionId}, userId=${userId}, timestamp=${new Date().toISOString()}`);
+
     if (!mongoose.Types.ObjectId.isValid(sessionId)) {
+      console.log(`[評価取得] 無効なセッションID: ${sessionId}`);
       return res.status(400).json({
         status: 'error',
         message: '無効なセッションIDです'
@@ -20,22 +24,31 @@ router.get('/session/:sessionId', authenticateToken, async (req: Request, res: R
     }
 
     // セッションの存在確認とアクセス権限チェック
+    console.log(`[評価取得] セッション検索中: ${sessionId}`);
     const session = await Session.findById(sessionId)
       .populate('videoId', 'title youtubeId thumbnailUrl')
       .populate('templateId');
 
     if (!session) {
+      console.log(`[評価取得] セッションが見つかりません: ${sessionId}`);
       return res.status(404).json({
         status: 'error',
         message: 'セッションが見つかりません'
       });
     }
 
+    console.log(`[評価取得] セッション取得成功: ${sessionId}, status=${session.status}, name=${session.name}`);
+
     // セッションがアクティブかチェック
     if (session.status !== SessionStatus.ACTIVE) {
+      console.log(`[評価取得] セッションが非アクティブ: ${sessionId}, status=${session.status}`);
       return res.status(400).json({
         status: 'error',
-        message: 'このセッションは現在評価できません'
+        message: 'このセッションは現在評価できません',
+        data: {
+          sessionStatus: session.status,
+          sessionId: sessionId
+        }
       });
     }
 
@@ -45,20 +58,30 @@ router.get('/session/:sessionId', authenticateToken, async (req: Request, res: R
       evaluatorId.equals(userObjectId)
     );
 
+    console.log(`[評価取得] 権限チェック: userId=${userId}, isParticipant=${isParticipant}, evaluatorsCount=${session.evaluators.length}`);
+
     if (!isParticipant) {
+      console.log(`[評価取得] 評価権限なし: userId=${userId}, sessionId=${sessionId}`);
       return res.status(403).json({
         status: 'error',
-        message: 'このセッションの評価権限がありません'
+        message: 'このセッションの評価権限がありません',
+        data: {
+          userId: userId,
+          sessionId: sessionId,
+          evaluatorsCount: session.evaluators.length
+        }
       });
     }
 
     // 既存の評価を取得または新規作成
+    console.log(`[評価取得] 評価データ検索中: sessionId=${sessionId}, userId=${userId}`);
     let evaluation = await Evaluation.findOne({
       sessionId: new mongoose.Types.ObjectId(sessionId),
       userId: userObjectId
     });
 
     if (!evaluation) {
+      console.log(`[評価取得] 新規評価作成: sessionId=${sessionId}, userId=${userId}`);
       evaluation = new Evaluation({
         sessionId: new mongoose.Types.ObjectId(sessionId),
         userId: userObjectId,
@@ -67,7 +90,13 @@ router.get('/session/:sessionId', authenticateToken, async (req: Request, res: R
         isComplete: false
       });
       await evaluation.save();
+      console.log(`[評価取得] 新規評価作成完了: evaluationId=${evaluation._id}`);
+    } else {
+      console.log(`[評価取得] 既存評価取得: evaluationId=${evaluation._id}, scoresCount=${evaluation.scores.length}`);
     }
+
+    const duration = Date.now() - startTime;
+    console.log(`[評価取得] 成功: sessionId=${sessionId}, duration=${duration}ms`);
 
     return res.json({
       status: 'success',
@@ -85,10 +114,16 @@ router.get('/session/:sessionId', authenticateToken, async (req: Request, res: R
     });
 
   } catch (error) {
-    console.error('評価取得エラー:', error);
+    const duration = Date.now() - startTime;
+    console.error(`[評価取得] エラー: sessionId=${req.params.sessionId}, duration=${duration}ms, error:`, error);
     return res.status(500).json({
       status: 'error',
-      message: '評価の取得に失敗しました'
+      message: '評価の取得に失敗しました',
+      data: {
+        sessionId: req.params.sessionId,
+        duration: duration,
+        timestamp: new Date().toISOString()
+      }
     });
   }
 });

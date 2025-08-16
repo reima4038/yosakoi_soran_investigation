@@ -13,12 +13,12 @@ export interface TimeoutConfig {
 }
 
 const TIMEOUT_CONFIG: TimeoutConfig = {
-  default: 10000,    // 10秒
-  evaluation: 15000, // 15秒（評価データは大きい可能性）
-  submission: 25000, // 25秒（提出は重要な操作、少し長めに）
+  default: 15000,    // 15秒に延長
+  evaluation: 30000, // 30秒に延長（評価データは大きい可能性）
+  submission: 45000, // 45秒に延長（提出は重要な操作）
   upload: 60000,     // 60秒（ファイルアップロード）
-  retry: 8000,       // 8秒（リトライ時は短めに）
-  background: 30000, // 30秒（バックグラウンド処理）
+  retry: 12000,      // 12秒に延長（リトライ時）
+  background: 45000, // 45秒に延長（バックグラウンド処理）
 };
 
 // 動的タイムアウト計算

@@ -437,6 +437,43 @@ const SessionDetailPage: React.FC = () => {
     return false;
   }, [user, session]);
 
+  // 評価権限の確認
+  const canEvaluate = useMemo(() => {
+    if (!user || !session) return false;
+
+    // セッションがアクティブでない場合は評価不可
+    if (session.status !== SessionStatus.ACTIVE) return false;
+
+    // 参加者として登録されているかチェック
+    const participants = session.participantDetails || session.participants || [];
+    const isParticipant = participants.some((p: any) => 
+      (p.id === user.id || p.userId === user.id)
+    );
+
+    // evaluatorsフィールドもチェック（後方互換性のため）
+    const evaluators = session.evaluators || [];
+    const isEvaluator = evaluators.some((evaluatorId: any) => 
+      evaluatorId === user.id || evaluatorId.toString() === user.id
+    );
+
+    return isParticipant || isEvaluator;
+  }, [user, session]);
+
+  // 現在のユーザーの評価状況を確認
+  const userEvaluationStatus = useMemo(() => {
+    if (!user || !session) return { hasSubmitted: false, submittedAt: null };
+
+    const participants = session.participantDetails || session.participants || [];
+    const userParticipant = participants.find((p: any) => 
+      p.id === user.id || p.userId === user.id
+    );
+
+    return {
+      hasSubmitted: userParticipant?.hasSubmitted || false,
+      submittedAt: userParticipant?.submittedAt || null,
+    };
+  }, [user, session]);
+
   // 状態変更ハンドラー
   const handleStatusChange = async (newStatus: SessionStatus) => {
     if (!session) return;
@@ -460,7 +497,7 @@ const SessionDetailPage: React.FC = () => {
       // 成功メッセージを表示（必要に応じて）
       console.log(`セッション状態を${newStatus}に変更しました`);
     } catch (error: any) {
-      console.error('Status update error:', error);
+      
       
       
       let errorMessage = 'セッション状態の変更に失敗しました。';
@@ -525,6 +562,35 @@ const SessionDetailPage: React.FC = () => {
         );
       default:
         return null;
+    }
+  };
+
+  // 評価関連のアクションボタンを取得
+  const getEvaluationActionButton = () => {
+    if (!canEvaluate || !session) return null;
+
+    if (userEvaluationStatus.hasSubmitted) {
+      return (
+        <Button
+          variant='outlined'
+          color='success'
+          startIcon={<CheckCircleIcon />}
+          onClick={() => navigate(`/sessions/${session.id}/results`)}
+        >
+          評価結果を確認
+        </Button>
+      );
+    } else {
+      return (
+        <Button
+          variant='contained'
+          color='primary'
+          startIcon={<AssessmentIcon />}
+          onClick={() => navigate(`/sessions/${session.id}/evaluate`)}
+        >
+          評価を開始
+        </Button>
+      );
     }
   };
 
@@ -620,6 +686,7 @@ const SessionDetailPage: React.FC = () => {
           </Box>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
+          {getEvaluationActionButton()}
           {getStatusActionButton()}
           {canEdit && (
             <Button
