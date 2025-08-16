@@ -41,6 +41,9 @@ import type { EvaluationData, EvaluationSession, EvaluationScore } from '../../s
 import LoadingIndicator from '../common/LoadingIndicator';
 import ErrorDisplay from '../common/ErrorDisplay';
 import EvaluationLoadingState from './EvaluationLoadingState';
+import DiagnosticPanel from '../common/DiagnosticPanel';
+import { logger, withPerformanceTracking } from '../../utils/logger';
+import { errorMonitoring, captureApiError } from '../../utils/errorMonitoring';
 
 // セッション状態の定義
 enum SessionStatus {
@@ -86,6 +89,7 @@ const EvaluationPage: React.FC = () => {
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
   const [lastErrorTime, setLastErrorTime] = useState<Date | null>(null);
+  const [showDiagnosticPanel, setShowDiagnosticPanel] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -291,6 +295,21 @@ const EvaluationPage: React.FC = () => {
     }
   }, [sessionId]);
 
+  // 診断パネル用のキーボードショートカット
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Ctrl+Shift+D で診断パネルを開く
+      if (event.ctrlKey && event.shiftKey && event.key === 'D') {
+        event.preventDefault();
+        setShowDiagnosticPanel(true);
+        logger.info('診断パネル表示', 'EvaluationPage');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // 自動保存
   useEffect(() => {
     const autoSaveInterval = setInterval(() => {
@@ -303,10 +322,17 @@ const EvaluationPage: React.FC = () => {
   }, [evaluationData]);
 
   const fetchSession = async (id: string, isRetry: boolean = false) => {
+    const startTime = performance.now();
+    
     try {
       setIsLoading(true);
       setError('');
       setLastErrorTime(null);
+      
+      logger.info(`セッション取得開始: ${id}`, 'EvaluationPage', { 
+        isRetry, 
+        retryCount: isRetry ? retryCount + 1 : 0 
+      });
       
       if (isRetry) {
         setIsRetrying(true);
@@ -314,11 +340,16 @@ const EvaluationPage: React.FC = () => {
         
         // 指数バックオフでリトライ遅延
         const delay = getRetryDelay(retryCount);
+        logger.info(`リトライ遅延: ${delay}ms`, 'EvaluationPage');
         await new Promise(resolve => setTimeout(resolve, delay));
       }
 
-      // evaluationServiceを使用してデータを取得
-      const data = await evaluationService.getEvaluation(id);
+      // evaluationServiceを使用してデータを取得（パフォーマンス監視付き）
+      const data = await withPerformanceTracking(
+        'fetchEvaluationSession',
+        () => evaluationService.getEvaluation(id),
+        { sessionId: id, isRetry }
+      );
       
       // セッション状態検証
       const sessionValidation = validateSessionAccess(data.session);
@@ -359,27 +390,32 @@ const EvaluationPage: React.FC = () => {
       // 成功時にリトライカウントをリセット
       setRetryCount(0);
       setIsRetrying(false);
-    } catch (error: any) {
-      console.error('評価データ取得エラー:', error);
       
+      logger.info(`セッション取得成功: ${id}`, 'EvaluationPage', {
+        duration: performance.now() - startTime,
+        sessionName: data.session.name,
+        evaluationId: data.evaluation.id
+      });
+    } catch (error: any) {
       const errorDetails = getErrorDetails(error);
       setError(JSON.stringify(errorDetails));
       setLastErrorTime(new Date());
       setIsRetrying(false);
       
-      // 診断情報をログに記録
-      console.error('エラー診断情報:', {
-        sessionId: id,
+      // APIエラーの記録
+      captureApiError(error, {
+        url: `/evaluations/session/${id}`,
+        method: 'GET',
+        status: error.response?.status,
+        operation: 'fetchEvaluationSession'
+      });
+      
+      logger.error(`セッション取得失敗: ${id}`, 'EvaluationPage', {
+        duration: performance.now() - startTime,
         retryCount,
-        timestamp: new Date().toISOString(),
-        userAgent: navigator.userAgent,
-        url: window.location.href,
-        error: {
-          status: error.response?.status,
-          code: error.code,
-          message: error.message,
-          data: error.response?.data
-        }
+        errorType: errorDetails.title,
+        errorMessage: errorDetails.message,
+        httpStatus: error.response?.status
       });
     } finally {
       setIsLoading(false);
@@ -547,33 +583,47 @@ const EvaluationPage: React.FC = () => {
 
   // 自動保存
   const handleAutoSave = async () => {
+    const startTime = performance.now();
+    
     try {
       setAutoSaveStatus('saving');
+      logger.debug('自動保存開始', 'EvaluationPage', { sessionId, scoresCount: evaluationData.scores.length });
       
       if (sessionId) {
-        // evaluationServiceを使用してスコアを保存
-        await evaluationService.saveScores(sessionId, evaluationData.scores);
+        // evaluationServiceを使用してスコアを保存（パフォーマンス監視付き）
+        await withPerformanceTracking(
+          'autoSaveScores',
+          () => evaluationService.saveScores(sessionId, evaluationData.scores),
+          { sessionId, scoresCount: evaluationData.scores.length }
+        );
+        
         setAutoSaveStatus('saved');
+        logger.info('自動保存成功', 'EvaluationPage', {
+          duration: performance.now() - startTime,
+          scoresCount: evaluationData.scores.length
+        });
       }
     } catch (error: any) {
-      console.error('自動保存エラー:', error);
       setAutoSaveStatus('error');
       
-      // 自動保存エラーの診断情報
-      console.error('自動保存エラー診断情報:', {
-        sessionId,
+      // APIエラーの記録
+      captureApiError(error, {
+        url: `/evaluations/session/${sessionId}/scores`,
+        method: 'PUT',
+        status: error.response?.status,
+        operation: 'autoSaveScores'
+      });
+      
+      logger.warn('自動保存失敗', 'EvaluationPage', {
+        duration: performance.now() - startTime,
         scoresCount: evaluationData.scores.length,
-        timestamp: new Date().toISOString(),
-        error: {
-          status: error.response?.status,
-          code: error.code,
-          message: error.message,
-          data: error.response?.data
-        }
+        errorMessage: error.message,
+        httpStatus: error.response?.status
       });
       
       // 重要でないエラーの場合は、しばらく後に再試行
       if (error.response?.status >= 500 || error.code === 'NETWORK_ERROR') {
+        logger.info('自動保存リトライをスケジュール', 'EvaluationPage');
         setTimeout(() => {
           if (autoSaveStatus === 'error') {
             handleAutoSave();
@@ -585,37 +635,63 @@ const EvaluationPage: React.FC = () => {
 
   // 評価提出
   const handleSubmit = async () => {
+    const startTime = performance.now();
+    
     try {
       if (sessionId && session) {
+        logger.info('評価提出開始', 'EvaluationPage', {
+          sessionId,
+          scoresCount: evaluationData.scores.length,
+          completedScores: evaluationData.scores.filter(s => s.score > 0).length,
+          progress: getProgress()
+        });
+        
         // 提出前にセッション状態を再検証
         const sessionValidation = validateSessionAccess(session);
         if (!sessionValidation.canAccess) {
+          logger.warn('セッション状態検証失敗', 'EvaluationPage', sessionValidation);
           setError(JSON.stringify(sessionValidation));
           setSubmitDialogOpen(false);
           return;
         }
 
-        // evaluationServiceを使用して評価を提出
-        await evaluationService.submitEvaluation(sessionId);
+        // evaluationServiceを使用して評価を提出（パフォーマンス監視付き）
+        await withPerformanceTracking(
+          'submitEvaluation',
+          () => evaluationService.submitEvaluation(sessionId),
+          { 
+            sessionId, 
+            scoresCount: evaluationData.scores.length,
+            progress: getProgress()
+          }
+        );
+        
         setEvaluationData(prev => ({ ...prev, isSubmitted: true }));
         setSubmitDialogOpen(false);
+        
+        logger.info('評価提出成功', 'EvaluationPage', {
+          duration: performance.now() - startTime,
+          sessionId
+        });
+        
         navigate(`/sessions/${sessionId}/results`);
       }
     } catch (error: any) {
-      console.error('評価提出エラー:', error);
+      // APIエラーの記録
+      captureApiError(error, {
+        url: `/evaluations/session/${sessionId}/submit`,
+        method: 'POST',
+        status: error.response?.status,
+        operation: 'submitEvaluation'
+      });
       
-      // 提出エラーの診断情報
-      console.error('評価提出エラー診断情報:', {
+      logger.error('評価提出失敗', 'EvaluationPage', {
+        duration: performance.now() - startTime,
         sessionId,
         scoresCount: evaluationData.scores.length,
         completedScores: evaluationData.scores.filter(s => s.score > 0).length,
-        timestamp: new Date().toISOString(),
-        error: {
-          status: error.response?.status,
-          code: error.code,
-          message: error.message,
-          data: error.response?.data
-        }
+        errorMessage: error.message,
+        httpStatus: error.response?.status
       });
       
       const errorDetails = getErrorDetails(error);
@@ -1125,6 +1201,12 @@ const EvaluationPage: React.FC = () => {
           <CommentIcon />
         </Fab>
       )}
+
+      {/* 診断パネル */}
+      <DiagnosticPanel
+        open={showDiagnosticPanel}
+        onClose={() => setShowDiagnosticPanel(false)}
+      />
     </Box>
   );
 };
