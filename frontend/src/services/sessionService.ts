@@ -357,6 +357,130 @@ class SessionService {
       throw error;
     }
   }
+
+  /**
+   * 招待リンクを取得する
+   */
+  async getInviteLink(sessionId: string): Promise<{ status: string; data: any }> {
+    try {
+      const response = await apiClient.get<{ status: string; data: any }>(
+        `${this.baseUrl}/${sessionId}/invite-link`
+      );
+      return response.data;
+    } catch (error) {
+      console.error('招待リンク取得エラー:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 招待リンクを再生成する
+   */
+  async regenerateInviteLink(
+    sessionId: string,
+    options?: { expiresIn?: string; maxUses?: number }
+  ): Promise<{ status: string; data: any }> {
+    try {
+      const response = await apiClient.post<{ status: string; data: any }>(
+        `${this.baseUrl}/${sessionId}/regenerate-invite`,
+        options || {}
+      );
+      return response.data;
+    } catch (error) {
+      console.error('招待リンク再生成エラー:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 招待リンクの使用統計を取得する
+   */
+  async getInviteStats(sessionId: string): Promise<{ status: string; data: any }> {
+    try {
+      const response = await apiClient.get<{ status: string; data: any }>(
+        `${this.baseUrl}/${sessionId}/invite-stats`
+      );
+      return response.data;
+    } catch (error) {
+      console.error('招待リンク統計取得エラー:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 招待トークンを検証する
+   */
+  async validateInviteToken(token: string): Promise<{ status: string; data: any }> {
+    try {
+      const response = await apiClient.get<{ status: string; data: any }>(
+        `${this.baseUrl}/validate-invite/${token}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error('招待トークン検証エラー:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 招待リンクでセッションに参加する（新しいエンドポイント）
+   */
+  async joinSessionByToken(token: string, userInfo?: any): Promise<{ status: string; data: any }> {
+    try {
+      const response = await apiClient.post<{ status: string; data: any }>(
+        `${this.baseUrl}/join/${token}`,
+        { userInfo }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('招待リンクでのセッション参加エラー:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * セッション参加申請一覧を取得する
+   */
+  async getParticipantRequests(
+    sessionId: string,
+    status?: 'pending' | 'approved' | 'rejected'
+  ): Promise<{ status: string; data: any }> {
+    try {
+      const queryParams = new URLSearchParams();
+      if (status) queryParams.append('status', status);
+      
+      const url = queryParams.toString()
+        ? `${this.baseUrl}/${sessionId}/participant-requests?${queryParams.toString()}`
+        : `${this.baseUrl}/${sessionId}/participant-requests`;
+
+      const response = await apiClient.get<{ status: string; data: any }>(url);
+      return response.data;
+    } catch (error) {
+      console.error('参加申請一覧取得エラー:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * セッション参加申請を承認/拒否する
+   */
+  async processParticipantRequest(
+    sessionId: string,
+    requestId: string,
+    action: 'approve' | 'reject',
+    comment?: string
+  ): Promise<{ status: string; data: any }> {
+    try {
+      const response = await apiClient.patch<{ status: string; data: any }>(
+        `${this.baseUrl}/${sessionId}/participant-requests/${requestId}`,
+        { action, comment }
+      );
+      return response.data;
+    } catch (error) {
+      console.error('参加申請処理エラー:', error);
+      throw error;
+    }
+  }
 }
 
 export const sessionService = new SessionService();

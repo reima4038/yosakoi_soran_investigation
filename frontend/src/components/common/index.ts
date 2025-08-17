@@ -12,3 +12,4 @@ export { default as LoadingDisplay } from './LoadingDisplay';
 export { default as FeedbackSnackbar } from './FeedbackSnackbar';
 export { default as OperationFeedback } from './OperationFeedback';
 export { default as ValidationErrors } from './ValidationErrors';
+export { default as ManualCopyDialog } from './ManualCopyDialog';

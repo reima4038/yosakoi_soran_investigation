@@ -84,11 +84,26 @@ export interface Session {
   templateId: string | Template;
   creatorId: string;
   participants: SessionUser[];
+  evaluators: string[];
   createdAt: Date | string;
+  currentUserId?: string; // 現在のユーザーID（権限チェック用）
+  inviteLink?: string; // 招待リンク（セッション作成時に含まれる場合）
   settings: {
-    isAnonymous: boolean;
-    showResultsAfterSubmit: boolean;
-    allowComments: boolean;
+    isAnonymous?: boolean;
+    allowAnonymous?: boolean;
+    showResultsAfterSubmit?: boolean;
+    showRealTimeResults?: boolean;
+    allowComments?: boolean;
+    requireComments?: boolean;
+    maxEvaluationsPerUser?: number;
+  };
+  inviteSettings?: {
+    isEnabled: boolean;
+    expiresAt?: Date | string;
+    maxUses?: number;
+    currentUses: number;
+    allowAnonymous: boolean;
+    requireApproval: boolean;
   };
 }
 

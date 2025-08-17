@@ -1,3 +1,4 @@
 export { default as useResponsive } from './useResponsive';
 export { default as useOffline } from './useOffline';
 export * from './useURLValidation';
+export * from './useClipboard';
