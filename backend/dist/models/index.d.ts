@@ -8,4 +8,5 @@ export { Share, IShare, ShareType, ShareVisibility, SharePermission } from './Sh
 export { DiscussionThread, DiscussionComment, IDiscussionThread, IDiscussionComment, DiscussionType } from './Discussion';
 export { Notification, INotification, NotificationType, NotificationStatus } from './Notification';
 export { InviteLinkUsage, IInviteLinkUsage } from './InviteLinkUsage';
+export { SessionParticipantRequest, ISessionParticipantRequest, ParticipantRequestStatus } from './SessionParticipantRequest';
 //# sourceMappingURL=index.d.ts.map

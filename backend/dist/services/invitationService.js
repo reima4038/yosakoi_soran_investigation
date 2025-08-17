@@ -128,6 +128,100 @@ class InvitationService {
         }
     }
     /**
+     * 詳細なトークン検証（セッション状態も含む）
+     */
+    static async validateInviteTokenWithSession(token) {
+        try {
+            // JWTトークンの基本検証
+            const payload = this.validateInviteToken(token);
+            // セッションの存在確認
+            const { Session } = await Promise.resolve().then(() => __importStar(require('../models/Session')));
+            const session = await Session.findById(payload.sessionId);
+            if (!session) {
+                return {
+                    payload,
+                    session: null,
+                    isValid: false,
+                    errorReason: 'セッションが見つかりません'
+                };
+            }
+            // セッションステータスの確認
+            if (session.status !== 'active') {
+                return {
+                    payload,
+                    session,
+                    isValid: false,
+                    errorReason: `セッションは現在${session.status}状態のため参加できません`
+                };
+            }
+            // 招待設定の確認
+            if (session.inviteSettings && !session.inviteSettings.isEnabled) {
+                return {
+                    payload,
+                    session,
+                    isValid: false,
+                    errorReason: 'このセッションの招待リンクは無効化されています'
+                };
+            }
+            // 使用回数制限の確認
+            if (session.inviteSettings?.maxUses &&
+                session.inviteSettings.currentUses >= session.inviteSettings.maxUses) {
+                return {
+                    payload,
+                    session,
+                    isValid: false,
+                    errorReason: '招待リンクの使用回数上限に達しています'
+                };
+            }
+            // 有効期限の確認（セッション設定）
+            if (session.inviteSettings?.expiresAt &&
+                new Date() > new Date(session.inviteSettings.expiresAt)) {
+                return {
+                    payload,
+                    session,
+                    isValid: false,
+                    errorReason: '招待リンクの有効期限が切れています'
+                };
+            }
+            return {
+                payload,
+                session,
+                isValid: true
+            };
+        }
+        catch (error) {
+            return {
+                payload: {},
+                session: null,
+                isValid: false,
+                errorReason: error instanceof Error ? error.message : '招待トークンの検証に失敗しました'
+            };
+        }
+    }
+    /**
+     * 招待リンク使用ログを記録する
+     */
+    static async logInviteLinkUsage(sessionId, token, success, userId, ipAddress, userAgent, errorReason) {
+        try {
+            const { InviteLinkUsage } = await Promise.resolve().then(() => __importStar(require('../models/InviteLinkUsage')));
+            const usage = new InviteLinkUsage({
+                sessionId: new (await Promise.resolve().then(() => __importStar(require('mongoose')))).Types.ObjectId(sessionId),
+                token: token.substring(0, 20) + '...', // セキュリティのため一部のみ記録
+                usedBy: userId ? new (await Promise.resolve().then(() => __importStar(require('mongoose')))).Types.ObjectId(userId) : undefined,
+                usedAt: new Date(),
+                ipAddress: ipAddress || 'unknown',
+                userAgent: userAgent || 'unknown',
+                success,
+                errorReason
+            });
+            await usage.save();
+        }
+        catch (error) {
+            console.error('招待リンク使用ログの記録に失敗しました:', error);
+            // ログ記録の失敗は処理を停止させない
+        }
+    }
+    /**
      * セッションの招待リンクを無効化する
      * 注意: JWTトークンは無効化できないため、セッション側で制御する必要がある
      */

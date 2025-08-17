@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.InviteLinkUsage = exports.NotificationStatus = exports.NotificationType = exports.Notification = exports.DiscussionType = exports.DiscussionComment = exports.DiscussionThread = exports.SharePermission = exports.ShareVisibility = exports.ShareType = exports.Share = exports.CommentType = exports.Comment = exports.Evaluation = exports.SessionStatus = exports.Session = exports.CriterionType = exports.Template = exports.Video = exports.UserRole = exports.User = void 0;
+exports.ParticipantRequestStatus = exports.SessionParticipantRequest = exports.InviteLinkUsage = exports.NotificationStatus = exports.NotificationType = exports.Notification = exports.DiscussionType = exports.DiscussionComment = exports.DiscussionThread = exports.SharePermission = exports.ShareVisibility = exports.ShareType = exports.Share = exports.CommentType = exports.Comment = exports.Evaluation = exports.SessionStatus = exports.Session = exports.CriterionType = exports.Template = exports.Video = exports.UserRole = exports.User = void 0;
 // Database models
 var User_1 = require("./User");
 Object.defineProperty(exports, "User", { enumerable: true, get: function () { return User_1.User; } });
@@ -33,4 +33,7 @@ Object.defineProperty(exports, "NotificationType", { enumerable: true, get: func
 Object.defineProperty(exports, "NotificationStatus", { enumerable: true, get: function () { return Notification_1.NotificationStatus; } });
 var InviteLinkUsage_1 = require("./InviteLinkUsage");
 Object.defineProperty(exports, "InviteLinkUsage", { enumerable: true, get: function () { return InviteLinkUsage_1.InviteLinkUsage; } });
+var SessionParticipantRequest_1 = require("./SessionParticipantRequest");
+Object.defineProperty(exports, "SessionParticipantRequest", { enumerable: true, get: function () { return SessionParticipantRequest_1.SessionParticipantRequest; } });
+Object.defineProperty(exports, "ParticipantRequestStatus", { enumerable: true, get: function () { return SessionParticipantRequest_1.ParticipantRequestStatus; } });
 //# sourceMappingURL=index.js.map

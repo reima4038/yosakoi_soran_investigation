@@ -38,6 +38,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const Session_1 = require("../models/Session");
+const SessionParticipantRequest_1 = require("../models/SessionParticipantRequest");
 const Video_1 = require("../models/Video");
 const Template_1 = require("../models/Template");
 const middleware_1 = require("../middleware");
@@ -709,41 +710,348 @@ router.post('/join/:token', async (req, res) => {
     try {
         const { token } = req.params;
         const { userInfo } = req.body;
+        // リクエスト情報を取得
+        const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
+        const userAgent = req.get('User-Agent') || 'unknown';
         if (!token) {
             return res.status(400).json({
                 status: 'error',
                 message: '招待トークンが必要です'
             });
         }
-        // 招待トークンを検証してセッションIDを取得
-        let sessionId;
-        try {
-            sessionId = invitationService_1.InvitationService.getSessionIdFromToken(token);
-        }
-        catch (error) {
+        // 詳細なトークン検証（セッション状態も含む）
+        const validation = await invitationService_1.InvitationService.validateInviteTokenWithSession(token);
+        if (!validation.isValid) {
+            // 失敗ログを記録
+            if (validation.payload?.sessionId) {
+                await invitationService_1.InvitationService.logInviteLinkUsage(validation.payload.sessionId, token, false, userInfo?.userId, ipAddress, userAgent, validation.errorReason);
+            }
             return res.status(400).json({
                 status: 'error',
-                message: error instanceof Error ? error.message : '無効な招待トークンです'
+                message: validation.errorReason || '招待リンクが無効です',
+                code: 'INVALID_INVITE_TOKEN'
             });
         }
-        // セッションの存在確認
-        const session = await Session_1.Session.findById(sessionId);
+        const { session, payload } = validation;
+        const sessionId = payload.sessionId;
+        // 匿名参加の確認
+        const isAnonymousJoin = !userInfo || !userInfo.userId;
+        // 匿名参加が許可されているかチェック
+        if (isAnonymousJoin && !session.inviteSettings?.allowAnonymous && !session.settings?.allowAnonymous) {
+            await invitationService_1.InvitationService.logInviteLinkUsage(sessionId, token, false, undefined, ipAddress, userAgent, '匿名参加が許可されていません');
+            return res.status(403).json({
+                status: 'error',
+                message: 'このセッションは匿名での参加が許可されていません。ログインしてから参加してください。',
+                code: 'ANONYMOUS_NOT_ALLOWED'
+            });
+        }
+        // 重複参加の確認
+        let isAlreadyParticipant = false;
+        if (userInfo && userInfo.userId) {
+            const userId = new mongoose_1.default.Types.ObjectId(userInfo.userId);
+            isAlreadyParticipant = session.evaluators.some((evaluatorId) => evaluatorId.equals(userId));
+        }
+        // 参加承認が必要かチェック
+        const requiresApproval = session.inviteSettings?.requireApproval || false;
+        // 新規参加者の場合の処理
+        let participantStatus = 'joined';
+        if (userInfo && userInfo.userId && !isAlreadyParticipant) {
+            const userId = new mongoose_1.default.Types.ObjectId(userInfo.userId);
+            if (requiresApproval) {
+                // 参加承認が必要な場合、申請を作成
+                const { SessionParticipantRequest } = await Promise.resolve().then(() => __importStar(require('../models/SessionParticipantRequest')));
+                // 既存の申請があるかチェック
+                const existingRequest = await SessionParticipantRequest.findOne({
+                    sessionId: new mongoose_1.default.Types.ObjectId(sessionId),
+                    userId: userId
+                });
+                if (existingRequest) {
+                    if (existingRequest.status === 'pending') {
+                        participantStatus = 'approval_pending';
+                    }
+                    else if (existingRequest.status === 'approved') {
+                        // 承認済みの場合は参加者として追加
+                        if (!session.evaluators.includes(userId)) {
+                            session.evaluators.push(userId);
+                            await session.save();
+                        }
+                        participantStatus = 'joined';
+                    }
+                    else {
+                        participantStatus = 'rejected';
+                    }
+                }
+                else {
+                    // 新規申請を作成
+                    const participantRequest = new SessionParticipantRequest({
+                        sessionId: new mongoose_1.default.Types.ObjectId(sessionId),
+                        userId: userId,
+                        inviteToken: token.substring(0, 20) + '...', // セキュリティのため一部のみ保存
+                        requestMessage: userInfo.requestMessage || ''
+                    });
+                    await participantRequest.save();
+                    participantStatus = 'approval_pending';
+                }
+            }
+            else {
+                // 即座に参加者として追加
+                session.evaluators.push(userId);
+                await session.save();
+                participantStatus = 'joined';
+            }
+            // 招待設定の使用回数を更新
+            if (session.inviteSettings) {
+                session.inviteSettings.currentUses = (session.inviteSettings.currentUses || 0) + 1;
+                await session.save();
+            }
+        }
+        // 成功ログを記録
+        await invitationService_1.InvitationService.logInviteLinkUsage(sessionId, token, true, userInfo?.userId, ipAddress, userAgent);
+        // セッション詳細情報を取得
+        const populatedSession = await Session_1.Session.findById(sessionId)
+            .populate('videoId', 'title youtubeId thumbnailUrl')
+            .populate('templateId', 'name description')
+            .populate('creatorId', 'username profile.displayName');
+        return res.json({
+            status: 'success',
+            data: {
+                session: {
+                    id: session._id,
+                    name: session.name,
+                    description: session.description,
+                    status: session.status,
+                    video: populatedSession?.videoId,
+                    template: populatedSession?.templateId,
+                    creator: populatedSession?.creatorId,
+                    startDate: session.startDate,
+                    endDate: session.endDate
+                },
+                participant: {
+                    isNewParticipant: !isAlreadyParticipant,
+                    userId: userInfo?.userId,
+                    status: participantStatus,
+                    isAnonymous: isAnonymousJoin,
+                    requiresApproval: requiresApproval
+                },
+                message: (() => {
+                    if (isAlreadyParticipant)
+                        return 'すでにこのセッションに参加しています';
+                    if (isAnonymousJoin)
+                        return 'セッションに匿名で参加しました';
+                    if (participantStatus === 'approval_pending')
+                        return 'セッション参加申請を送信しました。承認をお待ちください。';
+                    if (participantStatus === 'rejected')
+                        return 'セッション参加申請が拒否されています';
+                    return 'セッションに参加しました';
+                })()
+            }
+        });
+    }
+    catch (error) {
+        console.error('セッション参加エラー:', error);
+        // エラーログを記録
+        try {
+            if (req.params.token) {
+                const validation = await invitationService_1.InvitationService.validateInviteTokenWithSession(req.params.token);
+                if (validation?.payload?.sessionId) {
+                    await invitationService_1.InvitationService.logInviteLinkUsage(validation.payload.sessionId, req.params.token, false, req.body.userInfo?.userId, req.ip || req.connection.remoteAddress || 'unknown', req.get('User-Agent') || 'unknown', error instanceof Error ? error.message : 'システムエラー');
+                }
+            }
+        }
+        catch (logError) {
+            console.error('エラーログ記録に失敗:', logError);
+        }
+        return res.status(500).json({
+            status: 'error',
+            message: 'セッションへの参加に失敗しました',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+// 招待トークンの事前検証
+router.get('/validate-invite/:token', async (req, res) => {
+    try {
+        const { token } = req.params;
+        if (!token) {
+            return res.status(400).json({
+                status: 'error',
+                message: '招待トークンが必要です'
+            });
+        }
+        // 詳細なトークン検証
+        const validation = await invitationService_1.InvitationService.validateInviteTokenWithSession(token);
+        if (!validation.isValid) {
+            return res.status(400).json({
+                status: 'error',
+                message: validation.errorReason || '招待リンクが無効です',
+                code: 'INVALID_INVITE_TOKEN',
+                details: {
+                    hasSession: !!validation.session,
+                    sessionStatus: validation.session?.status
+                }
+            });
+        }
+        const { session } = validation;
+        return res.json({
+            status: 'success',
+            data: {
+                isValid: true,
+                session: {
+                    id: session._id,
+                    name: session.name,
+                    description: session.description,
+                    status: session.status,
+                    startDate: session.startDate,
+                    endDate: session.endDate,
+                    settings: {
+                        allowAnonymous: session.settings?.allowAnonymous || false,
+                        requireComments: session.settings?.requireComments || false
+                    }
+                },
+                inviteInfo: {
+                    expiresAt: session.inviteSettings?.expiresAt,
+                    maxUses: session.inviteSettings?.maxUses,
+                    currentUses: session.inviteSettings?.currentUses || 0,
+                    allowAnonymous: session.inviteSettings?.allowAnonymous || false,
+                    requireApproval: session.inviteSettings?.requireApproval || false
+                }
+            }
+        });
+    }
+    catch (error) {
+        console.error('招待トークン検証エラー:', error);
+        return res.status(500).json({
+            status: 'error',
+            message: '招待トークンの検証に失敗しました',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+// セッション参加申請一覧取得
+router.get('/:id/participant-requests', middleware_1.authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.query;
+        if (!mongoose_1.default.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                status: 'error',
+                message: '無効なセッションIDです'
+            });
+        }
+        const session = await Session_1.Session.findById(id);
         if (!session) {
             return res.status(404).json({
                 status: 'error',
                 message: 'セッションが見つかりません'
             });
         }
-        // セッションがアクティブでない場合はエラー
-        if (session.status !== Session_1.SessionStatus.ACTIVE) {
-            return res.status(400).json({
+        // セッション作成者のみ申請一覧を取得可能
+        if (!session.creatorId.equals(new mongoose_1.default.Types.ObjectId(req.user.userId))) {
+            return res.status(403).json({
                 status: 'error',
-                message: 'このセッションは現在参加できません'
+                message: '参加申請一覧を取得する権限がありません'
             });
         }
-        // ユーザー情報がある場合は評価者として追加
-        if (userInfo && userInfo.userId) {
-            const userId = new mongoose_1.default.Types.ObjectId(userInfo.userId);
+        const { SessionParticipantRequest } = await Promise.resolve().then(() => __importStar(require('../models/SessionParticipantRequest')));
+        // フィルター条件の構築
+        const filter = { sessionId: new mongoose_1.default.Types.ObjectId(id) };
+        if (status && ['pending', 'approved', 'rejected'].includes(status)) {
+            filter.status = status;
+        }
+        const requests = await SessionParticipantRequest.find(filter)
+            .populate('userId', 'username email profile.displayName')
+            .populate('reviewedBy', 'username profile.displayName')
+            .sort({ requestedAt: -1 });
+        return res.json({
+            status: 'success',
+            data: {
+                sessionId: id,
+                sessionName: session.name,
+                requests: requests.map(request => ({
+                    id: request._id,
+                    user: {
+                        id: request.userId._id,
+                        username: request.userId.username,
+                        email: request.userId.email,
+                        displayName: request.userId.profile?.displayName
+                    },
+                    requestedAt: request.requestedAt,
+                    status: request.status,
+                    requestMessage: request.requestMessage,
+                    reviewedBy: request.reviewedBy ? {
+                        id: request.reviewedBy._id,
+                        displayName: request.reviewedBy.profile?.displayName || request.reviewedBy.username
+                    } : null,
+                    reviewedAt: request.reviewedAt,
+                    reviewComment: request.reviewComment
+                }))
+            }
+        });
+    }
+    catch (error) {
+        console.error('参加申請一覧取得エラー:', error);
+        return res.status(500).json({
+            status: 'error',
+            message: '参加申請一覧の取得に失敗しました',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+// セッション参加申請の承認/拒否
+router.patch('/:id/participant-requests/:requestId', middleware_1.authenticateToken, async (req, res) => {
+    try {
+        const { id, requestId } = req.params;
+        const { action, comment } = req.body; // action: 'approve' | 'reject'
+        if (!mongoose_1.default.Types.ObjectId.isValid(id) || !mongoose_1.default.Types.ObjectId.isValid(requestId)) {
+            return res.status(400).json({
+                status: 'error',
+                message: '無効なIDです'
+            });
+        }
+        if (!['approve', 'reject'].includes(action)) {
+            return res.status(400).json({
+                status: 'error',
+                message: 'アクションは approve または reject である必要があります'
+            });
+        }
+        const session = await Session_1.Session.findById(id);
+        if (!session) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'セッションが見つかりません'
+            });
+        }
+        // セッション作成者のみ申請を処理可能
+        if (!session.creatorId.equals(new mongoose_1.default.Types.ObjectId(req.user.userId))) {
+            return res.status(403).json({
+                status: 'error',
+                message: '参加申請を処理する権限がありません'
+            });
+        }
+        const { SessionParticipantRequest } = await Promise.resolve().then(() => __importStar(require('../models/SessionParticipantRequest')));
+        const request = await SessionParticipantRequest.findById(requestId)
+            .populate('userId', 'username email profile.displayName');
+        if (!request) {
+            return res.status(404).json({
+                status: 'error',
+                message: '参加申請が見つかりません'
+            });
+        }
+        if (request.status !== 'pending') {
+            return res.status(400).json({
+                status: 'error',
+                message: 'この申請は既に処理済みです'
+            });
+        }
+        // 申請を更新
+        request.status = action === 'approve' ? SessionParticipantRequest_1.ParticipantRequestStatus.APPROVED : SessionParticipantRequest_1.ParticipantRequestStatus.REJECTED;
+        request.reviewedBy = new mongoose_1.default.Types.ObjectId(req.user.userId);
+        request.reviewedAt = new Date();
+        request.reviewComment = comment || '';
+        await request.save();
+        // 承認の場合はセッションの参加者リストに追加
+        if (action === 'approve') {
+            const userId = request.userId;
             if (!session.evaluators.includes(userId)) {
                 session.evaluators.push(userId);
                 await session.save();
@@ -752,21 +1060,25 @@ router.post('/join/:token', async (req, res) => {
         return res.json({
             status: 'success',
             data: {
-                session: {
-                    id: session._id,
-                    name: session.name,
-                    description: session.description,
-                    status: session.status
+                requestId: request._id,
+                action: action,
+                user: {
+                    id: request.userId._id,
+                    username: request.userId.username,
+                    displayName: request.userId.profile?.displayName
                 },
-                message: 'セッションに参加しました'
+                message: action === 'approve' ?
+                    '参加申請を承認しました' :
+                    '参加申請を拒否しました'
             }
         });
     }
     catch (error) {
-        console.error('セッション参加エラー:', error);
+        console.error('参加申請処理エラー:', error);
         return res.status(500).json({
             status: 'error',
-            message: 'セッションへの参加に失敗しました'
+            message: '参加申請の処理に失敗しました',
+            details: error instanceof Error ? error.message : 'Unknown error'
         });
     }
 });

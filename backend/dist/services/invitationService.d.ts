@@ -34,6 +34,19 @@ export declare class InvitationService {
      */
     static isInviteLinkValid(token: string): boolean;
     /**
+     * 詳細なトークン検証（セッション状態も含む）
+     */
+    static validateInviteTokenWithSession(token: string): Promise<{
+        payload: InviteTokenPayload;
+        session: any;
+        isValid: boolean;
+        errorReason?: string;
+    }>;
+    /**
+     * 招待リンク使用ログを記録する
+     */
+    static logInviteLinkUsage(sessionId: string, token: string, success: boolean, userId?: string, ipAddress?: string, userAgent?: string, errorReason?: string): Promise<void>;
+    /**
      * セッションの招待リンクを無効化する
      * 注意: JWTトークンは無効化できないため、セッション側で制御する必要がある
      */
