@@ -3,7 +3,7 @@ import { Session, SessionStatus } from '../models/Session';
 import { Video } from '../models/Video';
 import { Template } from '../models/Template';
 import { authenticateToken } from '../middleware';
-import { InvitationService } from '../services/invitationService';
+import { InvitationService, InviteLinkOptions } from '../services/invitationService';
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 import { emailService } from '../services/emailService';
@@ -104,10 +104,14 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       .populate('templateId', 'name description')
       .populate('creatorId', 'username email profile.displayName');
 
+    // 招待リンクを自動生成
+    const inviteLink = InvitationService.generateInviteLink((session._id as mongoose.Types.ObjectId).toString());
+
     // IDフィールドを正規化
     const normalizedSession = {
       ...populatedSession!.toObject(),
-      id: (populatedSession!._id as mongoose.Types.ObjectId).toString()
+      id: (populatedSession!._id as mongoose.Types.ObjectId).toString(),
+      inviteLink // 招待リンクをレスポンスに追加
     };
 
     return res.status(201).json({
@@ -381,6 +385,14 @@ router.delete('/:id', authenticateToken, async (req: Request, res: Response) => 
       });
     }
 
+    // セッション削除前に招待リンクを無効化
+    try {
+      await InvitationService.invalidateSessionInvites(id);
+    } catch (inviteError) {
+      console.warn('招待リンク無効化に失敗しました:', inviteError);
+      // 招待リンク無効化の失敗はセッション削除を阻害しない
+    }
+
     await Session.findByIdAndDelete(id);
 
     return res.json({
@@ -425,8 +437,69 @@ router.get('/:id/invite-link', authenticateToken, async (req: Request, res: Resp
       });
     }
 
-    // 招待リンクを生成
-    const inviteLink = InvitationService.generateInviteLink(id);
+    // 招待設定が無効化されている場合はエラー
+    if (session.inviteSettings && !session.inviteSettings.isEnabled) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'このセッションの招待リンクは無効化されています'
+      });
+    }
+
+    // セッションが完了またはアーカイブされている場合はエラー
+    if (session.status === SessionStatus.COMPLETED || session.status === SessionStatus.ARCHIVED) {
+      return res.status(400).json({
+        status: 'error',
+        message: '完了またはアーカイブされたセッションの招待リンクは取得できません'
+      });
+    }
+
+    // セッション設定に基づいた招待リンクを生成
+    let inviteLink: string;
+    let expiresInfo: string;
+    
+    try {
+      if (session.inviteSettings) {
+        inviteLink = InvitationService.generateInviteLinkWithSettings(id, session.inviteSettings);
+        
+        // 有効期限情報を設定
+        if (session.inviteSettings.expiresAt) {
+          const expiresAt = new Date(session.inviteSettings.expiresAt);
+          expiresInfo = expiresAt.toISOString();
+        } else {
+          expiresInfo = '7d'; // デフォルト
+        }
+      } else {
+        inviteLink = InvitationService.generateInviteLinkForNewSession(id);
+        expiresInfo = '7d';
+      }
+    } catch (error) {
+      return res.status(400).json({
+        status: 'error',
+        message: error instanceof Error ? error.message : '招待リンクの生成に失敗しました'
+      });
+    }
+
+    // 招待リンクの使用統計を取得
+    const { InviteLinkUsage } = await import('../models/InviteLinkUsage');
+    const usageStats = await InviteLinkUsage.aggregate([
+      { $match: { sessionId: new mongoose.Types.ObjectId(id) } },
+      {
+        $group: {
+          _id: null,
+          totalUses: { $sum: 1 },
+          successfulUses: { $sum: { $cond: ['$success', 1, 0] } },
+          failedUses: { $sum: { $cond: ['$success', 0, 1] } },
+          lastUsed: { $max: '$usedAt' }
+        }
+      }
+    ]);
+
+    const stats = usageStats[0] || {
+      totalUses: 0,
+      successfulUses: 0,
+      failedUses: 0,
+      lastUsed: null
+    };
 
     return res.json({
       status: 'success',
@@ -434,7 +507,21 @@ router.get('/:id/invite-link', authenticateToken, async (req: Request, res: Resp
         inviteLink,
         sessionId: id,
         sessionName: session.name,
-        expiresIn: '7d'
+        sessionStatus: session.status,
+        expiresIn: expiresInfo,
+        inviteSettings: session.inviteSettings || {
+          isEnabled: true,
+          currentUses: 0,
+          allowAnonymous: false,
+          requireApproval: false
+        },
+        usageStats: {
+          totalUses: stats.totalUses,
+          successfulUses: stats.successfulUses,
+          failedUses: stats.failedUses,
+          lastUsed: stats.lastUsed
+        },
+        generatedAt: new Date().toISOString()
       }
     });
 
@@ -442,7 +529,218 @@ router.get('/:id/invite-link', authenticateToken, async (req: Request, res: Resp
     console.error('招待リンク取得エラー:', error);
     return res.status(500).json({
       status: 'error',
-      message: '招待リンクの取得に失敗しました'
+      message: '招待リンクの取得に失敗しました',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// 招待リンク使用統計取得
+router.get('/:id/invite-stats', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        status: 'error',
+        message: '無効なセッションIDです'
+      });
+    }
+
+    const session = await Session.findById(id);
+    if (!session) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'セッションが見つかりません'
+      });
+    }
+
+    // セッション作成者のみ統計を取得可能
+    if (!session.creatorId.equals(new mongoose.Types.ObjectId(req.user!.userId))) {
+      return res.status(403).json({
+        status: 'error',
+        message: '招待リンク統計を取得する権限がありません'
+      });
+    }
+
+    const { InviteLinkUsage } = await import('../models/InviteLinkUsage');
+    
+    // 詳細な使用統計を取得
+    const [usageStats, recentUsage, dailyStats] = await Promise.all([
+      // 全体統計
+      InviteLinkUsage.aggregate([
+        { $match: { sessionId: new mongoose.Types.ObjectId(id) } },
+        {
+          $group: {
+            _id: null,
+            totalUses: { $sum: 1 },
+            successfulUses: { $sum: { $cond: ['$success', 1, 0] } },
+            failedUses: { $sum: { $cond: ['$success', 0, 1] } },
+            uniqueUsers: { $addToSet: '$usedBy' },
+            firstUsed: { $min: '$usedAt' },
+            lastUsed: { $max: '$usedAt' }
+          }
+        }
+      ]),
+      
+      // 最近の使用履歴（最新10件）
+      InviteLinkUsage.find({ sessionId: new mongoose.Types.ObjectId(id) })
+        .populate('usedBy', 'username profile.displayName')
+        .sort({ usedAt: -1 })
+        .limit(10),
+      
+      // 日別統計（過去30日）
+      InviteLinkUsage.aggregate([
+        { 
+          $match: { 
+            sessionId: new mongoose.Types.ObjectId(id),
+            usedAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
+          } 
+        },
+        {
+          $group: {
+            _id: { 
+              $dateToString: { format: '%Y-%m-%d', date: '$usedAt' }
+            },
+            uses: { $sum: 1 },
+            successful: { $sum: { $cond: ['$success', 1, 0] } }
+          }
+        },
+        { $sort: { _id: 1 } }
+      ])
+    ]);
+
+    const stats = usageStats[0] || {
+      totalUses: 0,
+      successfulUses: 0,
+      failedUses: 0,
+      uniqueUsers: [],
+      firstUsed: null,
+      lastUsed: null
+    };
+
+    return res.json({
+      status: 'success',
+      data: {
+        sessionId: id,
+        sessionName: session.name,
+        overview: {
+          totalUses: stats.totalUses,
+          successfulUses: stats.successfulUses,
+          failedUses: stats.failedUses,
+          uniqueUsers: stats.uniqueUsers.filter(Boolean).length,
+          successRate: stats.totalUses > 0 ? (stats.successfulUses / stats.totalUses * 100).toFixed(1) : '0',
+          firstUsed: stats.firstUsed,
+          lastUsed: stats.lastUsed
+        },
+        recentUsage: recentUsage.map(usage => ({
+          id: usage._id,
+          usedAt: usage.usedAt,
+          success: usage.success,
+          user: usage.usedBy ? {
+            id: (usage.usedBy as any)._id,
+            name: (usage.usedBy as any).profile?.displayName || (usage.usedBy as any).username
+          } : null,
+          ipAddress: usage.ipAddress,
+          errorReason: usage.errorReason
+        })),
+        dailyStats: dailyStats.map(day => ({
+          date: day._id,
+          uses: day.uses,
+          successful: day.successful,
+          successRate: day.uses > 0 ? (day.successful / day.uses * 100).toFixed(1) : '0'
+        }))
+      }
+    });
+
+  } catch (error) {
+    console.error('招待リンク統計取得エラー:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: '招待リンク統計の取得に失敗しました',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// 招待リンク再生成
+router.post('/:id/regenerate-invite', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { expiresIn, maxUses } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        status: 'error',
+        message: '無効なセッションIDです'
+      });
+    }
+
+    const session = await Session.findById(id);
+    if (!session) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'セッションが見つかりません'
+      });
+    }
+
+    // セッション作成者のみ再生成可能
+    if (!session.creatorId.equals(new mongoose.Types.ObjectId(req.user!.userId))) {
+      return res.status(403).json({
+        status: 'error',
+        message: '招待リンクを再生成する権限がありません'
+      });
+    }
+
+    // セッションが完了またはアーカイブされている場合はエラー
+    if (session.status === SessionStatus.COMPLETED || session.status === SessionStatus.ARCHIVED) {
+      return res.status(400).json({
+        status: 'error',
+        message: '完了またはアーカイブされたセッションの招待リンクは再生成できません'
+      });
+    }
+
+    // 新しい招待リンクを生成
+    const options: InviteLinkOptions = {};
+    if (expiresIn) options.expiresIn = expiresIn;
+    if (maxUses) options.maxUses = maxUses;
+
+    const newInviteLink = InvitationService.generateInviteLink(id, options);
+
+    // 招待設定を更新（使用回数をリセット）
+    if (session.inviteSettings) {
+      session.inviteSettings.currentUses = 0;
+      session.inviteSettings.isEnabled = true;
+      if (maxUses) session.inviteSettings.maxUses = maxUses;
+    } else {
+      session.inviteSettings = {
+        isEnabled: true,
+        currentUses: 0,
+        maxUses: maxUses,
+        allowAnonymous: false,
+        requireApproval: false
+      };
+    }
+
+    await session.save();
+
+    return res.json({
+      status: 'success',
+      data: {
+        inviteLink: newInviteLink,
+        sessionId: id,
+        sessionName: session.name,
+        regeneratedAt: new Date().toISOString(),
+        message: '招待リンクが再生成されました。古いリンクは無効になります。'
+      }
+    });
+
+  } catch (error) {
+    console.error('招待リンク再生成エラー:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: '招待リンクの再生成に失敗しました',
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
@@ -808,6 +1106,17 @@ router.patch('/:id/status', authenticateToken, async (req: Request, res: Respons
       session.endDate = new Date();
     }
 
+    // セッションが完了またはアーカイブされる場合、招待リンクを無効化
+    if (status === SessionStatus.COMPLETED || status === SessionStatus.ARCHIVED) {
+      try {
+        await InvitationService.invalidateSessionInvites(id);
+        console.log(`セッション ${id} の招待リンクを無効化しました`);
+      } catch (inviteError) {
+        console.warn('招待リンク無効化に失敗しました:', inviteError);
+        // 招待リンク無効化の失敗はステータス変更を阻害しない
+      }
+    }
+
     session.status = status;
     
     try {
@@ -968,7 +1277,7 @@ router.get('/notifications/overdue', authenticateToken, async (req: Request, res
         upcoming: upcomingSessions.map(session => ({
           id: session._id,
           name: session.name,
-          videoTitle: (session.videoId as any)?.title,
+          videoTitle: (session.videoId as unknown)?.title,
           endDate: session.endDate,
           hoursRemaining: Math.floor((session.endDate!.getTime() - now.getTime()) / (60 * 60 * 1000))
         }))

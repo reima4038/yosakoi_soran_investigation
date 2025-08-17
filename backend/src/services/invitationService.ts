@@ -18,24 +18,44 @@ export class InvitationService {
    * セッション招待リンクを生成する
    */
   static generateInviteLink(sessionId: string, options: InviteLinkOptions = {}): string {
-    const { expiresIn = '7d' } = options;
-    
-    const payload = {
-      sessionId,
-      type: 'session-invite' as const
-    };
+    const token = this.generateInviteToken(sessionId, options);
+    return this.buildInviteUrl(token);
+  }
 
-    const jwtOptions: jwt.SignOptions = {
-      expiresIn: expiresIn as unknown,
-      issuer: 'yosakoi-evaluation-system',
-      audience: 'session-invites'
-    };
+  /**
+   * セッション作成時の自動招待リンク生成
+   */
+  static generateInviteLinkForNewSession(sessionId: string): string {
+    // 新規セッション用のデフォルト設定で招待リンクを生成
+    return this.generateInviteLink(sessionId, {
+      expiresIn: '7d' // デフォルト7日間有効
+    });
+  }
 
-    const token = jwt.sign(payload, config.jwtSecret as string, jwtOptions);
+  /**
+   * セッション設定に基づいた招待リンク生成
+   */
+  static generateInviteLinkWithSettings(sessionId: string, inviteSettings?: any): string {
+    const options: InviteLinkOptions = {};
     
-    // フロントエンドのベースURLと組み合わせて完全な招待リンクを生成
-    const baseUrl = config.frontendUrl;
-    return `${baseUrl}/sessions/join/${token}`;
+    if (inviteSettings?.expiresAt) {
+      // 有効期限が設定されている場合、現在時刻からの差分を計算
+      const now = new Date();
+      const expiresAt = new Date(inviteSettings.expiresAt);
+      const diffInSeconds = Math.floor((expiresAt.getTime() - now.getTime()) / 1000);
+      
+      if (diffInSeconds > 0) {
+        options.expiresIn = `${diffInSeconds}s`;
+      } else {
+        throw new Error('招待リンクの有効期限が過去の日時に設定されています');
+      }
+    }
+    
+    if (inviteSettings?.maxUses) {
+      options.maxUses = inviteSettings.maxUses;
+    }
+    
+    return this.generateInviteLink(sessionId, options);
   }
 
   /**
@@ -85,5 +105,48 @@ export class InvitationService {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * セッションの招待リンクを無効化する
+   * 注意: JWTトークンは無効化できないため、セッション側で制御する必要がある
+   */
+  static async invalidateSessionInvites(sessionId: string): Promise<void> {
+    // JWTトークン自体は無効化できないため、
+    // セッションの招待設定を無効にすることで制御
+    const { Session } = await import('../models/Session');
+    
+    await Session.findByIdAndUpdate(sessionId, {
+      'inviteSettings.isEnabled': false
+    });
+  }
+
+  /**
+   * 招待リンクのトークンを生成する（内部用）
+   */
+  static generateInviteToken(sessionId: string, options: InviteLinkOptions = {}): string {
+    const { expiresIn = '7d' } = options;
+    
+    const payload = {
+      sessionId,
+      type: 'session-invite' as const,
+      generatedAt: Date.now()
+    };
+
+    const jwtOptions: jwt.SignOptions = {
+      expiresIn: expiresIn as unknown,
+      issuer: 'yosakoi-evaluation-system',
+      audience: 'session-invites'
+    };
+
+    return jwt.sign(payload, config.jwtSecret as string, jwtOptions);
+  }
+
+  /**
+   * 招待リンクのURLを構築する（内部用）
+   */
+  static buildInviteUrl(token: string): string {
+    const baseUrl = config.frontendUrl;
+    return `${baseUrl}/sessions/join/${token}`;
   }
 }
