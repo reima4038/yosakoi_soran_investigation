@@ -7,6 +7,15 @@ export enum SessionStatus {
   ARCHIVED = 'archived'
 }
 
+export interface ISessionInviteSettings {
+  isEnabled: boolean;
+  expiresAt?: Date;
+  maxUses?: number;
+  currentUses: number;
+  allowAnonymous: boolean;
+  requireApproval: boolean;
+}
+
 export interface ISession extends Document {
   name: string;
   description: string;
@@ -23,6 +32,7 @@ export interface ISession extends Document {
     showRealTimeResults: boolean;
     maxEvaluationsPerUser: number;
   };
+  inviteSettings?: ISessionInviteSettings;
   createdAt: Date;
 }
 
@@ -111,6 +121,34 @@ const SessionSchema = new Schema<ISession>({
       min: [1, '最大評価回数は1以上である必要があります'],
       max: [10, '最大評価回数は10以下である必要があります'],
       default: 1
+    }
+  },
+  inviteSettings: {
+    isEnabled: {
+      type: Boolean,
+      default: true
+    },
+    expiresAt: {
+      type: Date,
+      required: false
+    },
+    maxUses: {
+      type: Number,
+      min: [1, '最大使用回数は1以上である必要があります'],
+      required: false
+    },
+    currentUses: {
+      type: Number,
+      min: [0, '現在の使用回数は0以上である必要があります'],
+      default: 0
+    },
+    allowAnonymous: {
+      type: Boolean,
+      default: false
+    },
+    requireApproval: {
+      type: Boolean,
+      default: false
     }
   },
   createdAt: {

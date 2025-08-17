@@ -8,6 +8,7 @@ const Session_1 = require("../models/Session");
 const Video_1 = require("../models/Video");
 const Template_1 = require("../models/Template");
 const middleware_1 = require("../middleware");
+const invitationService_1 = require("../services/invitationService");
 const mongoose_1 = __importDefault(require("mongoose"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const emailService_1 = require("../services/emailService");
@@ -345,6 +346,116 @@ router.delete('/:id', middleware_1.authenticateToken, async (req, res) => {
         return res.status(500).json({
             status: 'error',
             message: 'セッションの削除に失敗しました'
+        });
+    }
+});
+// 招待リンク取得
+router.get('/:id/invite-link', middleware_1.authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!mongoose_1.default.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                status: 'error',
+                message: '無効なセッションIDです'
+            });
+        }
+        const session = await Session_1.Session.findById(id);
+        if (!session) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'セッションが見つかりません'
+            });
+        }
+        // セッション作成者のみ招待リンクを取得可能
+        if (!session.creatorId.equals(new mongoose_1.default.Types.ObjectId(req.user.userId))) {
+            return res.status(403).json({
+                status: 'error',
+                message: '招待リンクを取得する権限がありません'
+            });
+        }
+        // 招待リンクを生成
+        const inviteLink = invitationService_1.InvitationService.generateInviteLink(id);
+        return res.json({
+            status: 'success',
+            data: {
+                inviteLink,
+                sessionId: id,
+                sessionName: session.name,
+                expiresIn: '7d'
+            }
+        });
+    }
+    catch (error) {
+        console.error('招待リンク取得エラー:', error);
+        return res.status(500).json({
+            status: 'error',
+            message: '招待リンクの取得に失敗しました'
+        });
+    }
+});
+// 招待リンクでのセッション参加
+router.post('/join/:token', async (req, res) => {
+    try {
+        const { token } = req.params;
+        const { userInfo } = req.body;
+        if (!token) {
+            return res.status(400).json({
+                status: 'error',
+                message: '招待トークンが必要です'
+            });
+        }
+        // 招待トークンを検証してセッションIDを取得
+        let sessionId;
+        try {
+            sessionId = invitationService_1.InvitationService.getSessionIdFromToken(token);
+        }
+        catch (error) {
+            return res.status(400).json({
+                status: 'error',
+                message: error instanceof Error ? error.message : '無効な招待トークンです'
+            });
+        }
+        // セッションの存在確認
+        const session = await Session_1.Session.findById(sessionId);
+        if (!session) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'セッションが見つかりません'
+            });
+        }
+        // セッションがアクティブでない場合はエラー
+        if (session.status !== Session_1.SessionStatus.ACTIVE) {
+            return res.status(400).json({
+                status: 'error',
+                message: 'このセッションは現在参加できません'
+            });
+        }
+        // ユーザー情報がある場合は評価者として追加
+        if (userInfo && userInfo.userId) {
+            const userId = new mongoose_1.default.Types.ObjectId(userInfo.userId);
+            if (!session.evaluators.includes(userId)) {
+                session.evaluators.push(userId);
+                await session.save();
+            }
+        }
+        return res.json({
+            status: 'success',
+            data: {
+                session: {
+                    id: session._id,
+                    name: session.name,
+                    description: session.description,
+                    status: session.status
+                },
+                message: 'セッションに参加しました'
+            }
+        });
+    }
+    catch (error) {
+        console.error('セッション参加エラー:', error);
+        return res.status(500).json({
+            status: 'error',
+            message: 'セッションへの参加に失敗しました'
         });
     }
 });

@@ -130,6 +130,34 @@ const SessionSchema = new mongoose_1.Schema({
             default: 1
         }
     },
+    inviteSettings: {
+        isEnabled: {
+            type: Boolean,
+            default: true
+        },
+        expiresAt: {
+            type: Date,
+            required: false
+        },
+        maxUses: {
+            type: Number,
+            min: [1, '最大使用回数は1以上である必要があります'],
+            required: false
+        },
+        currentUses: {
+            type: Number,
+            min: [0, '現在の使用回数は0以上である必要があります'],
+            default: 0
+        },
+        allowAnonymous: {
+            type: Boolean,
+            default: false
+        },
+        requireApproval: {
+            type: Boolean,
+            default: false
+        }
+    },
     createdAt: {
         type: Date,
         default: Date.now

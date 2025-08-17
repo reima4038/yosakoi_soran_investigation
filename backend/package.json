@@ -11,7 +11,8 @@
     "test:watch": "jest --watch --passWithNoTests --runInBand",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
-    "format": "prettier --write src/**/*.ts"
+    "format": "prettier --write src/**/*.ts",
+    "migrate": "ts-node src/scripts/runMigration.ts"
   },
   "dependencies": {
     "@types/bcrypt": "^6.0.0",
